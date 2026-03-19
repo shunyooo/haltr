@@ -1,0 +1,139 @@
+/**
+ * Low-level tmux command wrappers.
+ *
+ * Each function shells out to tmux and returns the result.
+ * If tmux is not installed or the command fails, the promise rejects.
+ */
+
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Run an arbitrary tmux command and return stdout (trimmed).
+ */
+export async function tmuxRun(args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync("tmux", args);
+  return stdout.trim();
+}
+
+/**
+ * Check whether a tmux session with the given name exists.
+ */
+export async function tmuxSessionExists(sessionName: string): Promise<boolean> {
+  try {
+    await tmuxRun(["has-session", "-t", sessionName]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Create a new tmux session (detached) and return the pane ID of the
+ * initial pane.
+ */
+export async function tmuxCreateSession(sessionName: string): Promise<string> {
+  const paneId = await tmuxRun([
+    "new-session",
+    "-d",
+    "-s",
+    sessionName,
+    "-P",
+    "-F",
+    "#{pane_id}",
+  ]);
+  return paneId;
+}
+
+/**
+ * Split the current window in the given session and optionally run a command.
+ * Returns the pane ID of the newly created pane.
+ */
+export async function tmuxSplitWindow(
+  sessionName: string,
+  command?: string,
+  cwd?: string,
+): Promise<string> {
+  const args = ["split-window", "-t", sessionName, "-P", "-F", "#{pane_id}"];
+  if (cwd) {
+    args.push("-c", cwd);
+  }
+  if (command) {
+    args.push(command);
+  }
+  const paneId = await tmuxRun(args);
+  return paneId;
+}
+
+/**
+ * Kill a pane by its pane ID.
+ */
+export async function tmuxKillPane(paneId: string): Promise<void> {
+  await tmuxRun(["kill-pane", "-t", paneId]);
+}
+
+/**
+ * Send keys (text) to a pane. The text is sent literally and followed by Enter.
+ *
+ * Special characters are escaped so they are delivered verbatim to the pane.
+ */
+export async function tmuxSendKeys(
+  paneId: string,
+  text: string,
+): Promise<void> {
+  // Send without -l so shell expansion ($(cat ...)) works in the target pane.
+  await tmuxRun(["send-keys", "-t", paneId, text, "Enter"]);
+}
+
+/**
+ * Set pane title and border color.
+ */
+export async function tmuxStylePane(
+  paneId: string,
+  title: string,
+  borderColor: string,
+): Promise<void> {
+  // Set pane title
+  await tmuxRun(["select-pane", "-t", paneId, "-T", title]);
+  // Enable border title display (idempotent)
+  await tmuxRun(["set-option", "-p", "-t", paneId, "pane-border-format", " #{pane_title} "]);
+  await tmuxRun(["set-option", "-p", "-t", paneId, "pane-border-style", `fg=${borderColor}`]);
+}
+
+/**
+ * Enable pane border status for the session (shows titles on borders).
+ */
+export async function tmuxEnableBorderStatus(sessionName: string): Promise<void> {
+  await tmuxRun(["set-option", "-t", sessionName, "pane-border-status", "top"]);
+  await tmuxRun(["set-option", "-t", sessionName, "pane-border-format", " #{pane_title} "]);
+}
+
+/**
+ * List all pane IDs in a session.
+ */
+export async function tmuxListPanes(
+  sessionName: string,
+): Promise<string[]> {
+  try {
+    const output = await tmuxRun([
+      "list-panes",
+      "-t",
+      sessionName,
+      "-F",
+      "#{pane_id}",
+    ]);
+    if (!output) return [];
+    return output.split("\n").filter((line) => line.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Kill an entire tmux session.
+ */
+export async function tmuxKillSession(sessionName: string): Promise<void> {
+  await tmuxRun(["kill-session", "-t", sessionName]);
+}
