@@ -267,27 +267,20 @@ export function convertAgentSettingsForClaude(hooksDir: string): ClaudeSettings 
   const result: ClaudeSettings = {};
 
   // Convert hooks from haltr format to Claude Code format
-  // haltr:  { Stop: [{ command: "..." }] }
-  // claude: { Stop: [{ matcher: "", hooks: [{ type: "command", command: "..." }] }] }
+  // All events use matcher + hooks array (Claude Code validates this uniformly):
+  //   claude: { Stop: [{ matcher: "", hooks: [{type: "command", command: "..."}] }] }
   if (parsed.hooks && typeof parsed.hooks === "object") {
     const haltrHooks = parsed.hooks as Record<string, unknown[]>;
     const claudeHooks: Record<string, unknown[]> = {};
 
     for (const [event, entries] of Object.entries(haltrHooks)) {
       if (!Array.isArray(entries)) continue;
-      claudeHooks[event] = entries.map((entry: any) => {
-        const claudeEntry: Record<string, unknown> = {
-          matcher: entry.matcher ?? "",
-          hooks: [] as unknown[],
-        };
-        if (entry.command) {
-          (claudeEntry.hooks as unknown[]).push({
-            type: "command",
-            command: entry.command,
-          });
-        }
-        return claudeEntry;
-      });
+      claudeHooks[event] = entries.map((entry: any) => ({
+        matcher: entry.matcher ?? "",
+        hooks: entry.command
+          ? [{ type: "command", command: entry.command }]
+          : [],
+      }));
     }
 
     const claudeSettings = { hooks: claudeHooks };
