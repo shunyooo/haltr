@@ -98,7 +98,7 @@ export function createTask(baseDir: string, epicName: string): string {
         at: now,
         type: "created",
         by: resolveOrchestratorBy(filePath),
-        note: "Task created",
+        message: "Task created",
       },
     ],
   };
@@ -121,7 +121,7 @@ export function createTask(baseDir: string, epicName: string): string {
       at: now,
       type: "pivoted",
       by: resolveOrchestratorBy(previousPath),
-      reason: "New task created",
+      message: "New task created",
       next_task: fileName,
     };
     previousTask.history.push(pivotedEvent);

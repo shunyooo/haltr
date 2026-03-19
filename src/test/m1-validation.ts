@@ -158,7 +158,7 @@ const fullTaskData = {
       at: "2026-03-16T14:00:00Z",
       type: "created",
       by: "orchestrator(claude)",
-      note: "Reference quality improvement task created",
+      message: "Reference quality improvement task created",
     },
     {
       at: "2026-03-16T14:50:00Z",
@@ -173,7 +173,7 @@ const fullTaskData = {
       step: "step-1/data-collection",
       by: "worker(claude)",
       attempt: 1,
-      summary: "Implemented fetch_pairs.py. Fetched 2 weeks of data from BQ and generated 152 JSON files in data/pairs/",
+      message: "Implemented fetch_pairs.py. Fetched 2 weeks of data from BQ and generated 152 JSON files in data/pairs/",
     },
     {
       at: "2026-03-16T15:05:00Z",
@@ -190,7 +190,7 @@ const fullTaskData = {
       by: "verifier(codex)",
       attempt: 1,
       accept_id: "default",
-      evidence: "152 pairs collected (ls data/pairs/*.json | wc -l -> 152)",
+      message: "152 pairs collected (ls data/pairs/*.json | wc -l -> 152)",
     },
     {
       at: "2026-03-16T16:10:00Z",
@@ -199,7 +199,7 @@ const fullTaskData = {
       by: "verifier(codex)",
       attempt: 1,
       accept_id: "default",
-      reason: "Precision 89% (< 95%)",
+      message: "Precision 89% (< 95%)",
     },
   ],
   context: "# Background\n\nReference search/build/selection logic issues.\n",
@@ -614,7 +614,7 @@ test("History: escalation event", () => {
         by: "worker(claude)",
         step: "s1",
         attempt: 1,
-        reason: "Cannot access the database",
+        message: "Cannot access the database",
       },
     ],
   };
@@ -633,7 +633,7 @@ test("History: blocked_resolved event", () => {
         by: "orchestrator(claude)",
         step: "s1",
         attempt: 1,
-        summary: "Database access granted",
+        message: "Database access granted",
       },
     ],
   };
@@ -651,7 +651,7 @@ test("History: step_skipped event", () => {
         type: "step_skipped",
         by: "orchestrator(claude)",
         step: "s1",
-        reason: "Previous step failed",
+        message: "Previous step failed",
       },
     ],
   };
@@ -684,7 +684,7 @@ test("History: pivoted event", () => {
         at: "2026-03-16T14:00:00Z",
         type: "pivoted",
         by: "orchestrator(claude)",
-        reason: "Requirements changed",
+        message: "Requirements changed",
         next_task: "004_task.yaml",
       },
     ],

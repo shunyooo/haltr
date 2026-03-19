@@ -156,7 +156,7 @@ test("worker: work_done recorded (no accept) -> allow + notification", () => {
   const task = makeBaseTask({
     history: [
       makeHistoryEvent("step_started", "step-1", 1),
-      makeHistoryEvent("work_done", "step-1", 1, { summary: "done" }),
+      makeHistoryEvent("work_done", "step-1", 1, { message: "done" }),
     ],
   });
   const result = checkWorker(task, "step-1");
@@ -171,7 +171,7 @@ test("worker: work_done recorded (accept present) -> allow + wait message + noti
   const task = makeBaseTask({
     history: [
       makeHistoryEvent("step_started", "step-2", 1),
-      makeHistoryEvent("work_done", "step-2", 1, { summary: "done" }),
+      makeHistoryEvent("work_done", "step-2", 1, { message: "done" }),
     ],
   });
   const result = checkWorker(task, "step-2");
@@ -190,10 +190,10 @@ test("worker: verification_failed after work_done, no new work_done -> block", (
   const task = makeBaseTask({
     history: [
       makeHistoryEvent("step_started", "step-1", 1),
-      makeHistoryEvent("work_done", "step-1", 1, { summary: "done" }),
+      makeHistoryEvent("work_done", "step-1", 1, { message: "done" }),
       makeHistoryEvent("verification_failed", "step-1", 1, {
         accept_id: "default",
-        reason: "test failed",
+        message: "test failed",
       }),
     ],
   });
@@ -209,13 +209,13 @@ test("worker: verification_failed followed by new work_done -> allow", () => {
   const task = makeBaseTask({
     history: [
       makeHistoryEvent("step_started", "step-1", 1),
-      makeHistoryEvent("work_done", "step-1", 1, { summary: "first attempt" }),
+      makeHistoryEvent("work_done", "step-1", 1, { message: "first attempt" }),
       makeHistoryEvent("verification_failed", "step-1", 1, {
         accept_id: "default",
-        reason: "test failed",
+        message: "test failed",
       }),
       makeHistoryEvent("work_done", "step-1", 1, {
-        summary: "fixed and redone",
+        message: "fixed and redone",
       }),
     ],
   });
@@ -232,7 +232,7 @@ test("worker: accept is type: human only -> allow + human notification", () => {
   const task = makeBaseTask({
     history: [
       makeHistoryEvent("step_started", "step-3", 1),
-      makeHistoryEvent("work_done", "step-3", 1, { summary: "done" }),
+      makeHistoryEvent("work_done", "step-3", 1, { message: "done" }),
     ],
   });
   const result = checkWorker(task, "step-3");
@@ -251,7 +251,7 @@ test("worker: accept is agent + human mixed -> allow + notification", () => {
   const task = makeBaseTask({
     history: [
       makeHistoryEvent("step_started", "step-4", 1),
-      makeHistoryEvent("work_done", "step-4", 1, { summary: "done" }),
+      makeHistoryEvent("work_done", "step-4", 1, { message: "done" }),
     ],
   });
   const result = checkWorker(task, "step-4");
@@ -275,7 +275,7 @@ test("verifier: no verification result after work_done -> block", () => {
   const task = makeBaseTask({
     history: [
       makeHistoryEvent("step_started", "step-1", 1),
-      makeHistoryEvent("work_done", "step-1", 1, { summary: "done" }),
+      makeHistoryEvent("work_done", "step-1", 1, { message: "done" }),
     ],
   });
   const result = checkVerifier(task, "step-1");
@@ -290,10 +290,10 @@ test("verifier: verification_passed recorded -> allow + notification", () => {
   const task = makeBaseTask({
     history: [
       makeHistoryEvent("step_started", "step-1", 1),
-      makeHistoryEvent("work_done", "step-1", 1, { summary: "done" }),
+      makeHistoryEvent("work_done", "step-1", 1, { message: "done" }),
       makeHistoryEvent("verification_passed", "step-1", 1, {
         accept_id: "default",
-        evidence: "all tests pass",
+        message: "all tests pass",
       }),
     ],
   });
@@ -309,10 +309,10 @@ test("verifier: verification_failed recorded -> allow + notification", () => {
   const task = makeBaseTask({
     history: [
       makeHistoryEvent("step_started", "step-1", 1),
-      makeHistoryEvent("work_done", "step-1", 1, { summary: "done" }),
+      makeHistoryEvent("work_done", "step-1", 1, { message: "done" }),
       makeHistoryEvent("verification_failed", "step-1", 1, {
         accept_id: "default",
-        reason: "test failed",
+        message: "test failed",
       }),
     ],
   });
@@ -477,14 +477,14 @@ test("worker: second attempt with work_done -> allow", () => {
     history: [
       // First attempt
       makeHistoryEvent("step_started", "step-1", 1),
-      makeHistoryEvent("work_done", "step-1", 1, { summary: "first" }),
+      makeHistoryEvent("work_done", "step-1", 1, { message: "first" }),
       makeHistoryEvent("verification_failed", "step-1", 1, {
         accept_id: "default",
-        reason: "bad",
+        message: "bad",
       }),
       // Second attempt
       makeHistoryEvent("step_started", "step-1", 2),
-      makeHistoryEvent("work_done", "step-1", 2, { summary: "second" }),
+      makeHistoryEvent("work_done", "step-1", 2, { message: "second" }),
     ],
   });
   const result = checkWorker(task, "step-1");
@@ -496,10 +496,10 @@ test("worker: second attempt without work_done -> block", () => {
     history: [
       // First attempt
       makeHistoryEvent("step_started", "step-1", 1),
-      makeHistoryEvent("work_done", "step-1", 1, { summary: "first" }),
+      makeHistoryEvent("work_done", "step-1", 1, { message: "first" }),
       makeHistoryEvent("verification_failed", "step-1", 1, {
         accept_id: "default",
-        reason: "bad",
+        message: "bad",
       }),
       // Second attempt started but no work_done yet
       makeHistoryEvent("step_started", "step-1", 2),
@@ -603,7 +603,7 @@ test("CLI: check --worker with work_done (no accept) -> exit 0", () => {
     const task = makeBaseTask({
       history: [
         makeHistoryEvent("step_started", "step-1", 1),
-        makeHistoryEvent("work_done", "step-1", 1, { summary: "done" }),
+        makeHistoryEvent("work_done", "step-1", 1, { message: "done" }),
       ],
     });
     const taskPath = createTaskFile(dir, task);
@@ -622,7 +622,7 @@ test("CLI: check --verifier with no verification result -> exit 2", () => {
     const task = makeBaseTask({
       history: [
         makeHistoryEvent("step_started", "step-1", 1),
-        makeHistoryEvent("work_done", "step-1", 1, { summary: "done" }),
+        makeHistoryEvent("work_done", "step-1", 1, { message: "done" }),
       ],
     });
     const taskPath = createTaskFile(dir, task);
@@ -646,10 +646,10 @@ test("CLI: check --verifier with verification_passed -> exit 0", () => {
     const task = makeBaseTask({
       history: [
         makeHistoryEvent("step_started", "step-1", 1),
-        makeHistoryEvent("work_done", "step-1", 1, { summary: "done" }),
+        makeHistoryEvent("work_done", "step-1", 1, { message: "done" }),
         makeHistoryEvent("verification_passed", "step-1", 1, {
           accept_id: "default",
-          evidence: "ok",
+          message: "ok",
         }),
       ],
     });

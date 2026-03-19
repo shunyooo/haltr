@@ -53,7 +53,7 @@ interface HistoryEventBase {
 
 export interface CreatedEvent extends HistoryEventBase {
   type: "created";
-  note?: string;
+  message?: string;
 }
 
 export interface UpdatedEvent extends HistoryEventBase {
@@ -71,7 +71,7 @@ export interface WorkDoneEvent extends HistoryEventBase {
   type: "work_done";
   step: string;
   attempt: number;
-  summary: string;
+  message?: string;
 }
 
 export interface VerifierStartedEvent extends HistoryEventBase {
@@ -86,7 +86,7 @@ export interface VerificationPassedEvent extends HistoryEventBase {
   step: string;
   attempt: number;
   accept_id: string;
-  evidence: string;
+  message?: string;
 }
 
 export interface VerificationFailedEvent extends HistoryEventBase {
@@ -94,27 +94,27 @@ export interface VerificationFailedEvent extends HistoryEventBase {
   step: string;
   attempt: number;
   accept_id: string;
-  reason: string;
+  message?: string;
 }
 
 export interface EscalationEvent extends HistoryEventBase {
   type: "escalation";
   step: string;
   attempt: number;
-  reason: string;
+  message?: string;
 }
 
 export interface BlockedResolvedEvent extends HistoryEventBase {
   type: "blocked_resolved";
   step: string;
   attempt: number;
-  summary: string;
+  message?: string;
 }
 
 export interface StepSkippedEvent extends HistoryEventBase {
   type: "step_skipped";
   step: string;
-  reason: string;
+  message?: string;
 }
 
 export interface CompletedEvent extends HistoryEventBase {
@@ -124,17 +124,17 @@ export interface CompletedEvent extends HistoryEventBase {
 
 export interface SpecReviewedEvent extends HistoryEventBase {
   type: "spec_reviewed";
-  summary?: string;
+  message?: string;
 }
 
 export interface ExecutionApprovedEvent extends HistoryEventBase {
   type: "execution_approved";
-  note?: string;
+  message?: string;
 }
 
 export interface PivotedEvent extends HistoryEventBase {
   type: "pivoted";
-  reason?: string;
+  message?: string;
   next_task?: string;
 }
 

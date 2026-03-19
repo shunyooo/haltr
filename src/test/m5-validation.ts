@@ -66,10 +66,10 @@ async function testAsync(name: string, fn: () => Promise<void>): Promise<void> {
   }
 }
 
-function skip(name: string, reason: string): void {
-  results.push({ name, status: "SKIP", detail: reason });
+function skip(name: string, message: string): void {
+  results.push({ name, status: "SKIP", detail: message });
   skipped++;
-  console.log(`  SKIP: ${name} (${reason})`);
+  console.log(`  SKIP: ${name} (${message})`);
 }
 
 function assert(condition: boolean, message: string): void {

@@ -24,7 +24,7 @@ import type { HistoryEvent } from "../types.js";
 export interface EscalateOptions {
   task: string;
   step: string;
-  reason: string;
+  message: string;
 }
 
 /**
@@ -39,10 +39,10 @@ export async function handleEscalate(
   sendKeysFn: (paneId: string, text: string) => Promise<void> = tmuxSendKeys,
   basePath?: string,
 ): Promise<void> {
-  const { task: taskPath, step: stepPath, reason } = opts;
+  const { task: taskPath, step: stepPath, message } = opts;
 
-  if (!reason) {
-    throw new Error("--reason is required for escalate");
+  if (!message) {
+    throw new Error("--message is required for escalate");
   }
 
   const resolvedPath = resolve(taskPath);
@@ -73,7 +73,7 @@ export async function handleEscalate(
     by,
     step: stepPath,
     attempt,
-    reason,
+    message,
   };
 
   history.push(event as unknown as HistoryEvent);
@@ -98,13 +98,13 @@ export async function handleEscalate(
 
   if (parentPaneId) {
     try {
-      await sendKeysFn(parentPaneId, `${stepPath} blocked: ${reason}`);
+      await sendKeysFn(parentPaneId, `${stepPath} blocked: ${message}`);
     } catch {
       // tmux may not be available — don't fail the command for notification
     }
   }
 
   console.log(
-    `Escalated ${stepPath} to blocked: ${reason}`,
+    `Escalated ${stepPath} to blocked: ${message}`,
   );
 }

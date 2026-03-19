@@ -353,9 +353,9 @@ hal history add --type verification_failed --step create-file --task '${taskPath
 
   if (verPassed) {
     console.log("   ✓ verification_passed recorded");
-    console.log(`     Evidence: ${verPassed.evidence}`);
+    console.log(`     Evidence: ${verPassed.message}`);
   } else if (verFailed) {
-    console.log(`   △ verification_failed: ${verFailed.reason}`);
+    console.log(`   △ verification_failed: ${verFailed.message}`);
   } else {
     console.log("   △ No verification event recorded");
   }
@@ -383,7 +383,7 @@ hal history add --type verification_failed --step create-file --task '${taskPath
   for (const event of finalTask.history ?? []) {
     const time = event.at?.substring(11, 19) ?? "??";
     const step = event.step ? ` [${event.step}]` : "";
-    const extra = event.summary ?? event.evidence ?? event.reason ?? event.note ?? "";
+    const extra = event.message ?? event.message ?? event.message ?? event.message ?? "";
     console.log(`     ${time} ${event.type}${step} ${extra ? "— " + extra : ""}`);
   }
 

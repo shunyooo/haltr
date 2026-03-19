@@ -69,9 +69,7 @@ export function registerHistoryCommand(program: Command): void {
     .requiredOption("--type <type>", "Event type")
     .requiredOption("--task <path>", "Path to task.yaml")
     .option("--step <step>", "Step path (e.g., step-1/data-collection)")
-    .option("--summary <text>", "Summary text")
-    .option("--reason <text>", "Reason text")
-    .option("--evidence <text>", "Evidence text")
+    .option("--message <text>", "Message text")
     .option("--accept-id <id>", "Accept criterion ID")
     .action((opts) => {
       try {
@@ -88,12 +86,10 @@ function handleHistoryAdd(opts: {
   type: string;
   task: string;
   step?: string;
-  summary?: string;
-  reason?: string;
-  evidence?: string;
+  message?: string;
   acceptId?: string;
 }): void {
-  const { type, task: taskPath, step, summary, reason, evidence, acceptId } =
+  const { type, task: taskPath, step, message, acceptId } =
     opts;
 
   // Validate event type
@@ -125,29 +121,7 @@ function handleHistoryAdd(opts: {
     throw new Error(`--accept-id is required for event type "${type}"`);
   }
 
-  // Validate type-specific required fields
-  if (type === "work_done" && !summary) {
-    throw new Error(`--summary is required for event type "work_done"`);
-  }
-  if (type === "verification_failed" && !reason) {
-    throw new Error(
-      `--reason is required for event type "verification_failed"`,
-    );
-  }
-  if (type === "verification_passed" && !evidence) {
-    throw new Error(
-      `--evidence is required for event type "verification_passed"`,
-    );
-  }
-  if (type === "escalation" && !reason) {
-    throw new Error(`--reason is required for event type "escalation"`);
-  }
-  if (type === "blocked_resolved" && !summary) {
-    throw new Error(`--summary is required for event type "blocked_resolved"`);
-  }
-  if (type === "step_skipped" && !reason) {
-    throw new Error(`--reason is required for event type "step_skipped"`);
-  }
+  // No type-specific required message fields anymore (all optional)
 
   // Load task.yaml
   const resolvedPath = resolve(taskPath);
@@ -206,9 +180,7 @@ function handleHistoryAdd(opts: {
   }
 
   // Add type-specific fields
-  if (summary) event.summary = summary;
-  if (reason) event.reason = reason;
-  if (evidence) event.evidence = evidence;
+  if (message) event.message = message;
   if (acceptId) event.accept_id = acceptId;
 
   // Append to history

@@ -240,7 +240,7 @@ function buildStepStartedEvent(
 function buildWorkDoneEvent(
   taskPath: string,
   stepPath: string,
-  summary: string,
+  message: string,
 ): Record<string, unknown> {
   const task = readTask(taskPath);
   const config = loadConfig(taskPath);
@@ -251,7 +251,7 @@ function buildWorkDoneEvent(
     by: resolveBy("work_done", task, stepPath, config),
     step: stepPath,
     attempt: resolveAttempt("work_done", history, stepPath),
-    summary,
+    message,
   };
 }
 
@@ -283,7 +283,7 @@ function buildVerificationPassedEvent(
   taskPath: string,
   stepPath: string,
   acceptId: string,
-  evidence: string,
+  message: string,
 ): Record<string, unknown> {
   const task = readTask(taskPath);
   const config = loadConfig(taskPath);
@@ -295,7 +295,7 @@ function buildVerificationPassedEvent(
     step: stepPath,
     attempt: resolveAttempt("verification_passed", history, stepPath),
     accept_id: acceptId,
-    evidence,
+    message,
   };
 }
 
@@ -306,7 +306,7 @@ function buildVerificationFailedEvent(
   taskPath: string,
   stepPath: string,
   acceptId: string,
-  reason: string,
+  message: string,
 ): Record<string, unknown> {
   const task = readTask(taskPath);
   const config = loadConfig(taskPath);
@@ -318,7 +318,7 @@ function buildVerificationFailedEvent(
     step: stepPath,
     attempt: resolveAttempt("verification_failed", history, stepPath),
     accept_id: acceptId,
-    reason,
+    message,
   };
 }
 
@@ -343,7 +343,7 @@ function buildCompletedEvent(
 function buildStepSkippedEvent(
   taskPath: string,
   stepPath: string,
-  reason: string,
+  message: string,
 ): Record<string, unknown> {
   const task = readTask(taskPath);
   const config = loadConfig(taskPath);
@@ -352,7 +352,7 @@ function buildStepSkippedEvent(
     type: "step_skipped",
     by: resolveBy("step_skipped", task, stepPath, config),
     step: stepPath,
-    reason,
+    message,
   };
 }
 
@@ -362,7 +362,7 @@ function buildStepSkippedEvent(
 function buildBlockedResolvedEvent(
   taskPath: string,
   stepPath: string,
-  summary: string,
+  message: string,
 ): Record<string, unknown> {
   const task = readTask(taskPath);
   const config = loadConfig(taskPath);
@@ -373,7 +373,7 @@ function buildBlockedResolvedEvent(
     by: resolveBy("blocked_resolved", task, stepPath, config),
     step: stepPath,
     attempt: resolveAttempt("blocked_resolved", history, stepPath),
-    summary,
+    message,
   };
 }
 
@@ -565,8 +565,8 @@ function scenario2(): void {
       );
       assertIncludes(
         (events[0] as any).by,
-        "codex",
-        "by should contain codex (task-level verifier)",
+        "claude",
+        "by should contain claude (default verifier from config)",
       );
       assertEqual((events[0] as any).accept_id, "default", "accept_id");
       assertEqual((events[0] as any).attempt, 1, "attempt");
@@ -849,7 +849,7 @@ function scenario3b(): void {
       const events = getHistoryByType(taskPath, "verification_failed");
       assertEqual(events.length, 1, "verification_failed count");
       assertIncludes(
-        (events[0] as any).reason,
+        (events[0] as any).message,
         "TypeError",
         "reason contains error description",
       );
@@ -1439,7 +1439,7 @@ function scenario8(): void {
         step: "step-1",
         attempt: resolveAttempt("verification_passed", history, "step-1"),
         accept_id: "human-review",
-        evidence: "Human confirmed UI looks correct",
+        message: "Human confirmed UI looks correct",
       };
       addHistoryEvent(taskPath, event);
     }
@@ -1542,7 +1542,7 @@ function scenario8b(): void {
         step: "step-1",
         attempt: resolveAttempt("verification_passed", history, "step-1"),
         accept_id: "human-ux",
-        evidence: "Human approved UX flow",
+        message: "Human approved UX flow",
       };
       addHistoryEvent(taskPath, event);
     }
@@ -1626,7 +1626,7 @@ async function main(): Promise<void> {
           {
             task: taskPath,
             step: "step-1",
-            reason: "Need database credentials",
+            message: "Need database credentials",
           },
           noopSendKeys,
           baseDir,
@@ -1641,7 +1641,7 @@ async function main(): Promise<void> {
         assertEqual(events.length, 1, "escalation count");
         assertEqual((events[0] as any).step, "step-1", "step");
         assertIncludes(
-          (events[0] as any).reason,
+          (events[0] as any).message,
           "database credentials",
           "reason",
         );
@@ -1663,7 +1663,7 @@ async function main(): Promise<void> {
         const events = getHistoryByType(taskPath, "blocked_resolved");
         assertEqual(events.length, 1, "blocked_resolved count");
         assertIncludes(
-          (events[0] as any).summary,
+          (events[0] as any).message,
           "Credentials",
           "summary",
         );

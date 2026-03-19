@@ -101,8 +101,7 @@ export async function tmuxStylePane(
 }
 
 /**
- * Enable pane border status for the session.
- * Uses heavy lines and displays @haltr_role in the border.
+ * Enable pane border status, mouse support, and styling for the session.
  */
 export async function tmuxEnableBorderStatus(sessionName: string): Promise<void> {
   await tmuxRun(["set-option", "-t", sessionName, "pane-border-status", "top"]);

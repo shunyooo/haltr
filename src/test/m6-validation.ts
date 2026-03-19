@@ -216,7 +216,7 @@ function makeBaseTask(overrides: Partial<TaskYaml> = {}): TaskYaml {
     context: "Test task context",
     history: [
       { at: "2026-01-01T00:00:00Z", type: "created" as const, by: "orchestrator(claude)" },
-      { at: "2026-01-01T00:01:00Z", type: "spec_reviewed" as const, by: "task-spec-reviewer(claude)", summary: "OK" },
+      { at: "2026-01-01T00:01:00Z", type: "spec_reviewed" as const, by: "task-spec-reviewer(claude)", message: "OK" },
       { at: "2026-01-01T00:02:00Z", type: "execution_approved" as const, by: "orchestrator(claude)" },
     ],
     ...overrides,

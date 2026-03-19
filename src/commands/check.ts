@@ -447,19 +447,11 @@ async function handleCheck(opts: {
     validateTaskPath(taskPath);
     const task = loadAndValidateTask(taskPath);
 
-    // Record spec_reviewed event if not already recorded
-    const alreadyReviewed = task.history?.some((e) => e.type === "spec_reviewed");
-    if (!alreadyReviewed) {
-      let cliName = "claude";
-      try { cliName = loadConfig(taskPath).orchestrator_cli; } catch {}
-      if (!task.history) task.history = [];
-      task.history.push({
-        at: new Date().toISOString(),
-        type: "spec_reviewed" as const,
-        by: `task-spec-reviewer(${cliName})`,
-        summary: "レビュー完了",
-      } as any);
-      writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
+    // Check that reviewer recorded spec_reviewed with message
+    const reviewed = task.history?.find((e) => e.type === "spec_reviewed");
+    if (!reviewed) {
+      console.log("レビュー結果を記録してください: hal history add --type spec_reviewed --task <path> --message 'レビュー内容'");
+      process.exit(2);
     }
 
     // Notify parent orchestrator and clean up pane
@@ -470,7 +462,7 @@ async function handleCheck(opts: {
     const parentPaneId = reviewerPane?.parent_pane_id;
     if (parentPaneId) {
       try {
-        await tmuxSendKeys(parentPaneId, `spec_reviewed: タスク仕様のレビューが完了しました。task.yaml を確認してユーザーに承認を求めてください。`);
+        await tmuxSendKeys(parentPaneId, `spec_reviewed: タスク仕様のレビューが完了しました。task.yaml の history を確認してください。`);
       } catch {
         // Best effort
       }

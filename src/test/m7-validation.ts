@@ -280,7 +280,7 @@ await testAsync(
         {
           task: taskPath,
           step: "step-1/data-collection",
-          reason: "API unavailable",
+          message: "API unavailable",
         },
         mock.fn,
         dir,
@@ -296,7 +296,7 @@ await testAsync(
       const escEvent = task.history!.find((e) => e.type === "escalation");
       assert(escEvent !== undefined, "escalation event should exist");
       assertEqual(
-        (escEvent as any).reason,
+        (escEvent as any).message,
         "API unavailable",
         "reason",
       );
@@ -343,7 +343,7 @@ await testAsync(
         {
           task: taskPath,
           step: "step-1/data-collection",
-          reason: "test error",
+          message: "test error",
         },
         mock.fn,
         dir,
@@ -378,7 +378,7 @@ await testAsync(
         {
           task: taskPath,
           step: "step-1/data-collection",
-          reason: "dependency failed",
+          message: "dependency failed",
         },
         mock.fn,
         dir,
@@ -398,7 +398,7 @@ await testAsync(
       assertEqual(escEvent.type, "escalation", "type");
       assert(typeof escEvent.by === "string", "by should be a string");
       assertEqual(escEvent.step, "step-1/data-collection", "step");
-      assertEqual(escEvent.reason, "dependency failed", "reason");
+      assertEqual(escEvent.message, "dependency failed", "reason");
       assert(typeof escEvent.attempt === "number", "attempt should be number");
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -419,7 +419,7 @@ await testAsync(
       await expectThrowsAsync(
         () =>
           handleEscalate(
-            { task: taskPath, step: "step-2", reason: "test" },
+            { task: taskPath, step: "step-2", message: "test" },
             mock.fn,
             dir,
           ),
@@ -442,7 +442,7 @@ await testAsync(
       await expectThrowsAsync(
         () =>
           handleEscalate(
-            { task: taskPath, step: "nonexistent", reason: "test" },
+            { task: taskPath, step: "nonexistent", message: "test" },
             mock.fn,
             dir,
           ),

@@ -223,8 +223,8 @@ program
   .description("Report a problem from worker (status -> blocked)")
   .requiredOption("--task <path>", "Path to task.yaml")
   .requiredOption("--step <step>", "Step path")
-  .requiredOption("--reason <reason>", "Reason for escalation")
-  .action(async (opts: { task: string; step: string; reason: string }) => {
+  .requiredOption("--message <message>", "Message for escalation")
+  .action(async (opts: { task: string; step: string; message: string }) => {
     try {
       await handleEscalate(opts);
     } catch (e: unknown) {

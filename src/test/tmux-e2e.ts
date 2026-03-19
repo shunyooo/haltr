@@ -264,7 +264,7 @@ await testAsync("hal spawn creates new tmux pane", async () => {
     task.steps = [{ id: "step-1", goal: "Test step", accept: "test passes", status: "pending" }];
     task.history = [
       ...(task.history || []),
-      { at: new Date().toISOString(), type: "spec_reviewed", by: "test", summary: "OK" },
+      { at: new Date().toISOString(), type: "spec_reviewed", by: "test", message: "OK" },
       { at: new Date().toISOString(), type: "execution_approved", by: "test" },
     ];
     writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }), "utf-8");
@@ -309,7 +309,7 @@ await testAsync("hal spawn verifier creates separate pane", async () => {
     task.steps = [{ id: "step-1", goal: "Test", accept: "passes", status: "in_progress" }];
     task.history = [
       ...(task.history || []),
-      { at: new Date().toISOString(), type: "spec_reviewed", by: "test", summary: "OK" },
+      { at: new Date().toISOString(), type: "spec_reviewed", by: "test", message: "OK" },
       { at: new Date().toISOString(), type: "execution_approved", by: "test" },
     ];
     writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }), "utf-8");
@@ -352,7 +352,7 @@ await testAsync("hal kill removes task panes from tmux", async () => {
     task.steps = [{ id: "step-1", goal: "Test", status: "pending" }];
     task.history = [
       ...(task.history || []),
-      { at: new Date().toISOString(), type: "spec_reviewed", by: "test", summary: "OK" },
+      { at: new Date().toISOString(), type: "spec_reviewed", by: "test", message: "OK" },
       { at: new Date().toISOString(), type: "execution_approved", by: "test" },
     ];
     writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }), "utf-8");
@@ -423,7 +423,7 @@ await testAsync("full workflow: start → history → status → check", async (
 
     const workDone = events.find((e: any) => e.type === "work_done");
     assert(workDone !== undefined, "should have work_done event");
-    assertEqual(workDone.summary, "implemented", "summary");
+    assertEqual(workDone.message, "implemented", "summary");
   } finally {
     cleanup();
     rmSync(dir, { recursive: true, force: true });

@@ -183,7 +183,7 @@ function setupProject(
         at: new Date().toISOString(),
         type: "created",
         by: "orchestrator(claude)",
-        note: "Task created",
+        message: "Task created",
       },
     ],
     ...opts?.taskOverrides,
@@ -925,7 +925,7 @@ await testAsync("11: parent step with children -> sub-orch -> process sub-steps 
       by: "worker(claude)",
       step: "step-1/sub-step-1",
       attempt: 1,
-      summary: "Implemented sub-step-1",
+      message: "Implemented sub-step-1",
     });
 
     // Verify sub-step-1 -> verification PASS
@@ -945,7 +945,7 @@ await testAsync("11: parent step with children -> sub-orch -> process sub-steps 
       step: "step-1/sub-step-1",
       attempt: 1,
       accept_id: "a1",
-      evidence: "sub-step-1 tests pass",
+      message: "sub-step-1 tests pass",
     });
 
     // Set sub-step-1 to done
@@ -972,7 +972,7 @@ await testAsync("11: parent step with children -> sub-orch -> process sub-steps 
       by: "worker(claude)",
       step: "step-1/sub-step-2",
       attempt: 1,
-      summary: "Implemented sub-step-2",
+      message: "Implemented sub-step-2",
     });
 
     addHistoryEvent(taskPath, {
@@ -991,7 +991,7 @@ await testAsync("11: parent step with children -> sub-orch -> process sub-steps 
       step: "step-1/sub-step-2",
       attempt: 1,
       accept_id: "a2",
-      evidence: "sub-step-2 tests pass",
+      message: "sub-step-2 tests pass",
     });
 
     // Set sub-step-2 to done
@@ -1094,7 +1094,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
       by: "worker(claude)",
       step: "step-1",
       attempt: 1,
-      summary: "Attempt 1 implementation",
+      message: "Attempt 1 implementation",
     });
     addHistoryEvent(taskPath, {
       at: new Date().toISOString(),
@@ -1111,7 +1111,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
       step: "step-1",
       attempt: 1,
       accept_id: "a1",
-      reason: "Tests fail - attempt 1",
+      message: "Tests fail - attempt 1",
     });
 
     // === Attempt 2: FAIL ===
@@ -1128,7 +1128,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
       by: "worker(claude)",
       step: "step-1",
       attempt: 2,
-      summary: "Attempt 2 implementation",
+      message: "Attempt 2 implementation",
     });
     addHistoryEvent(taskPath, {
       at: new Date().toISOString(),
@@ -1145,7 +1145,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
       step: "step-1",
       attempt: 2,
       accept_id: "a1",
-      reason: "Tests fail - attempt 2",
+      message: "Tests fail - attempt 2",
     });
 
     // === Attempt 3: FAIL ===
@@ -1162,7 +1162,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
       by: "worker(claude)",
       step: "step-1",
       attempt: 3,
-      summary: "Attempt 3 implementation",
+      message: "Attempt 3 implementation",
     });
     addHistoryEvent(taskPath, {
       at: new Date().toISOString(),
@@ -1179,7 +1179,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
       step: "step-1",
       attempt: 3,
       accept_id: "a1",
-      reason: "Tests fail - attempt 3",
+      message: "Tests fail - attempt 3",
     });
 
     // Limit reached -> escalate to main orch
@@ -1207,7 +1207,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
     });
 
     await handleEscalate(
-      { task: taskPath, step: "step-1", reason: "max retry limit reached" },
+      { task: taskPath, step: "step-1", message: "max retry limit reached" },
       async () => {}, // mock sendKeys
       epicDir,
     );
@@ -1237,7 +1237,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
       by: "orchestrator(claude)",
       step: "step-1",
       attempt: 3,
-      summary: "Accept criteria relaxed by user",
+      message: "Accept criteria relaxed by user",
     });
 
     // Attempt 4 (after accept modification)
@@ -1254,7 +1254,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
       by: "worker(claude)",
       step: "step-1",
       attempt: 4,
-      summary: "Attempt 4 with relaxed criteria",
+      message: "Attempt 4 with relaxed criteria",
     });
     addHistoryEvent(taskPath, {
       at: new Date().toISOString(),
@@ -1271,7 +1271,7 @@ await testAsync("12A: max_attempts=3 -> 3 failures -> escalate -> user modifies 
       step: "step-1",
       attempt: 4,
       accept_id: "a1",
-      evidence: "Tests pass with relaxed criteria",
+      message: "Tests pass with relaxed criteria",
     });
 
     // Set step-1 to done
@@ -1355,7 +1355,7 @@ await testAsync("12B: max_attempts=3 -> 3 failures -> escalate -> user says fail
         by: "worker(claude)",
         step: "step-1",
         attempt,
-        summary: `Attempt ${attempt}`,
+        message: `Attempt ${attempt}`,
       });
       addHistoryEvent(taskPath, {
         at: new Date().toISOString(),
@@ -1372,7 +1372,7 @@ await testAsync("12B: max_attempts=3 -> 3 failures -> escalate -> user says fail
         step: "step-1",
         attempt,
         accept_id: "a1",
-        reason: `Fail attempt ${attempt}`,
+        message: `Fail attempt ${attempt}`,
       });
     }
 
@@ -1387,7 +1387,7 @@ await testAsync("12B: max_attempts=3 -> 3 failures -> escalate -> user says fail
     });
 
     await handleEscalate(
-      { task: taskPath, step: "step-1", reason: "max retry limit" },
+      { task: taskPath, step: "step-1", message: "max retry limit" },
       async () => {},
       epicDir,
     );
@@ -1410,7 +1410,7 @@ await testAsync("12B: max_attempts=3 -> 3 failures -> escalate -> user says fail
       type: "step_skipped",
       by: "orchestrator(claude)",
       step: "step-2",
-      reason: "Previous step-1 failed",
+      message: "Previous step-1 failed",
     });
 
     task = readTask(taskPath);
@@ -1422,7 +1422,7 @@ await testAsync("12B: max_attempts=3 -> 3 failures -> escalate -> user says fail
       type: "step_skipped",
       by: "orchestrator(claude)",
       step: "step-3",
-      reason: "Previous step-1 failed",
+      message: "Previous step-1 failed",
     });
 
     task = readTask(taskPath);

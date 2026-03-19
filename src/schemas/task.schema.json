@@ -179,7 +179,7 @@
             "at": { "type": "string" },
             "type": { "const": "created" },
             "by": { "type": "string" },
-            "note": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
@@ -208,14 +208,14 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["at", "type", "by", "step", "attempt", "summary"],
+          "required": ["at", "type", "by", "step", "attempt"],
           "properties": {
             "at": { "type": "string" },
             "type": { "const": "work_done" },
             "by": { "type": "string" },
             "step": { "type": "string" },
             "attempt": { "type": "integer" },
-            "summary": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
@@ -234,7 +234,7 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["at", "type", "by", "step", "attempt", "accept_id", "evidence"],
+          "required": ["at", "type", "by", "step", "attempt", "accept_id"],
           "properties": {
             "at": { "type": "string" },
             "type": { "const": "verification_passed" },
@@ -242,13 +242,13 @@
             "step": { "type": "string" },
             "attempt": { "type": "integer" },
             "accept_id": { "type": "string" },
-            "evidence": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["at", "type", "by", "step", "attempt", "accept_id", "reason"],
+          "required": ["at", "type", "by", "step", "attempt", "accept_id"],
           "properties": {
             "at": { "type": "string" },
             "type": { "const": "verification_failed" },
@@ -256,45 +256,45 @@
             "step": { "type": "string" },
             "attempt": { "type": "integer" },
             "accept_id": { "type": "string" },
-            "reason": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["at", "type", "by", "step", "attempt", "reason"],
+          "required": ["at", "type", "by", "step", "attempt"],
           "properties": {
             "at": { "type": "string" },
             "type": { "const": "escalation" },
             "by": { "type": "string" },
             "step": { "type": "string" },
             "attempt": { "type": "integer" },
-            "reason": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["at", "type", "by", "step", "attempt", "summary"],
+          "required": ["at", "type", "by", "step", "attempt"],
           "properties": {
             "at": { "type": "string" },
             "type": { "const": "blocked_resolved" },
             "by": { "type": "string" },
             "step": { "type": "string" },
             "attempt": { "type": "integer" },
-            "summary": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["at", "type", "by", "step", "reason"],
+          "required": ["at", "type", "by", "step"],
           "properties": {
             "at": { "type": "string" },
             "type": { "const": "step_skipped" },
             "by": { "type": "string" },
             "step": { "type": "string" },
-            "reason": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
@@ -305,7 +305,7 @@
             "at": { "type": "string" },
             "type": { "const": "spec_reviewed" },
             "by": { "type": "string" },
-            "summary": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
@@ -316,7 +316,7 @@
             "at": { "type": "string" },
             "type": { "const": "execution_approved" },
             "by": { "type": "string" },
-            "note": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
@@ -327,7 +327,7 @@
             "at": { "type": "string" },
             "type": { "const": "completed" },
             "by": { "type": "string" },
-            "summary": { "type": "string" }
+            "message": { "type": "string" }
           }
         },
         {
@@ -338,7 +338,7 @@
             "at": { "type": "string" },
             "type": { "const": "pivoted" },
             "by": { "type": "string" },
-            "reason": { "type": "string" },
+            "message": { "type": "string" },
             "next_task": { "type": "string" }
           }
         }

@@ -211,7 +211,7 @@ test("work_done after step_started -> inherits attempt: 1", () => {
       `history add --type step_started --step step-1/data-collection --task ${taskPath}`,
     );
     runHal(
-      `history add --type work_done --step step-1/data-collection --summary "done" --task ${taskPath}`,
+      `history add --type work_done --step step-1/data-collection --message "done" --task ${taskPath}`,
     );
     const task = readTask(taskPath);
     const workDone = task.history!.find((e) => e.type === "work_done");
@@ -232,7 +232,7 @@ test("work_done after second step_started -> attempt: 2", () => {
       `history add --type step_started --step step-1/data-collection --task ${taskPath}`,
     );
     runHal(
-      `history add --type work_done --step step-1/data-collection --summary "retry done" --task ${taskPath}`,
+      `history add --type work_done --step step-1/data-collection --message "retry done" --task ${taskPath}`,
     );
     const task = readTask(taskPath);
     const workDone = task.history!.filter((e) => e.type === "work_done");
@@ -295,7 +295,7 @@ test("work_done -> worker(claude)", () => {
       `history add --type step_started --step step-1/data-collection --task ${taskPath}`,
     );
     runHal(
-      `history add --type work_done --step step-1/data-collection --summary "done" --task ${taskPath}`,
+      `history add --type work_done --step step-1/data-collection --message "done" --task ${taskPath}`,
     );
     const task = readTask(taskPath);
     const event = task.history!.find((e) => e.type === "work_done");
@@ -331,7 +331,7 @@ test("verification_passed -> verifier(codex)", () => {
       `history add --type step_started --step step-1/data-collection --task ${taskPath}`,
     );
     runHal(
-      `history add --type verification_passed --step step-1/data-collection --accept-id default --evidence "all good" --task ${taskPath}`,
+      `history add --type verification_passed --step step-1/data-collection --accept-id default --message "all good" --task ${taskPath}`,
     );
     const task = readTask(taskPath);
     const event = task.history!.find((e) => e.type === "verification_passed");
@@ -350,7 +350,7 @@ test("Step-level agents override -> uses step's worker", () => {
       `history add --type step_started --step step-2 --task ${taskPath}`,
     );
     runHal(
-      `history add --type work_done --step step-2 --summary "done" --task ${taskPath}`,
+      `history add --type work_done --step step-2 --message "done" --task ${taskPath}`,
     );
     const task = readTask(taskPath);
     const workDone = task.history!.find((e) => e.type === "work_done");
@@ -368,7 +368,7 @@ test("Step-level agents override -> uses step's verifier", () => {
       `history add --type step_started --step step-2 --task ${taskPath}`,
     );
     runHal(
-      `history add --type verification_passed --step step-2 --accept-id default --evidence "checked" --task ${taskPath}`,
+      `history add --type verification_passed --step step-2 --accept-id default --message "checked" --task ${taskPath}`,
     );
     const task = readTask(taskPath);
     const event = task.history!.find((e) => e.type === "verification_passed");
@@ -409,7 +409,7 @@ test("verification_passed with --accept-id -> recorded", () => {
       `history add --type step_started --step step-1/data-collection --task ${taskPath}`,
     );
     runHal(
-      `history add --type verification_passed --step step-1/data-collection --accept-id default --evidence "ok" --task ${taskPath}`,
+      `history add --type verification_passed --step step-1/data-collection --accept-id default --message "ok" --task ${taskPath}`,
     );
     const task = readTask(taskPath);
     const event = task.history!.find((e) => e.type === "verification_passed") as any;
@@ -440,97 +440,91 @@ test("verifier_started without --accept-id -> error", () => {
 // ============================================================================
 console.log("\n--- Type-Specific Field Validation ---");
 
-test("work_done without --summary -> error", () => {
+test("work_done without --message -> allowed (optional)", () => {
   const dir = createTestDir();
   try {
     const taskPath = createTaskFile(dir, makeBaseTask());
-    const output = runHal(
+    runHal(
       `history add --type work_done --step step-1/data-collection --task ${taskPath}`,
-      true,
     );
-    if (!output.includes("--summary is required")) {
-      throw new Error(`Expected error about --summary, got: ${output}`);
-    }
+    const task = readTask(taskPath);
+    const event = task.history!.find((e) => e.type === "work_done");
+    if (!event) throw new Error("work_done event not recorded");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("verification_failed without --reason -> error", () => {
+test("verification_failed without --message -> allowed (optional)", () => {
   const dir = createTestDir();
   try {
     const taskPath = createTaskFile(dir, makeBaseTask());
-    const output = runHal(
+    runHal(
       `history add --type verification_failed --step step-1/data-collection --accept-id default --task ${taskPath}`,
-      true,
     );
-    if (!output.includes("--reason is required")) {
-      throw new Error(`Expected error about --reason, got: ${output}`);
-    }
+    const task = readTask(taskPath);
+    const event = task.history!.find((e) => e.type === "verification_failed");
+    if (!event) throw new Error("verification_failed event not recorded");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("verification_passed without --evidence -> error", () => {
+test("verification_passed without --message -> allowed (optional)", () => {
   const dir = createTestDir();
   try {
     const taskPath = createTaskFile(dir, makeBaseTask());
-    const output = runHal(
+    runHal(
       `history add --type verification_passed --step step-1/data-collection --accept-id default --task ${taskPath}`,
-      true,
     );
-    if (!output.includes("--evidence is required")) {
-      throw new Error(`Expected error about --evidence, got: ${output}`);
-    }
+    const task = readTask(taskPath);
+    const event = task.history!.find((e) => e.type === "verification_passed");
+    if (!event) throw new Error("verification_passed event not recorded");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("escalation without --reason -> error", () => {
+test("escalation without --message -> allowed (optional)", () => {
   const dir = createTestDir();
   try {
     const taskPath = createTaskFile(dir, makeBaseTask());
-    const output = runHal(
+    runHal(
       `history add --type escalation --step step-1/data-collection --task ${taskPath}`,
-      true,
     );
-    if (!output.includes("--reason is required")) {
-      throw new Error(`Expected error about --reason, got: ${output}`);
-    }
+    const task = readTask(taskPath);
+    const event = task.history!.find((e) => e.type === "escalation");
+    if (!event) throw new Error("escalation event not recorded");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("blocked_resolved without --summary -> error", () => {
+test("blocked_resolved without --message -> allowed (optional)", () => {
   const dir = createTestDir();
   try {
     const taskPath = createTaskFile(dir, makeBaseTask());
-    const output = runHal(
+    runHal(
       `history add --type blocked_resolved --step step-1/data-collection --task ${taskPath}`,
-      true,
     );
-    if (!output.includes("--summary is required")) {
-      throw new Error(`Expected error about --summary, got: ${output}`);
-    }
+    const task = readTask(taskPath);
+    const event = task.history!.find((e) => e.type === "blocked_resolved");
+    if (!event) throw new Error("blocked_resolved event not recorded");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("step_skipped without --reason -> error", () => {
+test("step_skipped without --message -> allowed (optional)", () => {
   const dir = createTestDir();
   try {
     const taskPath = createTaskFile(dir, makeBaseTask());
-    const output = runHal(
+    runHal(
       `history add --type step_skipped --step step-1/data-collection --task ${taskPath}`,
-      true,
     );
-    if (!output.includes("--reason is required")) {
-      throw new Error(`Expected error about --reason, got: ${output}`);
-    }
+    const task = readTask(taskPath);
+    const event = task.history!.find((e) => e.type === "step_skipped");
+    if (!event) throw new Error("step_skipped event not recorded");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -541,12 +535,12 @@ test("step_skipped with --step -> recorded correctly", () => {
   try {
     const taskPath = createTaskFile(dir, makeBaseTask());
     runHal(
-      `history add --type step_skipped --step step-1/data-collection --reason "not needed" --task ${taskPath}`,
+      `history add --type step_skipped --step step-1/data-collection --message "not needed" --task ${taskPath}`,
     );
     const task = readTask(taskPath);
     const event = task.history!.find((e) => e.type === "step_skipped") as any;
     assertEqual(event.step, "step-1/data-collection", "step");
-    assertEqual(event.reason, "not needed", "reason");
+    assertEqual(event.message, "not needed", "reason");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -595,7 +589,7 @@ test("All events get ISO 8601 at field", () => {
       `history add --type step_started --step step-1/data-collection --task ${taskPath}`,
     );
     runHal(
-      `history add --type work_done --step step-1/data-collection --summary "done" --task ${taskPath}`,
+      `history add --type work_done --step step-1/data-collection --message "done" --task ${taskPath}`,
     );
     runHal(`history add --type completed --task ${taskPath}`);
     const task = readTask(taskPath);

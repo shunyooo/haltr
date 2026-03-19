@@ -187,7 +187,7 @@ test("hal task new creates 001_task.yaml with created event and status: pending"
     assert(task.history![0].type === "created", "Expected created event");
     assert(task.history![0].by.startsWith("orchestrator("), "Expected by orchestrator(...)");
     assert(
-      (task.history![0] as any).note === "Task created",
+      (task.history![0] as any).message === "Task created",
       "Expected note 'Task created'",
     );
     assert(!task.previous, "First task should not have previous field");
@@ -220,7 +220,7 @@ test("Second hal task new -> 002_task.yaml, old gets pivoted event + pivoted sta
       "Expected pivoted event to reference 002_task.yaml",
     );
     assert(
-      (pivotedEvents[0] as any).reason === "New task created",
+      (pivotedEvents[0] as any).message === "New task created",
       "Expected pivoted reason 'New task created'",
     );
 
@@ -256,7 +256,7 @@ test("Gap handling: if 001_task.yaml and 003_report.md exist -> next is 004_task
           at: new Date().toISOString(),
           type: "created",
           by: "orchestrator(claude)",
-          note: "Task created",
+          message: "Task created",
         },
       ],
     };
