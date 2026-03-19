@@ -309,8 +309,14 @@ worker 完了後:
 \`\`\`bash
 hal spawn verifier --step <step-id> --task <task-path>
 \`\`\`
-PASS → hal status --task <task-path> <step-id> done → 次のステップへ
-FAIL → リトライ
+PASS の場合:
+\`\`\`bash
+hal kill --task <task-path>
+hal status --task <task-path> <step-id> done
+\`\`\`
+次のステップがあれば Step 4 に戻る。
+
+FAIL の場合: worker に修正を指示してリトライ。
 
 ## その他のコマンド
 \`\`\`bash
