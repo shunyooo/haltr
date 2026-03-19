@@ -24,6 +24,8 @@ prompt: |
   FAIL の場合:
      hal history add --type verification_failed --step '{{step}}' --task '{{task}}' --accept-id default --message '検証内容と失敗理由（詳細に）'
 
-  accept check に加え、以下のルールへの準拠も確認してください
+  3. **task.yaml に記載されたコンテキストを必ず読むこと。** 検証対象のディレクトリやファイルパスはコンテキストに記載されている場合がある。
 
   {{accept_details}}
+
+  {{context}}

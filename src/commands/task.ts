@@ -198,6 +198,8 @@ export function writeTask(taskPath: string, content: string): void {
   const data = yaml.load(content);
   const validated = validateTask(data);
 
+  const now = new Date().toISOString();
+
   // If the file already exists, preserve history from the existing task
   if (existsSync(taskPath)) {
     const existing = loadAndValidateTask(taskPath);
@@ -206,10 +208,18 @@ export function writeTask(taskPath: string, content: string): void {
     }
   }
 
-  // Append updated event
-  const now = new Date().toISOString();
+  // Ensure created event exists
   if (!validated.history) {
     validated.history = [];
+  }
+  const hasCreated = validated.history.some((e) => e.type === "created");
+  if (!hasCreated) {
+    validated.history.unshift({
+      at: now,
+      type: "created",
+      by: resolveOrchestratorBy(taskPath),
+      message: "Task created",
+    } as any);
   }
   validated.history.push({
     at: now,
