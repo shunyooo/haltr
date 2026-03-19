@@ -1,0 +1,41 @@
+{
+  "name": "haltr",
+  "version": "0.0.1",
+  "description": "Quality assurance tool for coding agent outputs",
+  "type": "module",
+  "main": "./dist/bin/hal.js",
+  "bin": {
+    "hal": "./dist/bin/hal.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test:m1": "node --import tsx src/test/m1-validation.ts",
+    "test:m2": "node --import tsx src/test/m2-validation.ts",
+    "test:m3": "node --import tsx src/test/m3-validation.ts",
+    "test:m4": "node --import tsx src/test/m4-validation.ts",
+    "test:m5": "node --import tsx src/test/m5-validation.ts",
+    "test:m6": "node --import tsx src/test/m6-validation.ts",
+    "test:m7": "node --import tsx src/test/m7-validation.ts",
+    "test:m8": "node --import tsx src/test/m8-validation.ts",
+    "test:m9a": "node --import tsx src/test/m9-e2e-part1.ts",
+    "test:m9b": "node --import tsx src/test/m9-e2e-part2.ts",
+    "test:tmux": "node --import tsx src/test/tmux-e2e.ts",
+    "test:agent-e2e": "node --import tsx src/test/agent-e2e.ts",
+    "lint": "biome lint src/",
+    "lint:fix": "biome lint --write src/"
+  },
+  "keywords": [],
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "commander": "^13.1.0",
+    "js-yaml": "^4.1.0",
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.8",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.5.0",
+    "tsx": "^4.19.0"
+  }
+}

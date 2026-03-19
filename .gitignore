@@ -1,0 +1,22 @@
+node_modules/
+dist/
+*.log
+
+# Dev environment (personal)
+.env
+.devcontainer/
+Dockerfile.dev
+
+# Claude Code (personal)
+.claude/data/
+
+.ztile
+.serena
+
+# haltr runtime data
+haltr/
+.panes.yaml
+.hooks/
+exp
+.claude
+.mcp.json
