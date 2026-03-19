@@ -88,26 +88,26 @@ export async function tmuxSendKeys(
 }
 
 /**
- * Set pane title and border color.
+ * Set pane role label and border color.
+ * Uses custom tmux option @haltr_role to avoid Claude Code overriding pane_title.
  */
 export async function tmuxStylePane(
   paneId: string,
   title: string,
   borderColor: string,
 ): Promise<void> {
-  // Set pane title
-  await tmuxRun(["select-pane", "-t", paneId, "-T", title]);
-  // Enable border title display (idempotent)
-  await tmuxRun(["set-option", "-p", "-t", paneId, "pane-border-format", " #{pane_title} "]);
+  await tmuxRun(["set-option", "-p", "-t", paneId, "@haltr_role", title]);
   await tmuxRun(["set-option", "-p", "-t", paneId, "pane-border-style", `fg=${borderColor}`]);
 }
 
 /**
- * Enable pane border status for the session (shows titles on borders).
+ * Enable pane border status for the session.
+ * Uses heavy lines and displays @haltr_role in the border.
  */
 export async function tmuxEnableBorderStatus(sessionName: string): Promise<void> {
   await tmuxRun(["set-option", "-t", sessionName, "pane-border-status", "top"]);
-  await tmuxRun(["set-option", "-t", sessionName, "pane-border-format", " #{pane_title} "]);
+  await tmuxRun(["set-option", "-t", sessionName, "pane-border-lines", "heavy"]);
+  await tmuxRun(["set-option", "-t", sessionName, "pane-border-format", " #{@haltr_role} "]);
 }
 
 /**
