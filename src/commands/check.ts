@@ -17,8 +17,10 @@
 
 import type { Command } from "commander";
 import { resolve, dirname } from "node:path";
-import { loadAndValidateTask } from "../lib/validator.js";
-import { findStep, validateTaskPath } from "../lib/task-utils.js";
+import { writeFileSync } from "node:fs";
+import * as yaml from "js-yaml";
+import { loadAndValidateTask, loadAndValidateConfig } from "../lib/validator.js";
+import { findStep, validateTaskPath, loadConfig } from "../lib/task-utils.js";
 import { PanesManager } from "../lib/panes-manager.js";
 import { tmuxSendKeys } from "../lib/tmux.js";
 import type {
@@ -406,7 +408,39 @@ async function handleCheck(opts: {
     if (!opts.task) {
       throw new Error("--task is required for --task-spec-reviewer mode");
     }
-    // Task spec reviewer: always allow (the review is its own output)
+    const taskPath = resolve(opts.task);
+    validateTaskPath(taskPath);
+    const task = loadAndValidateTask(taskPath);
+
+    // Record spec_reviewed event if not already recorded
+    const alreadyReviewed = task.history?.some((e) => e.type === "spec_reviewed");
+    if (!alreadyReviewed) {
+      let cliName = "claude";
+      try { cliName = loadConfig(taskPath).orchestrator_cli; } catch {}
+      if (!task.history) task.history = [];
+      task.history.push({
+        at: new Date().toISOString(),
+        type: "spec_reviewed" as const,
+        by: `task-spec-reviewer(${cliName})`,
+        summary: "レビュー完了",
+      } as any);
+      writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
+    }
+
+    // Notify parent orchestrator
+    const epicDir = dirname(taskPath);
+    const pm = new PanesManager(epicDir);
+    const panes = pm.load();
+    const reviewerPane = panes.find((p) => p.role === "task-spec-reviewer");
+    const parentPaneId = reviewerPane?.parent_pane_id;
+    if (parentPaneId) {
+      try {
+        await tmuxSendKeys(parentPaneId, `spec_reviewed: タスク仕様のレビューが完了しました。task.yaml を確認してユーザーに承認を求めてください。`);
+      } catch {
+        // Best effort
+      }
+    }
+
     process.exit(0);
   }
 }
