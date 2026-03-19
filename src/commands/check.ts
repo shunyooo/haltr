@@ -273,10 +273,7 @@ async function cleanupPane(taskPath: string, stepId: string, role: string): Prom
     const myPane = panes.find((p) => p.step === stepId && p.role === role);
     if (myPane) {
       pm.remove(myPane.pane_id);
-      // Schedule pane kill after a short delay (let the process exit first)
-      setTimeout(async () => {
-        try { await tmuxKillPane(myPane.pane_id); } catch {}
-      }, 1000);
+      try { await tmuxKillPane(myPane.pane_id); } catch {}
     }
   } catch {
     // Best effort
@@ -468,9 +465,7 @@ async function handleCheck(opts: {
     // Clean up reviewer pane
     if (reviewerPane) {
       pm.remove(reviewerPane.pane_id);
-      setTimeout(async () => {
-        try { await tmuxKillPane(reviewerPane.pane_id); } catch {}
-      }, 1000);
+      try { await tmuxKillPane(reviewerPane.pane_id); } catch {}
     }
 
     process.exit(0);
