@@ -312,9 +312,15 @@ hal spawn verifier --step <step-id> --task <task-path>
 PASS の場合:
 \`\`\`bash
 hal kill --task <task-path>
-hal status --task <task-path> <step-id> done
+hal next --task <task-path> --from <current-step> --to <next-step>
 \`\`\`
-次のステップがあれば Step 4 に戻る。
+hal next は自動で: from を done に → to を in_progress に → worker を spawn。
+
+最後のステップが done なら:
+\`\`\`bash
+hal kill --task <task-path>
+hal status --task <task-path> <last-step> done
+\`\`\`
 
 FAIL の場合: worker に修正を指示してリトライ。
 

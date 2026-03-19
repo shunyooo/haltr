@@ -22,6 +22,7 @@ import { handlePanes } from "../commands/panes.js";
 import { listRules, addRule } from "../commands/rule.js";
 import { handleLayout } from "../commands/layout.js";
 import { handleSpawn, VALID_ROLES } from "../commands/spawn.js";
+import { handleNext } from "../commands/next.js";
 import { handleStart } from "../commands/start.js";
 import { handleStop } from "../commands/stop.js";
 import { TmuxRuntime } from "../lib/tmux-runtime.js";
@@ -347,6 +348,27 @@ program
       }
     },
   );
+
+// ---- next ----
+
+program
+  .command("next")
+  .description("Advance to next step (done → spawn worker)")
+  .requiredOption("--task <path>", "Path to task.yaml")
+  .requiredOption("--from <step>", "Current step to mark as done")
+  .requiredOption("--to <step>", "Next step to start")
+  .action(async (opts: { task: string; from: string; to: string }) => {
+    try {
+      const { tmuxCurrentSession } = await import("../lib/tmux.js");
+      const currentSession = await tmuxCurrentSession() ?? "haltr";
+      const runtime = new TmuxRuntime(currentSession, process.cwd());
+      await handleNext(opts, runtime);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  });
 
 // ---- session management ----
 
