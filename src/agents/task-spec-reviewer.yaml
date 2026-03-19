@@ -6,14 +6,6 @@ disallowed_tools:
 allowed_tools:
   - "Bash(hal:*)"
   - "Bash(cat:*)"
-check_criteria:
-  - goal 明確さ
-  - accept 具体性
-  - 測定可能性
-  - 偽造不可能性
-  - スコープ明確さ
-  - ステップ実行可能性
-  - ステップ間順序整合性
 hooks:
   Stop:
     - command: "hal check --task-spec-reviewer --task '{{task}}'"

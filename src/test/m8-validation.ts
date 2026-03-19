@@ -233,50 +233,16 @@ test("main-orchestrator.yaml has roles: [orchestrate, spec]", () => {
   }
 });
 
-test("task-spec-reviewer.yaml has 7 check criteria", () => {
+test("task-spec-reviewer.yaml has review criteria in prompt", () => {
   const dir = createTestDir();
   try {
     const haltrDir = createHaltrDir(dir);
     const content = getAgentSettings(haltrDir, "task-spec-reviewer");
     const data = yaml.load(content) as any;
-    assert(
-      Array.isArray(data.check_criteria),
-      "check_criteria should be array",
-    );
-    assertEqual(
-      data.check_criteria.length,
-      7,
-      "check_criteria count",
-    );
-    // Check specific criteria
-    assert(
-      data.check_criteria.includes("goal 明確さ"),
-      "should have goal 明確さ",
-    );
-    assert(
-      data.check_criteria.includes("accept 具体性"),
-      "should have accept 具体性",
-    );
-    assert(
-      data.check_criteria.includes("測定可能性"),
-      "should have 測定可能性",
-    );
-    assert(
-      data.check_criteria.includes("偽造不可能性"),
-      "should have 偽造不可能性",
-    );
-    assert(
-      data.check_criteria.includes("スコープ明確さ"),
-      "should have スコープ明確さ",
-    );
-    assert(
-      data.check_criteria.includes("ステップ実行可能性"),
-      "should have ステップ実行可能性",
-    );
-    assert(
-      data.check_criteria.includes("ステップ間順序整合性"),
-      "should have ステップ間順序整合性",
-    );
+    assert(data.prompt, "should have prompt field");
+    assert(data.prompt.includes("goal"), "prompt should mention goal");
+    assert(data.prompt.includes("accept"), "prompt should mention accept");
+    assert(data.prompt.includes("スコープ"), "prompt should mention scope");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
