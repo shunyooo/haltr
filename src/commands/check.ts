@@ -81,6 +81,19 @@ export function checkWorker(
   task: TaskYaml,
   stepId: string,
 ): CheckResult {
+  // Shared session: block if there are more pending steps
+  if (task.worker_session === "shared") {
+    const hasPendingSteps = task.steps.some(
+      (s) => (s.status ?? "pending") === "pending",
+    );
+    if (hasPendingSteps) {
+      return {
+        action: "block",
+        message: "セッション共有モードです。次のステップの指示を待ってください。",
+      };
+    }
+  }
+
   const history = task.history ?? [];
   const stepHistory = getStepHistory(history, stepId);
 

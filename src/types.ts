@@ -162,6 +162,7 @@ export interface TaskYaml {
   previous?: string;
   agents: TaskAgents;
   steps: Step[];
+  worker_session?: "shared" | "per-step";
   context?: string;
   history?: HistoryEvent[];
 }

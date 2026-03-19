@@ -23,6 +23,11 @@
         "$ref": "#/$defs/step"
       }
     },
+    "worker_session": {
+      "type": "string",
+      "enum": ["shared", "per-step"],
+      "default": "per-step"
+    },
     "context": {
       "type": "string"
     },
