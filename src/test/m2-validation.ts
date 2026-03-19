@@ -67,7 +67,7 @@ test("hal init creates haltr/ with all required files and directories", () => {
     // Validate config.yaml content
     const configContent = readFileSync(join(haltrDir, "config.yaml"), "utf-8");
     const config = yaml.load(configContent) as any;
-    assert(config.orchestrator_cli === "claude", "config.orchestrator_cli should be 'claude'");
+    assert(config.orchestrator_cli === "claude:sonnet", "config.orchestrator_cli should be 'claude:sonnet'");
     assert(config.watcher.poll_interval === 30, "config.watcher.poll_interval should be 30");
     assert(config.watcher.inactivity_threshold === 300, "config.watcher.inactivity_threshold should be 300");
     assert(config.panes.max_concurrent === 10, "config.panes.max_concurrent should be 10");
@@ -179,13 +179,13 @@ test("hal task new creates 001_task.yaml with created event and status: pending"
 
     assert(task.id === "implement-auth", `Expected id 'implement-auth', got '${task.id}'`);
     assert(task.status === "pending", `Expected status 'pending', got '${task.status}'`);
-    assert(task.agents.worker === "claude", "Expected worker 'claude'");
-    assert(task.agents.verifier === "codex", "Expected verifier 'codex'");
+    assert(task.agents.worker === "claude:sonnet", "Expected worker 'claude:sonnet'");
+    assert(task.agents.verifier === "claude:haiku", "Expected verifier 'claude:haiku'");
     assert(Array.isArray(task.steps) && task.steps.length === 0, "Expected empty steps array");
     assert(task.context === "", "Expected empty context string");
     assert(Array.isArray(task.history) && task.history.length === 1, "Expected 1 history event");
     assert(task.history![0].type === "created", "Expected created event");
-    assert(task.history![0].by === "orchestrator(claude)", "Expected by orchestrator(claude)");
+    assert(task.history![0].by.startsWith("orchestrator("), "Expected by orchestrator(...)");
     assert(
       (task.history![0] as any).note === "Task created",
       "Expected note 'Task created'",
@@ -312,7 +312,7 @@ test("hal task edit adds updated event to history", () => {
     assert(task.context === "Updated context", `Expected context 'Updated context', got '${task.context}'`);
     assert(task.history!.length === 2, `Expected 2 history events, got ${task.history!.length}`);
     assert(task.history![1].type === "updated", "Expected second event to be 'updated'");
-    assert(task.history![1].by === "orchestrator(claude)", "Expected by orchestrator(claude)");
+    assert(task.history![1].by.startsWith("orchestrator("), "Expected by orchestrator(...)");
 
     // Verify the 'at' field is a valid ISO 8601 date
     const atDate = new Date(task.history![1].at);

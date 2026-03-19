@@ -49,6 +49,25 @@
           "description": "Maximum number of retry attempts"
         }
       }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "worker": {
+          "type": "string",
+          "description": "Default CLI for worker (e.g. claude:sonnet)"
+        },
+        "verifier": {
+          "type": "string",
+          "description": "Default CLI for verifier (e.g. claude:haiku)"
+        },
+        "worker_session": {
+          "type": "string",
+          "enum": ["shared", "per-step"],
+          "description": "Default worker session mode"
+        }
+      }
     }
   }
 }

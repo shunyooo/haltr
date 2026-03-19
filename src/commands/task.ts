@@ -72,13 +72,25 @@ export function createTask(baseDir: string, epicName: string): string {
   const epicDirName = basename(epicDir);
   const epicId = epicDirName.replace(/^\d{8}-\d{3}_/, "");
 
+  // Read defaults from config
+  let defaultWorker = "claude";
+  let defaultVerifier = "codex";
+  let defaultWorkerSession: "shared" | "per-step" | undefined;
+  try {
+    const config = loadConfig(filePath);
+    defaultWorker = config.defaults?.worker ?? defaultWorker;
+    defaultVerifier = config.defaults?.verifier ?? defaultVerifier;
+    defaultWorkerSession = config.defaults?.worker_session;
+  } catch {}
+
   const newTask: TaskYaml = {
     id: epicId,
     status: "pending",
     agents: {
-      worker: "claude",
-      verifier: "codex",
+      worker: defaultWorker,
+      verifier: defaultVerifier,
     },
+    worker_session: defaultWorkerSession,
     steps: [],
     context: "",
     history: [

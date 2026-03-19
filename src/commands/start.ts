@@ -326,6 +326,7 @@ FAIL の場合: worker に修正を指示してリトライ。
 
 ## その他のコマンド
 \`\`\`bash
+hal next --task <path> --from <step> --to <step>  # 次のステップへ（done + spawn を一括）
 hal panes          # pane 一覧
 hal kill --task <path>  # タスクの全 pane 停止
 \`\`\`

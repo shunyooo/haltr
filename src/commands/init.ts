@@ -4,7 +4,7 @@ import * as yaml from "js-yaml";
 import type { ConfigYaml } from "../types.js";
 
 const DEFAULT_CONFIG: ConfigYaml = {
-  orchestrator_cli: "claude",
+  orchestrator_cli: "claude:sonnet",
   watcher: {
     poll_interval: 30,
     inactivity_threshold: 300,
@@ -14,6 +14,11 @@ const DEFAULT_CONFIG: ConfigYaml = {
   },
   retry: {
     max_attempts: 3,
+  },
+  defaults: {
+    worker: "claude:sonnet",
+    verifier: "claude:haiku",
+    worker_session: "shared",
   },
 };
 

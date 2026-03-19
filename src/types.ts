@@ -181,4 +181,9 @@ export interface ConfigYaml {
   retry: {
     max_attempts: number;
   };
+  defaults?: {
+    worker?: string;
+    verifier?: string;
+    worker_session?: "shared" | "per-step";
+  };
 }
