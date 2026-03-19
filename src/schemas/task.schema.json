@@ -1,0 +1,343 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "haltr task",
+  "type": "object",
+  "required": ["id", "agents", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/taskStatus"
+    },
+    "previous": {
+      "type": "string"
+    },
+    "agents": {
+      "$ref": "#/$defs/taskAgents"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "context": {
+      "type": "string"
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/historyEvent"
+      }
+    }
+  },
+  "$defs": {
+    "taskStatus": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "done", "failed", "pivoted"]
+    },
+    "stepStatus": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "done", "failed", "blocked", "skipped"]
+    },
+    "taskAgents": {
+      "type": "object",
+      "required": ["worker", "verifier"],
+      "additionalProperties": false,
+      "properties": {
+        "worker": {
+          "type": "string"
+        },
+        "verifier": {
+          "type": "string"
+        }
+      }
+    },
+    "stepAgents": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "worker": {
+          "type": "string"
+        },
+        "verifier": {
+          "type": "string"
+        }
+      }
+    },
+    "acceptObject": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "check": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["agent", "human"]
+        },
+        "instruction": {
+          "type": "string"
+        },
+        "verifier": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "human" }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["instruction"]
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "type": { "const": "human" }
+              },
+              "required": ["type"]
+            }
+          },
+          "then": {
+            "required": ["check"]
+          }
+        }
+      ]
+    },
+    "accept": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/acceptObject"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "step": {
+      "type": "object",
+      "required": ["id", "goal"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/stepStatus"
+        },
+        "accept": {
+          "$ref": "#/$defs/accept"
+        },
+        "agents": {
+          "$ref": "#/$defs/stepAgents"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "historyEvent": {
+      "type": "object",
+      "required": ["at", "type", "by"],
+      "discriminator": {
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "created" },
+            "by": { "type": "string" },
+            "note": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "updated" },
+            "by": { "type": "string" },
+            "diff": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by", "step", "attempt"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "step_started" },
+            "by": { "type": "string" },
+            "step": { "type": "string" },
+            "attempt": { "type": "integer" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by", "step", "attempt", "summary"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "work_done" },
+            "by": { "type": "string" },
+            "step": { "type": "string" },
+            "attempt": { "type": "integer" },
+            "summary": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by", "step", "attempt", "accept_id"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "verifier_started" },
+            "by": { "type": "string" },
+            "step": { "type": "string" },
+            "attempt": { "type": "integer" },
+            "accept_id": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by", "step", "attempt", "accept_id", "evidence"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "verification_passed" },
+            "by": { "type": "string" },
+            "step": { "type": "string" },
+            "attempt": { "type": "integer" },
+            "accept_id": { "type": "string" },
+            "evidence": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by", "step", "attempt", "accept_id", "reason"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "verification_failed" },
+            "by": { "type": "string" },
+            "step": { "type": "string" },
+            "attempt": { "type": "integer" },
+            "accept_id": { "type": "string" },
+            "reason": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by", "step", "attempt", "reason"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "escalation" },
+            "by": { "type": "string" },
+            "step": { "type": "string" },
+            "attempt": { "type": "integer" },
+            "reason": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by", "step", "attempt", "summary"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "blocked_resolved" },
+            "by": { "type": "string" },
+            "step": { "type": "string" },
+            "attempt": { "type": "integer" },
+            "summary": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by", "step", "reason"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "step_skipped" },
+            "by": { "type": "string" },
+            "step": { "type": "string" },
+            "reason": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "spec_reviewed" },
+            "by": { "type": "string" },
+            "summary": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "execution_approved" },
+            "by": { "type": "string" },
+            "note": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "completed" },
+            "by": { "type": "string" },
+            "summary": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "pivoted" },
+            "by": { "type": "string" },
+            "reason": { "type": "string" },
+            "next_task": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

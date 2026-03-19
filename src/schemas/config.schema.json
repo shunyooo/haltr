@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "haltr config",
+  "type": "object",
+  "required": ["orchestrator_cli", "watcher", "panes", "retry"],
+  "additionalProperties": false,
+  "properties": {
+    "orchestrator_cli": {
+      "type": "string",
+      "description": "CLI used for the main orchestrator agent"
+    },
+    "watcher": {
+      "type": "object",
+      "required": ["poll_interval", "inactivity_threshold"],
+      "additionalProperties": false,
+      "properties": {
+        "poll_interval": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Monitoring interval in seconds"
+        },
+        "inactivity_threshold": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Inactivity threshold in seconds"
+        }
+      }
+    },
+    "panes": {
+      "type": "object",
+      "required": ["max_concurrent"],
+      "additionalProperties": false,
+      "properties": {
+        "max_concurrent": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Maximum number of concurrent panes"
+        }
+      }
+    },
+    "retry": {
+      "type": "object",
+      "required": ["max_attempts"],
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Maximum number of retry attempts"
+        }
+      }
+    }
+  }
+}
