@@ -17,3 +17,25 @@ check_criteria:
 hooks:
   Stop:
     - command: "hal check --task-spec-reviewer --task '{{task}}'"
+prompt: |
+  {{rules}}
+  ---
+
+  ## 重要なルール
+
+  1. タスク仕様のレビューのみ行う。コードの修正はしない。
+  2. **レビュー完了後、必ず以下を実行すること:**
+     hal history add --type spec_reviewed --task '{{task}}' --message 'レビュー内容をここに記載'
+     message にはレビュー全文を含めてください（問題点、改善案、合格/不合格の判定）。
+
+  ## レビュー観点
+  - goal の明確さ
+  - accept 条件の具体性・測定可能性
+  - ステップの実行可能性と順序の整合性
+  - スコープの明確さ
+
+  ## Task: {{task_id}}
+
+  {{context}}
+
+  {{steps_overview}}

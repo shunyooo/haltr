@@ -34,7 +34,9 @@ import {
   buildLaunchScript,
   type ClaudeSettings,
 } from "./spawn.js";
+import * as yaml from "js-yaml";
 import { validateCli, parseCli } from "../lib/task-utils.js";
+import { getAgentSettings } from "../lib/agent-defaults.js";
 import { Watcher, type WatcherDeps } from "../lib/watcher.js";
 
 export interface StartOptions {
@@ -229,112 +231,30 @@ function findHaltrDirFromBase(base: string): string {
 
 /**
  * Generate a prompt for the main orchestrator when no task exists yet.
- * Includes project rules and orchestrator role description.
+ * Uses the prompt template from the agent YAML.
  */
 function assembleOrchestratorPromptWithoutTask(
   hooksDir: string,
   haltrDir: string,
 ): string {
+  const agentYaml = getAgentSettings(haltrDir, "main-orchestrator");
+  const parsed = yaml.load(agentYaml) as Record<string, unknown> | null;
+  let template = (parsed?.prompt as string) ?? "You are the orchestrator.";
+
   const rules = readRules(haltrDir);
-  const prompt = `${rules}
----
+  const workdir = haltrDir.replace(/\/haltr$/, "");
 
-# メインオーケストレーター
-
-あなたは haltr のメインオーケストレーターです。
-ユーザーの指示をタスクに構造化し、レビュー・承認・実行のフローを管理します。
-
-## 絶対に守るルール
-
-1. **ファイルを直接編集しない。** コードを書くのは worker。あなたは hal コマンドだけ使う。
-2. **worker spawn の前に spec_reviewed と execution_approved の2つのイベントを history に記録すること。** これがないと hal spawn worker はエラーで弾かれる。
-3. **ユーザーの承認なしに execution_approved を記録しない。** 必ずユーザーに確認する。
-4. **agent の進捗を自分でポーリングしない。** tmux capture-pane や sleep で監視しないこと。agent が完了すれば stop hook 経由で通知が来る。問題があれば watcher が通知する。spawn したら完了通知を待つ。
-
-## ワークフロー（この順序で実行）
-
-### Step 1: タスク定義
-実行するコマンド:
-\`\`\`bash
-hal epic create <name>
-hal task new --epic <name>
-cat << 'EOF' | hal task write <task-path>
-id: <name>
-status: pending
-agents:
-  worker: claude:sonnet
-  verifier: claude:haiku
-steps:
-  - id: step-1
-    goal: "ゴール"
-    accept: "受入条件"
-    status: pending
-context: "背景"
-history: []
-EOF
-\`\`\`
-
-### Step 2: レビュー
-実行するコマンド:
-\`\`\`bash
-hal spawn task-spec-reviewer --task <task-path>
-\`\`\`
-レビュアーの完了を待ち、レビュー内容を確認する。
-問題なければ **必ず以下を実行**:
-\`\`\`bash
-hal history add --type spec_reviewed --task <task-path> --summary 'レビュー OK'
-\`\`\`
-
-### Step 3: ユーザー承認
-ユーザーに以下を提示する:
-- タスクの内容（ステップ、受入条件）
-- レビュー結果
-- 「この内容で実行してよいですか？」
-
-ユーザーが承認したら **必ず以下を実行**:
-\`\`\`bash
-hal history add --type execution_approved --task <task-path>
-\`\`\`
-**ユーザーが承認するまで絶対に次に進まない。**
-
-### Step 4: 実行
-\`\`\`bash
-hal history add --type step_started --step <step-id> --task <task-path>
-hal status --task <task-path> <step-id> in_progress
-hal spawn worker --step <step-id> --task <task-path>
-\`\`\`
-
-### Step 5: 検証
-worker 完了後:
-\`\`\`bash
-hal spawn verifier --step <step-id> --task <task-path>
-\`\`\`
-PASS の場合:
-\`\`\`bash
-hal kill --task <task-path>
-hal next --task <task-path> --from <current-step> --to <next-step>
-\`\`\`
-hal next は自動で: from を done に → to を in_progress に → worker を spawn。
-
-最後のステップが done なら:
-\`\`\`bash
-hal kill --task <task-path>
-hal status --task <task-path> <last-step> done
-\`\`\`
-
-FAIL の場合: worker に修正を指示してリトライ。
-
-## その他のコマンド
-\`\`\`bash
-hal next --task <path> --from <step> --to <step>  # 次のステップへ（done + spawn を一括）
-hal panes          # pane 一覧
-hal kill --task <path>  # タスクの全 pane 停止
-\`\`\`
-
-作業ディレクトリ: ${haltrDir.replace(/\/haltr$/, "")}
-`;
+  template = template.replace(/\{\{rules\}\}/g, rules);
+  template = template.replace(/\{\{task\}\}/g, "");
+  template = template.replace(/\{\{step\}\}/g, "");
+  template = template.replace(/\{\{task_id\}\}/g, "");
+  template = template.replace(/\{\{context\}\}/g, "");
+  template = template.replace(/\{\{step_details\}\}/g, "");
+  template = template.replace(/\{\{accept_details\}\}/g, "");
+  template = template.replace(/\{\{steps_overview\}\}/g, "");
+  template = template.replace(/\{\{workdir\}\}/g, workdir);
 
   const promptPath = join(hooksDir, "prompt.md");
-  writeFileSync(promptPath, prompt, "utf-8");
+  writeFileSync(promptPath, template, "utf-8");
   return promptPath;
 }

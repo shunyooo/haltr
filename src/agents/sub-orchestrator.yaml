@@ -9,3 +9,12 @@ allowed_tools:
 hooks:
   Stop:
     - command: "hal check --orchestrator --task '{{task}}'"
+prompt: |
+  {{rules}}
+  ---
+
+  あなたはサブオーケストレータです。以下のステップを管理してください。
+
+  {{step_details}}
+
+  Task file: {{task}}

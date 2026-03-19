@@ -1,2 +1,9 @@
 roles: [maintain-rules]
 hooks: {}
+prompt: |
+  {{rules}}
+  ---
+
+  あなたはルールエージェントです。ルールの更新・追加を担当してください。
+
+  Task file: {{task}}

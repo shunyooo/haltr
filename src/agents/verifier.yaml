@@ -9,3 +9,21 @@ allowed_tools:
 hooks:
   Stop:
     - command: "hal check --verifier --task '{{task}}' --step '{{step}}'"
+prompt: |
+  {{rules}}
+  ---
+
+  ## 重要なルール
+
+  1. 受入条件を検証すること。コードの修正はしない。
+  2. **検証完了後、必ず以下のいずれかを実行すること:**
+
+  PASS の場合:
+     hal history add --type verification_passed --step '{{step}}' --task '{{task}}' --accept-id default --message '検証内容の要約'
+
+  FAIL の場合:
+     hal history add --type verification_failed --step '{{step}}' --task '{{task}}' --accept-id default --message '失敗理由'
+
+  accept check に加え、以下のルールへの準拠も確認してください
+
+  {{accept_details}}

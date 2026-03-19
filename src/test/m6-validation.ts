@@ -163,22 +163,8 @@ function createTestDir(): string {
   writeFileSync(join(haltrDir, "config.yaml"), yaml.dump(config));
   writeFileSync(join(haltrDir, "rules.md"), "# Rules\n- Always write tests\n");
 
-  // Write agent definition files with placeholders
-  const roles = [
-    "worker",
-    "verifier",
-    "main-orchestrator",
-    "sub-orchestrator",
-    "task-spec-reviewer",
-    "rules-agent",
-  ];
-  for (const role of roles) {
-    writeFileSync(
-      join(haltrDir, "agents", `${role}.yaml`),
-      `# ${role} settings\ntask: "{{task}}"\nstep: "{{step}}"\nrole: ${role}\nhooks: {}\n`,
-      "utf-8",
-    );
-  }
+  // Agent definitions are built-in (src/agents/*.yaml).
+  // No need to write them here — getAgentSettings falls back to built-in.
 
   return dir;
 }
@@ -485,8 +471,6 @@ test("renderHooks: no step -> settings.yaml {{step}} replaced with empty string"
 
     const settingsContent = readFileSync(join(hooksDir, "settings.yaml"), "utf-8");
     assert(!settingsContent.includes("{{step}}"), "{{step}} should be replaced");
-    // Check step is empty string — the rendered line should be: step: ""
-    assert(settingsContent.includes('step: ""'), "step should be empty string");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -576,7 +560,7 @@ test("assemblePrompt: task-spec-reviewer prompt contains review instruction", ()
 
     const content = readFileSync(promptPath, "utf-8");
     assert(
-      content.includes("以下のルールとの整合性も確認してください"),
+      content.includes("タスク仕様のレビューのみ行う"),
       "should contain task-spec-reviewer instruction",
     );
     assert(content.includes("test-task"), "should contain task ID");
@@ -661,12 +645,11 @@ test("assemblePrompt: main-orchestrator prompt contains task overview", () => {
     const content = readFileSync(promptPath, "utf-8");
     assert(content.includes("# Rules"), "should contain rules");
     assert(
-      content.includes("メインオーケストレータ"),
+      content.includes("メインオーケストレーター"),
       "should contain main-orchestrator instruction",
     );
-    assert(content.includes("test-task"), "should contain task ID");
-    assert(content.includes("step-1"), "should contain step listing");
-    assert(content.includes("step-2"), "should contain all steps");
+    assert(content.includes("hal spawn worker"), "should contain spawn command");
+    assert(content.includes("hal kill"), "should contain kill command");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

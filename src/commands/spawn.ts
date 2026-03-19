@@ -434,6 +434,11 @@ function buildAcceptCheckDetails(
  *
  * @returns path to the prompt.md file
  */
+/**
+ * Assemble a prompt from the agent YAML's prompt template.
+ * Template variables: {{rules}}, {{task}}, {{step}}, {{task_id}}, {{context}},
+ * {{step_details}}, {{accept_details}}, {{steps_overview}}, {{workdir}}
+ */
 export function assemblePrompt(
   hooksDir: string,
   haltrDir: string,
@@ -442,108 +447,44 @@ export function assemblePrompt(
   taskPath: string,
   stepPath?: string,
 ): string {
+  // Load prompt template from agent settings
+  const agentYaml = getAgentSettings(haltrDir, role);
+  const parsed = yaml.load(agentYaml) as Record<string, unknown> | null;
+  let template = (parsed?.prompt as string) ?? `{{rules}}\n---\n\nRole: ${role}\nTask file: {{task}}\n`;
+
+  // Build template variables
   const rules = readRules(haltrDir);
-  let prompt = "";
-
-  switch (role) {
-    case "worker": {
-      prompt += rules;
-      prompt += "\n---\n\n";
-      prompt += "## 重要なルール\n\n";
-      prompt += "1. **割り当てられたステップだけを実装すること。** 他のステップには手を出さない。\n";
-      prompt += "2. **task.yaml を直接編集しないこと。**\n";
-      prompt += `3. **完了したら以下を実行して終了すること:**\n`;
-      prompt += `   hal history add --type work_done --step '${stepPath ?? ""}' --task '${taskPath}' --summary '作業内容の要約'\n\n`;
-      if (stepPath) {
-        prompt += buildStepDetails(taskYaml, stepPath);
+  const stepDetails = stepPath ? buildStepDetails(taskYaml, stepPath) : "";
+  const acceptDetails = stepPath ? buildAcceptCheckDetails(taskYaml, stepPath) : "";
+  let stepsOverview = "";
+  for (const step of taskYaml.steps) {
+    stepsOverview += `- ${step.id}: ${step.goal} (${step.status ?? "pending"})\n`;
+    if (step.accept) {
+      if (typeof step.accept === "string") {
+        stepsOverview += `  accept: ${step.accept}\n`;
+      } else if (Array.isArray(step.accept)) {
+        for (const a of step.accept) {
+          stepsOverview += `  accept [${(a as any).id}]: ${(a as any).check ?? (a as any).instruction ?? ""}\n`;
+        }
       }
-      if (taskYaml.context) {
-        prompt += `\nContext: ${taskYaml.context}\n`;
-      }
-      break;
-    }
-
-    case "verifier": {
-      prompt += rules;
-      prompt += "\n---\n\n";
-      prompt += "## 重要なルール\n\n";
-      prompt += "1. 受入条件を検証すること。コードの修正はしない。\n";
-      prompt += "2. **検証完了後、必ず以下のいずれかを実行すること:**\n\n";
-      prompt += "PASS の場合:\n";
-      prompt += `   hal history add --type verification_passed --step '${stepPath ?? ""}' --task '${taskPath}' --accept-id default --evidence '検証内容の要約'\n\n`;
-      prompt += "FAIL の場合:\n";
-      prompt += `   hal history add --type verification_failed --step '${stepPath ?? ""}' --task '${taskPath}' --accept-id default --reason '失敗理由'\n\n`;
-      prompt += "accept check に加え、以下のルールへの準拠も確認してください\n\n";
-      if (stepPath) {
-        prompt += buildAcceptCheckDetails(taskYaml, stepPath);
-      }
-      break;
-    }
-
-    case "task-spec-reviewer": {
-      prompt += rules;
-      prompt += "\n---\n\n";
-      prompt += "以下のルールとの整合性も確認してください\n\n";
-      prompt += `## Task: ${taskYaml.id}\n`;
-      if (taskYaml.context) {
-        prompt += `\nContext: ${taskYaml.context}\n`;
-      }
-      prompt += `\nTask file: ${taskPath}\n`;
-      // Include full step overview
-      prompt += "\n### Steps\n";
-      for (const step of taskYaml.steps) {
-        prompt += `- ${step.id}: ${step.goal} (${step.status ?? "pending"})\n`;
-      }
-      break;
-    }
-
-    case "sub-orchestrator": {
-      prompt += rules;
-      prompt += "\n---\n\n";
-      prompt +=
-        "あなたはサブオーケストレータです。以下のステップを管理してください。\n\n";
-      if (stepPath) {
-        prompt += buildStepDetails(taskYaml, stepPath);
-      }
-      prompt += `\nTask file: ${taskPath}\n`;
-      break;
-    }
-
-    case "rules-agent": {
-      prompt += rules;
-      prompt += "\n---\n\n";
-      prompt +=
-        "あなたはルールエージェントです。ルールの更新・追加を担当してください。\n\n";
-      prompt += `Task file: ${taskPath}\n`;
-      break;
-    }
-
-    case "main-orchestrator": {
-      prompt += rules;
-      prompt += "\n---\n\n";
-      prompt +=
-        "あなたはメインオーケストレータです。タスク全体を管理してください。\n\n";
-      prompt += `## Task: ${taskYaml.id}\n`;
-      if (taskYaml.context) {
-        prompt += `\nContext: ${taskYaml.context}\n`;
-      }
-      prompt += "\n### Steps\n";
-      for (const step of taskYaml.steps) {
-        prompt += `- ${step.id}: ${step.goal} (${step.status ?? "pending"})\n`;
-      }
-      prompt += `\nTask file: ${taskPath}\n`;
-      break;
-    }
-
-    default: {
-      prompt += rules;
-      prompt += `\n---\n\nRole: ${role}\nTask file: ${taskPath}\n`;
-      break;
     }
   }
+  const context = taskYaml.context ? `Context: ${taskYaml.context}` : "";
+  const workdir = haltrDir.replace(/\/haltr$/, "");
+
+  // Replace template variables
+  template = template.replace(/\{\{rules\}\}/g, rules);
+  template = template.replace(/\{\{task\}\}/g, taskPath);
+  template = template.replace(/\{\{step\}\}/g, stepPath ?? "");
+  template = template.replace(/\{\{task_id\}\}/g, taskYaml.id);
+  template = template.replace(/\{\{context\}\}/g, context);
+  template = template.replace(/\{\{step_details\}\}/g, stepDetails);
+  template = template.replace(/\{\{accept_details\}\}/g, acceptDetails);
+  template = template.replace(/\{\{steps_overview\}\}/g, stepsOverview);
+  template = template.replace(/\{\{workdir\}\}/g, workdir);
 
   const promptPath = join(hooksDir, "prompt.md");
-  writeFileSync(promptPath, prompt, "utf-8");
+  writeFileSync(promptPath, template, "utf-8");
   return promptPath;
 }
 
