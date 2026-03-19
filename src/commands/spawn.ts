@@ -466,11 +466,17 @@ export function assemblePrompt(
     case "verifier": {
       prompt += rules;
       prompt += "\n---\n\n";
+      prompt += "## 重要なルール\n\n";
+      prompt += "1. 受入条件を検証すること。コードの修正はしない。\n";
+      prompt += "2. **検証完了後、必ず以下のいずれかを実行すること:**\n\n";
+      prompt += "PASS の場合:\n";
+      prompt += `   hal history add --type verification_passed --step '${stepPath ?? ""}' --task '${taskPath}' --accept-id default --evidence '検証内容の要約'\n\n`;
+      prompt += "FAIL の場合:\n";
+      prompt += `   hal history add --type verification_failed --step '${stepPath ?? ""}' --task '${taskPath}' --accept-id default --reason '失敗理由'\n\n`;
       prompt += "accept check に加え、以下のルールへの準拠も確認してください\n\n";
       if (stepPath) {
         prompt += buildAcceptCheckDetails(taskYaml, stepPath);
       }
-      prompt += `\nTask file: ${taskPath}\n`;
       break;
     }
 
