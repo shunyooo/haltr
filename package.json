@@ -8,7 +8,7 @@
     "hal": "./dist/bin/hal.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/agents dist/",
     "test:m1": "node --import tsx src/test/m1-validation.ts",
     "test:m2": "node --import tsx src/test/m2-validation.ts",
     "test:m3": "node --import tsx src/test/m3-validation.ts",

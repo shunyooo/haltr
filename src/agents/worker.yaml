@@ -1,0 +1,8 @@
+roles: [implement]
+permission_mode: acceptEdits
+hooks:
+  PreToolUse:
+    - matcher: "Edit|Write"
+      command: "hal hook guard-task-yaml"
+  Stop:
+    - command: "hal check --worker --task '{{task}}' --step '{{step}}'"

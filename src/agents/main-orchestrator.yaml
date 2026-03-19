@@ -1,0 +1,11 @@
+roles: [orchestrate, spec]
+disallowed_tools:
+  - Edit
+  - Write
+  - NotebookEdit
+allowed_tools:
+  - "Bash(hal:*)"
+  - "Bash(cat:*)"
+hooks:
+  Stop:
+    - command: "hal check --orchestrator --task '{{task}}'"

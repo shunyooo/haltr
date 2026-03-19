@@ -1,93 +1,42 @@
 /**
- * Built-in default agent definitions.
+ * Agent settings loader.
  *
- * These are used when haltr/agents/<role>.yaml doesn't exist.
- * Users can override by creating the file.
+ * Reads agent definitions from src/agents/*.yaml (bundled with haltr).
+ * Users can override by creating haltr/agents/<role>.yaml in their project.
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-export const AGENT_DEFAULTS: Record<string, string> = {
-  "main-orchestrator": `roles: [orchestrate, spec]
-disallowed_tools:
-  - Edit
-  - Write
-  - NotebookEdit
-allowed_tools:
-  - "Bash(hal:*)"
-  - "Bash(cat:*)"
-hooks:
-  Stop:
-    - command: "hal check --orchestrator --task '{{task}}'"
-`,
-  "sub-orchestrator": `roles: [orchestrate]
-disallowed_tools:
-  - Edit
-  - Write
-  - NotebookEdit
-allowed_tools:
-  - "Bash(hal:*)"
-  - "Bash(cat:*)"
-hooks:
-  Stop:
-    - command: "hal check --orchestrator --task '{{task}}'"
-`,
-  worker: `roles: [implement]
-permission_mode: acceptEdits
-hooks:
-  PreToolUse:
-    - matcher: "Edit|Write"
-      command: "hal hook guard-task-yaml"
-  Stop:
-    - command: "hal check --worker --task '{{task}}' --step '{{step}}'"
-`,
-  verifier: `roles: [verify]
-disallowed_tools:
-  - Edit
-  - Write
-  - NotebookEdit
-allowed_tools:
-  - "Bash(hal:*)"
-  - "Bash(cat:*)"
-hooks:
-  Stop:
-    - command: "hal check --verifier --task '{{task}}' --step '{{step}}'"
-`,
-  "task-spec-reviewer": `roles: [review]
-disallowed_tools:
-  - Edit
-  - Write
-  - NotebookEdit
-allowed_tools:
-  - "Bash(hal:*)"
-  - "Bash(cat:*)"
-check_criteria:
-  - goal 明確さ
-  - accept 具体性
-  - 測定可能性
-  - 偽造不可能性
-  - スコープ明確さ
-  - ステップ実行可能性
-  - ステップ間順序整合性
-hooks:
-  Stop:
-    - command: "hal check --task-spec-reviewer --task '{{task}}'"
-`,
-  "rules-agent": `roles: [maintain-rules]
-hooks: {}
-`,
-};
+const __filename_local = fileURLToPath(import.meta.url);
+const __dirname_local = dirname(__filename_local);
+
+// Built-in agents directory: dist/agents/ (copied from src/agents/ at build time)
+// or src/agents/ when running via tsx
+const BUILTIN_AGENTS_DIR = join(__dirname_local, "..", "agents");
 
 /**
  * Get agent settings content for a role.
- * Checks haltr/agents/<role>.yaml first (user override),
- * then falls back to built-in defaults.
+ *
+ * Resolution order:
+ *   1. haltr/agents/<role>.yaml (user override)
+ *   2. src/agents/<role>.yaml (built-in default)
+ *   3. Minimal fallback
  */
 export function getAgentSettings(haltrDir: string, role: string): string {
+  // 1. User override
   const overridePath = join(haltrDir, "agents", `${role}.yaml`);
   if (existsSync(overridePath)) {
     return readFileSync(overridePath, "utf-8");
   }
-  return AGENT_DEFAULTS[role] ?? `roles: [${role}]\nhooks: {}\n`;
+
+  // 2. Built-in default
+  const builtinPath = join(BUILTIN_AGENTS_DIR, `${role}.yaml`);
+  if (existsSync(builtinPath)) {
+    return readFileSync(builtinPath, "utf-8");
+  }
+
+  // 3. Minimal fallback
+  return `roles: [${role}]\nhooks: {}\n`;
 }
