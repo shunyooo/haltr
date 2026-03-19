@@ -572,7 +572,7 @@ export async function handleSpawn(
       throw new Error(
         `task-spec-reviewer によるレビューが完了していません。以下を実行してください:\n` +
         `  1. hal spawn task-spec-reviewer --task '${resolvedTaskPath}'\n` +
-        `  2. レビュー完了後: hal history add --type spec_reviewed --task '${resolvedTaskPath}' --summary 'レビュー結果'`,
+        `  2. レビュー完了後: hal history add --type spec_reviewed --task '${resolvedTaskPath}' --message 'レビュー結果'`,
       );
     }
     if (!hasApproval) {

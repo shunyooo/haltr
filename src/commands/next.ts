@@ -135,7 +135,7 @@ function buildStepInstruction(task: any, stepId: string, taskPath: string): stri
       }
     }
   }
-  msg += `\n完了したら: hal history add --type work_done --step '${stepId}' --task '${taskPath}' --summary '作業内容'`;
+  msg += `\n完了したら: hal history add --type work_done --step '${stepId}' --task '${taskPath}' --message '作業内容'`;
   return msg;
 }
 

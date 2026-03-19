@@ -16,6 +16,8 @@ prompt: |
   2. **task.yaml を直接編集しないこと。**
   3. **完了したら以下を実行すること:**
      hal history add --type work_done --step '{{step}}' --task '{{task}}' --message '作業内容の要約'
+  4. **問題が発生して自力で解決できない場合:**
+     hal escalate --task '{{task}}' --step '{{step}}' --message '問題の内容'
 
   {{step_details}}
 
