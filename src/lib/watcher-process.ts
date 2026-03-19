@@ -2,9 +2,9 @@
  * Standalone watcher process.
  * Forked by `hal start` to run in the background.
  *
- * Self-terminates when the tmux session `haltr` no longer exists.
+ * Self-terminates when the tmux session no longer exists.
  *
- * Usage: node watcher-process.js <haltrDir> <baseDir>
+ * Usage: node watcher-process.js <haltrDir> <baseDir> <sessionName>
  */
 
 import { join } from "node:path";
@@ -16,17 +16,18 @@ import {
 } from "./tmux.js";
 import { Watcher, removeWatcherPid } from "./watcher.js";
 
-const [haltrDir, baseDir] = process.argv.slice(2);
+const [haltrDir, baseDir, sessionName] = process.argv.slice(2);
 
 if (!haltrDir || !baseDir) {
   process.exit(1);
 }
 
+const session = sessionName || "haltr";
 const configPath = join(haltrDir, "config.yaml");
 const configYaml = loadAndValidateConfig(configPath);
 
 const watcher = new Watcher(configYaml, haltrDir, baseDir, {
-  listAlivePanes: () => tmuxListPanes("haltr"),
+  listAlivePanes: () => tmuxListPanes(session),
   sendKeys: tmuxSendKeys,
 });
 
@@ -35,7 +36,7 @@ watcher.start();
 // Self-terminate when tmux session is gone
 const sessionCheck = setInterval(async () => {
   try {
-    const exists = await tmuxSessionExists("haltr");
+    const exists = await tmuxSessionExists(session);
     if (!exists) {
       watcher.stop();
       removeWatcherPid(haltrDir);
@@ -43,7 +44,6 @@ const sessionCheck = setInterval(async () => {
       process.exit(0);
     }
   } catch {
-    // tmux not available — exit
     watcher.stop();
     removeWatcherPid(haltrDir);
     clearInterval(sessionCheck);

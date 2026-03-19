@@ -153,7 +153,7 @@ export async function handleStart(
       "lib",
       "watcher-process.js",
     );
-    const child = fork(watcherScript, [haltrDir, base], {
+    const child = fork(watcherScript, [haltrDir, base, sessionName], {
       detached: true,
       stdio: "ignore",
     });

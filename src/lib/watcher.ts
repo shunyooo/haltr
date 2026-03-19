@@ -13,6 +13,7 @@
 import {
   existsSync,
   readFileSync,
+  readdirSync,
   writeFileSync,
   unlinkSync,
 } from "node:fs";
@@ -157,7 +158,7 @@ export class Watcher {
    * Single poll iteration. Exposed for testing.
    */
   async poll(): Promise<void> {
-    const entries = this.panesManager.load();
+    const entries = this.loadAllPanes();
     const alivePanes = await this.deps.listAlivePanes();
     const aliveSet = new Set(alivePanes);
     const now = Date.now();
@@ -244,6 +245,30 @@ export class Watcher {
   }
 
   // ---------- Internal ----------
+
+  /**
+   * Load panes from haltr/.panes.yaml and all epic directories.
+   */
+  private loadAllPanes(): PaneEntry[] {
+    const all: PaneEntry[] = [];
+    // haltr/.panes.yaml (fallback)
+    all.push(...this.panesManager.load());
+    // Each epic directory
+    const epicsDir = join(this.haltrDir, "epics");
+    if (existsSync(epicsDir)) {
+      try {
+        for (const entry of readdirSync(epicsDir)) {
+          if (entry === "archive" || entry.startsWith(".")) continue;
+          const epicDir = join(epicsDir, entry);
+          const pm = new PanesManager(epicDir);
+          all.push(...pm.load());
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return all;
+  }
 
   private async notify(
     entry: PaneEntry,
