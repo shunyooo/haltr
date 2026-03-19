@@ -84,7 +84,7 @@ export function registerHookCommand(program: Command): void {
         if (result.message) {
           console.log(result.message);
         }
-        process.exit(1);
+        process.exit(2); // exit 2 = blocking in Claude Code hooks
       }
     });
 

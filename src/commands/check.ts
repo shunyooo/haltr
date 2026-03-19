@@ -390,7 +390,7 @@ async function handleCheck(opts: {
     // Output and exit
     if (result.action === "block") {
       console.log(result.message);
-      process.exit(1);
+      process.exit(2); // exit 2 = blocking in Claude Code hooks
     } else {
       if (result.message) {
         console.error(result.message);
@@ -419,7 +419,7 @@ async function handleCheck(opts: {
 
     if (result.action === "block") {
       console.log(result.message);
-      process.exit(1);
+      process.exit(2); // exit 2 = blocking in Claude Code hooks
     } else {
       if (result.message) {
         console.error(result.message);

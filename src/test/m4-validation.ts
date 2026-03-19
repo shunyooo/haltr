@@ -578,7 +578,7 @@ function runHal(
   }
 }
 
-test("CLI: check --worker with empty history -> exit 1", () => {
+test("CLI: check --worker with empty history -> exit 2", () => {
   const dir = createTestDir();
   try {
     const task = makeBaseTask();
@@ -587,7 +587,7 @@ test("CLI: check --worker with empty history -> exit 1", () => {
       `check --worker --task ${taskPath} --step step-1`,
       true,
     );
-    assertEqual(res.exitCode, 1, "exit code");
+    assertEqual(res.exitCode, 2, "exit code");
     assert(
       res.stdout.includes("作業サマリーを hal history add で記録してください"),
       `stdout should contain block message, got: ${res.stdout}`,
@@ -616,7 +616,7 @@ test("CLI: check --worker with work_done (no accept) -> exit 0", () => {
   }
 });
 
-test("CLI: check --verifier with no verification result -> exit 1", () => {
+test("CLI: check --verifier with no verification result -> exit 2", () => {
   const dir = createTestDir();
   try {
     const task = makeBaseTask({
@@ -630,7 +630,7 @@ test("CLI: check --verifier with no verification result -> exit 1", () => {
       `check --verifier --task ${taskPath} --step step-1`,
       true,
     );
-    assertEqual(res.exitCode, 1, "exit code");
+    assertEqual(res.exitCode, 2, "exit code");
     assert(
       res.stdout.includes("検証結果を hal history add で記録してください"),
       `stdout should contain block message, got: ${res.stdout}`,
@@ -663,7 +663,7 @@ test("CLI: check --verifier with verification_passed -> exit 0", () => {
   }
 });
 
-test("CLI: check --orchestrator with in_progress steps -> exit 1", () => {
+test("CLI: check --orchestrator with in_progress steps -> exit 2", () => {
   const dir = createTestDir();
   try {
     const task = makeBaseTask();
@@ -672,7 +672,7 @@ test("CLI: check --orchestrator with in_progress steps -> exit 1", () => {
       `check --orchestrator --task ${taskPath}`,
       true,
     );
-    assertEqual(res.exitCode, 1, "exit code");
+    assertEqual(res.exitCode, 2, "exit code");
     assert(
       res.stdout.includes("進行中のステップがあります"),
       `stdout should contain block message, got: ${res.stdout}`,
@@ -700,7 +700,7 @@ test("CLI: check --orchestrator all done, no panes -> exit 0", () => {
   }
 });
 
-test("CLI: check --orchestrator with active worker panes -> exit 1", () => {
+test("CLI: check --orchestrator with active worker panes -> exit 2", () => {
   const dir = createTestDir();
   try {
     const task = makeBaseTask({
@@ -726,7 +726,7 @@ test("CLI: check --orchestrator with active worker panes -> exit 1", () => {
       `check --orchestrator --task ${taskPath}`,
       true,
     );
-    assertEqual(res.exitCode, 1, "exit code");
+    assertEqual(res.exitCode, 2, "exit code");
     assert(
       res.stdout.includes("実行中の agent がいます"),
       `stdout should contain agents message, got: ${res.stdout}`,
