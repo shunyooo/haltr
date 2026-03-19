@@ -390,7 +390,11 @@ async function handleCheck(opts: {
       process.exit(2); // exit 2 = blocking in Claude Code hooks
     } else {
       const role = opts.worker ? "worker" : "verifier";
-      await cleanupPane(taskPath, opts.step, role);
+      // Worker pane stays alive (may need to fix after verification failure)
+      // Verifier pane is cleaned up after completion
+      if (opts.verifier) {
+        await cleanupPane(taskPath, opts.step, role);
+      }
       const msg = result.notification ?? `${role} check passed`;
       console.log(JSON.stringify({ systemMessage: `[haltr] ${msg}` }));
       process.exit(0);
