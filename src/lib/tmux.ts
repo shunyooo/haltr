@@ -56,7 +56,7 @@ export async function tmuxSplitWindow(
   command?: string,
   cwd?: string,
 ): Promise<string> {
-  const args = ["split-window", "-t", sessionName, "-P", "-F", "#{pane_id}"];
+  const args = ["split-window", "-h", "-t", sessionName, "-P", "-F", "#{pane_id}"];
   if (cwd) {
     args.push("-c", cwd);
   }
@@ -64,6 +64,8 @@ export async function tmuxSplitWindow(
     args.push(command);
   }
   const paneId = await tmuxRun(args);
+  // Re-layout: left = orchestrator, right = children stacked
+  await tmuxRun(["select-layout", "-t", sessionName, "main-vertical"]).catch(() => {});
   return paneId;
 }
 
@@ -72,6 +74,8 @@ export async function tmuxSplitWindow(
  */
 export async function tmuxKillPane(paneId: string): Promise<void> {
   await tmuxRun(["kill-pane", "-t", paneId]);
+  // Re-layout after pane removal
+  await tmuxRun(["select-layout", "main-vertical"]).catch(() => {});
 }
 
 /**
