@@ -22,7 +22,7 @@ import * as yaml from "js-yaml";
 import { loadAndValidateTask, loadAndValidateConfig } from "../lib/validator.js";
 import { findStep, validateTaskPath, loadConfig } from "../lib/task-utils.js";
 import { PanesManager } from "../lib/panes-manager.js";
-import { tmuxSendKeys } from "../lib/tmux.js";
+import { tmuxSendKeys, tmuxKillPane } from "../lib/tmux.js";
 import type {
   TaskYaml,
   HistoryEvent,
@@ -261,6 +261,28 @@ export function checkOrchestrator(
  *
  * Silently does nothing if .panes.yaml is missing or parent is not found.
  */
+/**
+ * Clean up the current pane: remove from .panes.yaml and kill the pane.
+ * Called after a non-orchestrator agent finishes successfully.
+ */
+async function cleanupPane(taskPath: string, stepId: string, role: string): Promise<void> {
+  try {
+    const epicDir = dirname(taskPath);
+    const pm = new PanesManager(epicDir);
+    const panes = pm.load();
+    const myPane = panes.find((p) => p.step === stepId && p.role === role);
+    if (myPane) {
+      pm.remove(myPane.pane_id);
+      // Schedule pane kill after a short delay (let the process exit first)
+      setTimeout(async () => {
+        try { await tmuxKillPane(myPane.pane_id); } catch {}
+      }, 1000);
+    }
+  } catch {
+    // Best effort
+  }
+}
+
 export async function notifyParent(
   basePath: string,
   stepId: string,
@@ -373,6 +395,8 @@ async function handleCheck(opts: {
       if (result.message) {
         console.error(result.message);
       }
+      const role = opts.worker ? "worker" : "verifier";
+      await cleanupPane(taskPath, opts.step, role);
       process.exit(0);
     }
   }
@@ -427,7 +451,7 @@ async function handleCheck(opts: {
       writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
     }
 
-    // Notify parent orchestrator
+    // Notify parent orchestrator and clean up pane
     const epicDir = dirname(taskPath);
     const pm = new PanesManager(epicDir);
     const panes = pm.load();
@@ -439,6 +463,14 @@ async function handleCheck(opts: {
       } catch {
         // Best effort
       }
+    }
+
+    // Clean up reviewer pane
+    if (reviewerPane) {
+      pm.remove(reviewerPane.pane_id);
+      setTimeout(async () => {
+        try { await tmuxKillPane(reviewerPane.pane_id); } catch {}
+      }, 1000);
     }
 
     process.exit(0);
