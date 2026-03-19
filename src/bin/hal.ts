@@ -26,6 +26,13 @@ import { handleStart } from "../commands/start.js";
 import { handleStop } from "../commands/stop.js";
 import { TmuxRuntime } from "../lib/tmux-runtime.js";
 import { registerHookCommand } from "../commands/hook.js";
+import {
+  handleDefault as handleSessionDefault,
+  handleNew as handleSessionNew,
+  handleAttach as handleSessionAttach,
+  handleStopSession as handleSessionStop,
+  listSessions as sessionListSessions,
+} from "../commands/session.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,7 +47,16 @@ const program = new Command();
 program
   .name("hal")
   .description("haltr — Quality assurance orchestration for coding agents")
-  .version(pkg.version);
+  .version(pkg.version)
+  .action(async () => {
+    try {
+      await handleSessionDefault();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  });
 
 program
   .command("init")
@@ -316,7 +332,10 @@ program
       opts: { task: string; step?: string; cli?: string },
     ) => {
       try {
-        const runtime = new TmuxRuntime("haltr", process.cwd());
+        // Detect current tmux session name (spawn runs inside a haltr session)
+        const { tmuxCurrentSession } = await import("../lib/tmux.js");
+        const currentSession = await tmuxCurrentSession() ?? "haltr";
+        const runtime = new TmuxRuntime(currentSession, process.cwd());
         await handleSpawn(
           { role, task: opts.task, step: opts.step, cli: opts.cli },
           runtime,
@@ -329,16 +348,14 @@ program
     },
   );
 
-// ---- start ----
+// ---- session management ----
 
 program
-  .command("start")
-  .description("Start tmux session and orchestrator agent")
-  .option("--cli <cli>", "CLI override for orchestrator")
-  .option("--task <path>", "Path to task.yaml")
-  .action(async (opts: { cli?: string; task?: string }) => {
+  .command("new")
+  .description("Start a new haltr session")
+  .action(async () => {
     try {
-      await handleStart(opts);
+      await handleSessionNew();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error(`Error: ${msg}`);
@@ -346,14 +363,67 @@ program
     }
   });
 
-// ---- stop ----
-
 program
-  .command("stop")
-  .description("Stop tmux session and watcher process")
+  .command("ls")
+  .description("List active haltr sessions")
   .action(async () => {
     try {
-      await handleStop();
+      const sessions = await sessionListSessions();
+      if (sessions.length === 0) {
+        console.log("アクティブなセッションはありません。");
+        return;
+      }
+      for (const s of sessions) {
+        console.log(`  ${s.epicName}`);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("attach [epic]")
+  .description("Attach to an existing haltr session")
+  .action(async (epic?: string) => {
+    try {
+      if (epic) {
+        await handleSessionAttach(epic);
+      } else {
+        await handleSessionDefault();
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("stop [epic]")
+  .description("Stop haltr session(s)")
+  .option("--all", "Stop all sessions")
+  .action(async (epic: string | undefined, opts: { all?: boolean }) => {
+    try {
+      await handleSessionStop(epic, opts.all ?? false);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  });
+
+// Keep start for backward compat (used internally by session.ts)
+program
+  .command("start")
+  .description("Start tmux session and orchestrator agent (internal)")
+  .option("--cli <cli>", "CLI override for orchestrator")
+  .option("--task <path>", "Path to task.yaml")
+  .option("--session-name <name>", "tmux session name")
+  .action(async (opts: { cli?: string; task?: string; sessionName?: string }) => {
+    try {
+      await handleStart(opts);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error(`Error: ${msg}`);

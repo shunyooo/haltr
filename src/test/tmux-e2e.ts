@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import * as yaml from "js-yaml";
 
-const SESSION_NAME = "haltr";
+const SESSION_NAME = "haltr-test";
 let passed = 0;
 let failed = 0;
 const failures: string[] = [];
@@ -171,7 +171,7 @@ await testAsync("hal stop kills tmux session and cleans up", async () => {
     tmux("new-session", "-d", "-s", SESSION_NAME);
     assert(tmuxSessionExists(), "session should exist before stop");
 
-    halInDir(dir, "stop");
+    halInDir(dir, "stop", "--all");
 
     assert(!tmuxSessionExists(), "session should be gone after stop");
   } finally {

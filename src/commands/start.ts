@@ -40,6 +40,7 @@ import { Watcher, type WatcherDeps } from "../lib/watcher.js";
 export interface StartOptions {
   cli?: string;
   task?: string;
+  sessionName?: string;
 }
 
 /**
@@ -56,7 +57,7 @@ const defaultDeps: StartDeps = {
   sessionExists: tmuxSessionExists,
   createSession: tmuxCreateSession,
   sendKeys: tmuxSendKeys,
-  listAlivePanes: () => tmuxListPanes("haltr"),
+  listAlivePanes: () => tmuxListPanes("haltr"), // default, overridden at runtime
 };
 
 /**
@@ -72,7 +73,7 @@ export async function handleStart(
   deps: StartDeps = defaultDeps,
 ): Promise<{ paneId: string; cli: string }> {
   const base = basePath ?? process.cwd();
-  const sessionName = "haltr";
+  const sessionName = opts.sessionName ?? "haltr";
 
   // 1. Check if session already exists
   const exists = await deps.sessionExists(sessionName);
@@ -160,7 +161,7 @@ export async function handleStart(
   } else {
     // Test: start watcher in-process
     const watcherDeps: WatcherDeps = {
-      listAlivePanes: deps.listAlivePanes ?? (() => tmuxListPanes("haltr")),
+      listAlivePanes: deps.listAlivePanes ?? (() => tmuxListPanes(sessionName)),
       sendKeys: deps.sendKeys,
     };
     const watcher = new Watcher(configYaml, haltrDir, base, watcherDeps);
@@ -192,7 +193,7 @@ export async function handleStart(
   // 8. Attach to tmux session (gives control to the user)
   if (deps === defaultDeps) {
     try {
-      execFileSync("tmux", ["attach", "-t", "haltr"], { stdio: "inherit" });
+      execFileSync("tmux", ["attach", "-t", sessionName], { stdio: "inherit" });
     } catch {
       // User detached from tmux — that's fine
     }

@@ -137,3 +137,41 @@ export async function tmuxListPanes(
 export async function tmuxKillSession(sessionName: string): Promise<void> {
   await tmuxRun(["kill-session", "-t", sessionName]);
 }
+
+/**
+ * List all tmux sessions matching a prefix.
+ * Returns session names.
+ */
+export async function tmuxListSessions(prefix?: string): Promise<string[]> {
+  try {
+    const output = await tmuxRun(["list-sessions", "-F", "#{session_name}"]);
+    if (!output) return [];
+    const sessions = output.split("\n").filter(Boolean);
+    if (prefix) return sessions.filter((s) => s.startsWith(prefix));
+    return sessions;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Rename a tmux session.
+ */
+export async function tmuxRenameSession(
+  oldName: string,
+  newName: string,
+): Promise<void> {
+  await tmuxRun(["rename-session", "-t", oldName, newName]);
+}
+
+/**
+ * Get the current tmux session name (from within a tmux pane).
+ */
+export async function tmuxCurrentSession(): Promise<string | undefined> {
+  try {
+    const name = await tmuxRun(["display-message", "-p", "#S"]);
+    return name || undefined;
+  } catch {
+    return undefined;
+  }
+}
