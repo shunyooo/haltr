@@ -31,7 +31,7 @@ import {
   assemblePrompt,
   readRules,
   convertAgentSettingsForClaude,
-  buildClaudeCommand,
+  buildLaunchScript,
   type ClaudeSettings,
 } from "./spawn.js";
 import { validateCli, parseCli } from "../lib/task-utils.js";
@@ -172,8 +172,8 @@ export async function handleStart(
   try {
     const hooksDir = join(haltrDir, ".hooks", "001_main-orchestrator");
     if (promptPath) {
-      const cliCommand = buildClaudeCommand(resolvedCli, "main-orchestrator", hooksDir, promptPath);
-      await deps.sendKeys(paneId, cliCommand);
+      const scriptPath = buildLaunchScript(resolvedCli, "main-orchestrator", hooksDir, promptPath);
+      await deps.sendKeys(paneId, `bash '${scriptPath}'`);
     } else {
       const { provider, model } = parseCli(resolvedCli);
       let cliCommand = provider;

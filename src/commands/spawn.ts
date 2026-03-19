@@ -311,54 +311,54 @@ export function convertAgentSettingsForClaude(hooksDir: string): ClaudeSettings 
 }
 
 /**
- * Build a Claude CLI command string with all flags and prompt content.
- * Reads the prompt file and passes content directly (no shell expansion needed).
+ * Build a launch script for a CLI agent and write it to hooksDir/launch.sh.
+ * Returns the path to the script.
+ *
+ * Using a script file avoids tmux send-keys buffer overflow issues
+ * with long prompts passed as command arguments.
  */
-export function buildClaudeCommand(
+export function buildLaunchScript(
   cliSpec: string,
   role: string,
   hooksDir: string,
   promptPath: string,
 ): string {
   const { provider, model } = parseCli(cliSpec);
+  const lines = ["#!/bin/bash"];
 
   if (provider !== "claude") {
-    const promptContent = readFileSync(promptPath, "utf-8");
-    return `${provider} ${escapeShellArg(promptContent)}`;
-  }
-
-  const parts = [provider];
-  if (model) parts.push(`--model ${model}`);
-
-  const agentSettings = convertAgentSettingsForClaude(hooksDir);
-  if (agentSettings.settingsPath) parts.push(`--settings '${agentSettings.settingsPath}'`);
-  if (agentSettings.allowedTools?.length) parts.push(`--allowedTools "${agentSettings.allowedTools.join(",")}"`);
-  if (agentSettings.disallowedTools?.length) parts.push(`--disallowedTools "${agentSettings.disallowedTools.join(",")}"`);
-  if (agentSettings.permissionMode) parts.push(`--permission-mode ${agentSettings.permissionMode}`);
-
-  const promptContent = readFileSync(promptPath, "utf-8");
-  const isOrchestrator = role === "main-orchestrator" || role === "sub-orchestrator";
-  if (isOrchestrator) {
-    parts.push(`--append-system-prompt ${escapeShellArg(promptContent)}`);
+    lines.push(`${provider} "$(cat '${promptPath}')"`);
   } else {
-    parts.push(escapeShellArg(promptContent));
+    const parts = [provider];
+    if (model) parts.push(`--model ${model}`);
+
+    const agentSettings = convertAgentSettingsForClaude(hooksDir);
+    if (agentSettings.settingsPath) parts.push(`--settings '${agentSettings.settingsPath}'`);
+    if (agentSettings.allowedTools?.length) parts.push(`--allowedTools "${agentSettings.allowedTools.join(",")}"`);
+    if (agentSettings.disallowedTools?.length) parts.push(`--disallowedTools "${agentSettings.disallowedTools.join(",")}"`);
+    if (agentSettings.permissionMode) parts.push(`--permission-mode ${agentSettings.permissionMode}`);
+
+    // Always use --append-system-prompt for the full prompt content
+    // (positional arg is silently truncated for long prompts)
+    parts.push(`--append-system-prompt "$(cat '${promptPath}')"`);
+
+    // Add a short initial user message to trigger action
+    const isOrchestrator = role === "main-orchestrator" || role === "sub-orchestrator";
+    if (!isOrchestrator) {
+      const userMsg = role === "task-spec-reviewer"
+        ? "このタスクの仕様をレビューしてください"
+        : role === "verifier"
+        ? "受入条件を検証してください"
+        : "タスクを実行してください";
+      parts.push(`'${userMsg}'`);
+    }
+
+    lines.push(parts.join(" \\\n  "));
   }
 
-  return parts.join(" ");
-}
-
-/**
- * Escape a string for use as a single shell argument.
- * Uses $'...' syntax to handle newlines and special characters.
- */
-function escapeShellArg(s: string): string {
-  const escaped = s
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\t/g, "\\t");
-  return `$'${escaped}'`;
+  const scriptPath = join(hooksDir, "launch.sh");
+  writeFileSync(scriptPath, lines.join("\n") + "\n", { mode: 0o755 });
+  return scriptPath;
 }
 
 // ============================================================================
@@ -683,10 +683,10 @@ export async function handleSpawn(
       // Best effort — styling is cosmetic
     }
 
-    // Build CLI command and send to pane
+    // Launch agent via script file (avoids tmux buffer overflow with long prompts)
     try {
-      const cliCommand = buildClaudeCommand(resolvedCli, role, hooksDir, promptPath);
-      await runtime.send(agentInfo.agentId, cliCommand);
+      const scriptPath = buildLaunchScript(resolvedCli, role, hooksDir, promptPath);
+      await runtime.send(agentInfo.agentId, `bash '${scriptPath}'`);
     } catch {
       // Best effort
     }
