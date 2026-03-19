@@ -407,7 +407,7 @@ await testAsync("full workflow: start → history → status → check", async (
     halInDir(dir, "status", "--task", taskPath, "step-1", "in_progress");
 
     // Record work_done
-    const doneOut = halInDir(dir, "history", "add", "--type", "work_done", "--step", "step-1", "--task", taskPath, "--summary", "implemented");
+    const doneOut = halInDir(dir, "history", "add", "--type", "work_done", "--step", "step-1", "--task", taskPath, "--message", "implemented");
     assert(doneOut.includes("Recorded"), `work_done: ${doneOut}`);
 
     // Verify task.yaml state
@@ -484,24 +484,6 @@ await testAsync("renderHooks generates settings.yaml and settings.json for Claud
 // Section 7: Layout
 // ============================================================================
 
-console.log("\n--- Layout ---");
-
-await testAsync("hal layout changes tmux layout", async () => {
-  const dir = createTestDir();
-  try {
-    halInDir(dir, "init");
-    tmux("new-session", "-d", "-s", SESSION_NAME);
-
-    // Need at least 2 panes for layout to matter
-    tmux("split-window", "-t", SESSION_NAME);
-
-    const layoutOut = halInDir(dir, "layout", "tiled");
-    assert(layoutOut.includes("Layout set") || layoutOut === "", `layout output: ${layoutOut}`);
-  } finally {
-    cleanup();
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
 
 // ============================================================================
 // Section 8: Rule management

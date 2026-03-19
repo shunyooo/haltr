@@ -36,7 +36,6 @@ import {
   createEpic,
 } from "../commands/epic.js";
 import { listRules, addRule } from "../commands/rule.js";
-import { handleLayout, getValidLayouts } from "../commands/layout.js";
 import { findStep } from "../lib/task-utils.js";
 
 // ============================================================================
@@ -944,70 +943,6 @@ test("rule add: no haltr dir -> error", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
-
-// ============================================================================
-// Section 6: hal layout
-// ============================================================================
-
-console.log("\n--- hal layout ---");
-
-await testAsync(
-  "layout: calls tmux select-layout (mock)",
-  async () => {
-    const mockRun = createMockTmuxRun();
-
-    await handleLayout("tiled", mockRun.fn, "haltr");
-
-    assertEqual(mockRun.calls.length, 1, "tmuxRun call count");
-    const args = mockRun.calls[0];
-    assertEqual(args[0], "select-layout", "command");
-    assertEqual(args[1], "-t", "flag");
-    assertEqual(args[2], "haltr", "session name");
-    assertEqual(args[3], "tiled", "layout type");
-  },
-);
-
-await testAsync(
-  "layout: all valid types accepted",
-  async () => {
-    for (const layoutType of getValidLayouts()) {
-      const mockRun = createMockTmuxRun();
-      await handleLayout(layoutType, mockRun.fn, "haltr");
-      assertEqual(mockRun.calls.length, 1, `call count for ${layoutType}`);
-    }
-  },
-);
-
-await testAsync(
-  "layout: invalid type -> error",
-  async () => {
-    const mockRun = createMockTmuxRun();
-
-    await expectThrowsAsync(
-      () => handleLayout("invalid-layout", mockRun.fn, "haltr"),
-      "Invalid layout type",
-    );
-
-    assertEqual(mockRun.calls.length, 0, "no tmux calls on invalid type");
-  },
-);
-
-await testAsync(
-  "layout: session not found -> graceful error",
-  async () => {
-    const mockRun = {
-      fn: async (_args: string[]): Promise<string> => {
-        throw new Error("can't find session: haltr");
-      },
-      calls: [] as string[][],
-    };
-
-    await expectThrowsAsync(
-      () => handleLayout("tiled", mockRun.fn, "haltr"),
-      "not found",
-    );
-  },
-);
 
 // ============================================================================
 // Summary

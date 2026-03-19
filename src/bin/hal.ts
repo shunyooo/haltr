@@ -20,7 +20,6 @@ import { handleEscalate } from "../commands/escalate.js";
 import { handleKill } from "../commands/kill-cmd.js";
 import { handlePanes } from "../commands/panes.js";
 import { listRules, addRule } from "../commands/rule.js";
-import { handleLayout } from "../commands/layout.js";
 import { handleSpawn, VALID_ROLES } from "../commands/spawn.js";
 import { handleNext } from "../commands/next.js";
 import { handleStart } from "../commands/start.js";
@@ -301,21 +300,6 @@ ruleCmd
   });
 
 program.addCommand(ruleCmd);
-
-// ---- layout ----
-
-program
-  .command("layout <type>")
-  .description("Change tmux layout")
-  .action(async (type: string) => {
-    try {
-      await handleLayout(type);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error(`Error: ${msg}`);
-      process.exit(1);
-    }
-  });
 
 // ---- spawn ----
 

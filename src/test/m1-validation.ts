@@ -61,7 +61,7 @@ test("hal --help shows subcommands", () => {
   const expectedCommands = [
     "init", "epic", "task", "history", "status", "check",
     "spawn", "start", "stop", "escalate", "kill", "panes",
-    "rule", "layout", "hook"
+    "rule", "hook"
   ];
   for (const cmd of expectedCommands) {
     if (!output.includes(cmd)) {
