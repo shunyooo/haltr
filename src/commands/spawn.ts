@@ -3,7 +3,7 @@
  *
  * hal spawn <role> --task <path> [--step <step>] [--cli <cli>]
  *
- * Roles: worker, verifier, sub-orchestrator, task-spec-reviewer, rules-agent
+ * Roles: worker, verifier, sub-orchestrator, task-spec-reviewer
  *
  * Steps:
  *   1. Resolve which CLI to use (priority chain)
@@ -36,7 +36,6 @@ export const VALID_ROLES = new Set([
   "verifier",
   "sub-orchestrator",
   "task-spec-reviewer",
-  "rules-agent",
 ]);
 
 /** Border colors per role for tmux pane styling. */
@@ -46,7 +45,6 @@ const ROLE_COLORS: Record<string, string> = {
   worker: "blue",
   verifier: "green",
   "task-spec-reviewer": "magenta",
-  "rules-agent": "cyan",
 };
 
 export interface SpawnCommandOptions {
@@ -91,8 +89,7 @@ export function resolveCli(
   const isWorker = role === "worker";
   const isOrchestrator =
     role === "sub-orchestrator" ||
-    role === "task-spec-reviewer" ||
-    role === "rules-agent";
+    role === "task-spec-reviewer";
 
   // 2. For verifier: check accept-level verifier override
   if (isVerifier && stepPath && acceptId) {

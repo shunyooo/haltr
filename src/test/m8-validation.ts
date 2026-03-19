@@ -176,7 +176,6 @@ test("getAgentSettings returns defaults for all 6 agent roles", () => {
       "worker",
       "verifier",
       "task-spec-reviewer",
-      "rules-agent",
     ];
 
     for (const role of agentRoles) {
@@ -200,7 +199,6 @@ test("each agent definition has hooks field", () => {
       "worker",
       "verifier",
       "task-spec-reviewer",
-      "rules-agent",
     ];
 
     for (const role of agentRoles) {
@@ -274,16 +272,16 @@ test("verifier.yaml has roles: [verify]", () => {
   }
 });
 
-test("rules-agent.yaml has roles: [maintain-rules]", () => {
+test("worker.yaml has roles: [implement]", () => {
   const dir = createTestDir();
   try {
     const haltrDir = createHaltrDir(dir);
-    const content = getAgentSettings(haltrDir, "rules-agent");
+    const content = getAgentSettings(haltrDir, "worker");
     const data = yaml.load(content) as any;
     assert(Array.isArray(data.roles), "roles should be array");
     assert(
-      data.roles.includes("maintain-rules"),
-      "should include maintain-rules",
+      data.roles.includes("implement"),
+      "should include implement",
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -407,24 +405,6 @@ test("task-spec-reviewer has hooks section", () => {
   }
 });
 
-test("rules-agent has empty hooks section", () => {
-  const dir = createTestDir();
-  try {
-    const haltrDir = createHaltrDir(dir);
-    const content = getAgentSettings(haltrDir, "rules-agent");
-    const data = yaml.load(content) as any;
-    // hooks: {} should be parsed as null or empty object
-    assert(
-      data.hooks === null ||
-        data.hooks === undefined ||
-        (typeof data.hooks === "object" &&
-          Object.keys(data.hooks).length === 0),
-      "rules-agent hooks should be empty",
-    );
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
 
 // ============================================================================
 // Section 3: hal hook guard-bash
@@ -1016,7 +996,6 @@ test("getAgentSettings returns agent definitions with hooks sections", () => {
       "worker",
       "verifier",
       "task-spec-reviewer",
-      "rules-agent",
     ];
     for (const role of agentRoles) {
       const content = getAgentSettings(haltrDir, role);

@@ -354,7 +354,7 @@ test("CLI resolution: orchestrator roles use config.orchestrator_cli", () => {
     retry: { max_attempts: 3 },
   };
 
-  for (const role of ["sub-orchestrator", "task-spec-reviewer", "rules-agent"]) {
+  for (const role of ["sub-orchestrator", "task-spec-reviewer"]) {
     const cli = resolveCli(role, taskYaml, config);
     assertEqual(cli, "gemini", `${role} uses orchestrator_cli`);
   }
@@ -594,33 +594,6 @@ test("assemblePrompt: sub-orchestrator prompt contains orchestrator instructions
       "should contain sub-orchestrator instruction",
     );
     assert(content.includes("step-1"), "should contain step details");
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test("assemblePrompt: rules-agent prompt contains rule update instructions", () => {
-  const dir = createTestDir();
-  try {
-    const haltrDir = join(dir, "haltr");
-    const taskYaml = makeBaseTask();
-    const taskPath = join(haltrDir, "task.yaml");
-    const hooksDir = renderHooks(haltrDir, "rules-agent", taskPath);
-
-    const promptPath = assemblePrompt(
-      hooksDir,
-      haltrDir,
-      "rules-agent",
-      taskYaml,
-      taskPath,
-    );
-
-    const content = readFileSync(promptPath, "utf-8");
-    assert(content.includes("# Rules"), "should contain rules");
-    assert(
-      content.includes("ルールエージェント"),
-      "should contain rules-agent instruction",
-    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
