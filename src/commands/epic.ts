@@ -94,6 +94,14 @@ export function findEpicDir(baseDir: string, name: string): string {
   }
 
   const entries = readdirSync(epicsDir);
+
+  // Try exact match first (e.g., "20260319-001_todo-app")
+  const exact = entries.find((entry) => entry === name);
+  if (exact) {
+    return join(epicsDir, exact);
+  }
+
+  // Then try suffix match (e.g., "todo-app" matches "20260319-001_todo-app")
   const matches = entries.filter((entry) => entry.endsWith(`_${name}`));
 
   if (matches.length === 0) {
