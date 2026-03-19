@@ -389,11 +389,10 @@ async function handleCheck(opts: {
       console.log(result.message);
       process.exit(2); // exit 2 = blocking in Claude Code hooks
     } else {
-      if (result.message) {
-        console.error(result.message);
-      }
       const role = opts.worker ? "worker" : "verifier";
       await cleanupPane(taskPath, opts.step, role);
+      const msg = result.notification ?? `${role} check passed`;
+      console.log(JSON.stringify({ systemMessage: `[haltr] ${msg}` }));
       process.exit(0);
     }
   }
@@ -418,9 +417,7 @@ async function handleCheck(opts: {
       console.log(result.message);
       process.exit(2); // exit 2 = blocking in Claude Code hooks
     } else {
-      if (result.message) {
-        console.error(result.message);
-      }
+      console.log(JSON.stringify({ systemMessage: `[haltr] orchestrator check passed` }));
       process.exit(0);
     }
   }
@@ -468,6 +465,7 @@ async function handleCheck(opts: {
       try { await tmuxKillPane(reviewerPane.pane_id); } catch {}
     }
 
+    console.log(JSON.stringify({ systemMessage: "[haltr] spec review completed" }));
     process.exit(0);
   }
 }
