@@ -138,6 +138,11 @@ export interface PivotedEvent extends HistoryEventBase {
   next_task?: string;
 }
 
+export interface UserFeedbackEvent extends HistoryEventBase {
+  type: "user_feedback";
+  message?: string;
+}
+
 export type HistoryEvent =
   | CreatedEvent
   | UpdatedEvent
@@ -147,6 +152,7 @@ export type HistoryEvent =
   | VerificationPassedEvent
   | VerificationFailedEvent
   | EscalationEvent
+  | UserFeedbackEvent
   | BlockedResolvedEvent
   | StepSkippedEvent
   | CompletedEvent

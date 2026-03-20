@@ -137,6 +137,10 @@ export function resolveBy(
   acceptId?: string,
   acceptType?: string,
 ): string {
+  if (type === "user_feedback") {
+    return "user";
+  }
+
   if (orchestratorEvents.has(type)) {
     return `orchestrator(${configYaml.orchestrator_cli})`;
   }

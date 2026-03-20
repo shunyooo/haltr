@@ -20,6 +20,7 @@ export function usePanesData(epicDir: string): PaneEntry[] {
   const [panes, setPanes] = useState<PaneEntry[]>(() => loadPanes(epicDir));
 
   useEffect(() => {
+    setPanes(loadPanes(epicDir));
     const panesPath = join(epicDir, ".panes.yaml");
     let watcher: FSWatcher;
     try {

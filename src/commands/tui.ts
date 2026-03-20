@@ -1,20 +1,20 @@
 import React from "react";
 import { render } from "ink";
+import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { Dashboard } from "../tui/app.js";
-import { currentEpic } from "./epic.js";
 
 export async function handleTui(): Promise<void> {
   const cwd = process.cwd();
+  const epicsDir = join(cwd, "haltr", "epics");
 
-  // Get current epic if available
-  const epic = currentEpic(cwd);
-  const epicName = epic?.name;
+  if (!existsSync(epicsDir)) {
+    throw new Error("haltr/epics/ directory not found. Run 'hal init' first.");
+  }
 
-  // Render the dashboard
   const { waitUntilExit } = render(
-    React.createElement(Dashboard, { epicName })
+    React.createElement(Dashboard, { epicsDir }),
   );
 
-  // Wait for user to exit
   await waitUntilExit();
 }

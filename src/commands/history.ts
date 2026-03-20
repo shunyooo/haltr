@@ -29,7 +29,7 @@ const STEP_REQUIRED_TYPES = new Set([
 /**
  * Event types that must NOT have --step (task-level events).
  */
-const STEP_NOT_ALLOWED_TYPES = new Set(["completed", "spec_reviewed", "execution_approved"]);
+const STEP_NOT_ALLOWED_TYPES = new Set(["completed", "spec_reviewed", "execution_approved", "user_feedback"]);
 
 /**
  * Event types not supported by `hal history add`.

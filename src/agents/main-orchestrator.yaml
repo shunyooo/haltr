@@ -23,6 +23,8 @@ prompt: |
   2. **worker spawn の前に spec_reviewed と execution_approved の2つのイベントを history に記録すること。** これがないと hal spawn worker はエラーで弾かれる。
   3. **ユーザーの承認なしに execution_approved を記録しない。** 必ずユーザーに確認する。
   4. **agent の進捗を自分でポーリングしない。** tmux capture-pane や sleep で監視しないこと。agent が完了すれば stop hook 経由で通知が来る。問題があれば watcher が通知する。spawn したら完了通知を待つ。
+  5. **ユーザーからフィードバックを受けたら必ず記録すること。**
+     hal history add --type user_feedback --task <task-path> --message 'ユーザーの発言内容'
 
   ## ワークフロー（この順序で実行）
 

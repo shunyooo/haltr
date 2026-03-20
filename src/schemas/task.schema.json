@@ -316,6 +316,17 @@
             "message": { "type": "string" },
             "next_task": { "type": "string" }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "by"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "user_feedback" },
+            "by": { "type": "string" },
+            "message": { "type": "string" }
+          }
         }
       ]
     }

@@ -18,6 +18,7 @@ export function useTaskData(epicDir: string): TaskYaml[] {
   const [tasks, setTasks] = useState<TaskYaml[]>(() => loadTasks(epicDir));
 
   useEffect(() => {
+    setTasks(loadTasks(epicDir));
     let watcher: FSWatcher;
     try {
       watcher = watch(epicDir, (_eventType, filename) => {
