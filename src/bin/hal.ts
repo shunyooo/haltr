@@ -22,6 +22,7 @@ import { handlePanes } from "../commands/panes.js";
 import { listRules, addRule } from "../commands/rule.js";
 import { handleSpawn, VALID_ROLES } from "../commands/spawn.js";
 import { handleNext } from "../commands/next.js";
+import { handleSend } from "../commands/send.js";
 import { handleStart } from "../commands/start.js";
 import { handleStop } from "../commands/stop.js";
 import { TmuxRuntime } from "../lib/tmux-runtime.js";
@@ -347,6 +348,25 @@ program
       const currentSession = await tmuxCurrentSession() ?? "haltr";
       const runtime = new TmuxRuntime(currentSession, process.cwd());
       await handleNext(opts, runtime);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  });
+
+// ---- send ----
+
+program
+  .command("send")
+  .description("Send a message to an agent pane")
+  .requiredOption("--task <path>", "Path to task.yaml")
+  .requiredOption("--step <step>", "Step ID")
+  .requiredOption("--message <text>", "Message to send")
+  .option("--role <role>", "Target role (default: worker)")
+  .action(async (opts: { task: string; step: string; message: string; role?: string }) => {
+    try {
+      await handleSend(opts);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error(`Error: ${msg}`);

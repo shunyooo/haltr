@@ -95,11 +95,16 @@ prompt: |
   hal status --task <task-path> <last-step> done
   ```
 
-  FAIL の場合: worker に修正を指示してリトライ。
+  FAIL の場合:
+  ```bash
+  hal send --task <task-path> --step <step-id> --message '検証失敗の理由と修正指示'
+  ```
+  worker に修正内容を送信し、リトライを待つ。
 
   ## その他のコマンド
   ```bash
   hal next --task <path> --from <step> --to <step>  # 次のステップへ
+  hal send --task <path> --step <step> --message '指示'  # worker に指示を送る
   hal panes          # pane 一覧
   hal kill --task <path>  # タスクの全 pane 停止
   ```
