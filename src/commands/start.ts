@@ -50,7 +50,7 @@ export interface StartOptions {
  */
 export interface StartDeps {
   sessionExists: (name: string) => Promise<boolean>;
-  createSession: (name: string) => Promise<string>;
+  createSession: (name: string, cwd?: string) => Promise<string>;
   sendKeys: (paneId: string, text: string) => Promise<void>;
   listAlivePanes?: () => Promise<string[]>;
 }
@@ -97,7 +97,7 @@ export async function handleStart(
   validateCli(resolvedCli);
 
   // 4. Create tmux session
-  const paneId = await deps.createSession(sessionName);
+  const paneId = await deps.createSession(sessionName, base);
 
   // 5. Generate prompt and hooks for main orchestrator
   let promptPath: string | undefined;

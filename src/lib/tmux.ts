@@ -34,8 +34,8 @@ export async function tmuxSessionExists(sessionName: string): Promise<boolean> {
  * Create a new tmux session (detached) and return the pane ID of the
  * initial pane.
  */
-export async function tmuxCreateSession(sessionName: string): Promise<string> {
-  const paneId = await tmuxRun([
+export async function tmuxCreateSession(sessionName: string, cwd?: string): Promise<string> {
+  const args = [
     "new-session",
     "-d",
     "-s",
@@ -43,7 +43,11 @@ export async function tmuxCreateSession(sessionName: string): Promise<string> {
     "-P",
     "-F",
     "#{pane_id}",
-  ]);
+  ];
+  if (cwd) {
+    args.push("-c", cwd);
+  }
+  const paneId = await tmuxRun(args);
   return paneId;
 }
 
