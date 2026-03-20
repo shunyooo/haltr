@@ -55,6 +55,21 @@ export async function handleEscalate(
     throw new Error(`Step not found: "${stepPath}"`);
   }
 
+  // Check: caller must have a parent pane (escalate = report to parent)
+  const currentPaneId = process.env.TMUX_PANE;
+  if (currentPaneId) {
+    const epicDir = dirname(resolvedPath);
+    const pmCheck = new PanesManager(epicDir);
+    const allPanes = pmCheck.load();
+    const myPane = allPanes.find((p) => p.pane_id === currentPaneId);
+    if (myPane && !myPane.parent_pane_id) {
+      throw new Error(
+        "エスカレート先がありません（親 pane がない）。worker に修正を指示するには hal send を使ってください:\n" +
+        `  hal send --task '${taskPath}' --step '${stepPath}' --message '修正指示'`,
+      );
+    }
+  }
+
   // 1. Transition status to blocked
   const currentStatus = step.status || "pending";
   validateStepTransition(currentStatus, "blocked");
