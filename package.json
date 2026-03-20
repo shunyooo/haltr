@@ -1,11 +1,11 @@
 {
   "name": "haltr",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Quality assurance tool for coding agent outputs",
   "type": "module",
   "main": "./dist/bin/hal.js",
   "bin": {
-    "hal": "./dist/bin/hal.js"
+    "hal": "dist/bin/hal.js"
   },
   "scripts": {
     "build": "tsc && cp -r src/agents dist/",
@@ -21,7 +21,13 @@
     "lint": "biome lint src/",
     "lint:fix": "biome lint --write src/"
   },
-  "keywords": ["coding-agent", "orchestration", "quality-assurance", "tmux", "cli"],
+  "keywords": [
+    "coding-agent",
+    "orchestration",
+    "quality-assurance",
+    "tmux",
+    "cli"
+  ],
   "license": "MIT",
   "files": [
     "dist/",
