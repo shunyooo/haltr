@@ -18,6 +18,8 @@ prompt: |
      hal history add --type work_done --step '{{step}}' --task '{{task}}' --message '作業内容の要約'
   4. **問題が発生して自力で解決できない場合:**
      hal escalate --task '{{task}}' --step '{{step}}' --message '問題の内容'
+  5. **検証失敗の指摘を受けたら、まず詳細を確認すること:**
+     hal history show --task '{{task}}' --step '{{step}}' --type verification_failed --last
 
   {{step_details}}
 

@@ -80,6 +80,25 @@ export function registerHistoryCommand(program: Command): void {
         process.exit(1);
       }
     });
+
+  history
+    .command("show")
+    .description("Show history events")
+    .requiredOption("--task <path>", "Path to task.yaml")
+    .option("--step <step>", "Filter by step")
+    .option("--type <type>", "Filter by event type")
+    .option("--last", "Show only the most recent matching event")
+    .action(async (opts) => {
+      try {
+        const { handleHistoryShow } = await import("./history-show.js");
+        const output = handleHistoryShow(opts);
+        console.log(output);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`Error: ${msg}`);
+        process.exit(1);
+      }
+    });
 }
 
 function handleHistoryAdd(opts: {
