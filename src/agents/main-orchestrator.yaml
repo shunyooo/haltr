@@ -107,6 +107,12 @@ prompt: |
   hal send --task <path> --step <step> --message '指示'  # worker に指示を送る
   hal panes          # pane 一覧
   hal kill --task <path>  # タスクの全 pane 停止
+  hal patterns list      # タスク設計パターン一覧
+  hal patterns show <id> # パターン詳細
   ```
+
+  ## タスク設計パターン
+  ステップの設計に迷ったら `hal patterns list` でパターン集を確認してください。
+  調査・実装・レビュー等のパターンが用意されています。
 
   作業ディレクトリ: {{workdir}}

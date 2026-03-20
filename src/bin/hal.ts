@@ -23,6 +23,7 @@ import { listRules, addRule } from "../commands/rule.js";
 import { handleSpawn, VALID_ROLES } from "../commands/spawn.js";
 import { handleNext } from "../commands/next.js";
 import { handleSend } from "../commands/send.js";
+import { listPatterns, showPattern } from "../commands/patterns.js";
 import { handleStart } from "../commands/start.js";
 import { TmuxRuntime } from "../lib/tmux-runtime.js";
 import { registerHookCommand } from "../commands/hook.js";
@@ -33,6 +34,7 @@ import {
   handleStopSession as handleSessionStop,
   listSessions as sessionListSessions,
 } from "../commands/session.js";
+import { handleTui } from "../commands/tui.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -373,6 +375,32 @@ program
     }
   });
 
+// ---- patterns ----
+
+const patternsCmd = new Command("patterns").description("Task design patterns");
+
+patternsCmd
+  .command("list")
+  .description("List available patterns")
+  .action(() => {
+    console.log(listPatterns());
+  });
+
+patternsCmd
+  .command("show <id>")
+  .description("Show a specific pattern")
+  .action((id: string) => {
+    try {
+      console.log(showPattern(id));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  });
+
+program.addCommand(patternsCmd);
+
 // ---- session management ----
 
 program
@@ -457,5 +485,20 @@ program
   });
 
 registerHookCommand(program);
+
+// ---- tui ----
+
+program
+  .command("tui")
+  .description("Launch interactive TUI dashboard")
+  .action(async () => {
+    try {
+      await handleTui();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  });
 
 program.parse();
