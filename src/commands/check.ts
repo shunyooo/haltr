@@ -110,7 +110,7 @@ export function checkWorker(
   if (lastWorkDoneIndex === -1) {
     return {
       action: "block",
-      message: "作業サマリーを hal history add で記録してください",
+      message: `作業を完了してから以下を実行してください: hal history add --type work_done --step '${stepId}' --task <task-path> --message '作業内容'`,
     };
   }
 
@@ -131,7 +131,7 @@ export function checkWorker(
     return {
       action: "block",
       message:
-        "検証が失敗しています。修正後に再度 work_done を記録してください",
+        `検証が失敗しています。修正を完了してから以下を実行してください: hal history add --type work_done --step '${stepId}' --task <task-path> --message '修正内容'`,
     };
   }
 
@@ -209,7 +209,7 @@ export function checkVerifier(
   if (!hasResult) {
     return {
       action: "block",
-      message: "検証結果を hal history add で記録してください",
+      message: `検証結果を記録してください。PASS: hal history add --type verification_passed --step '${stepId}' --task <task-path> --accept-id default --message '検証内容' / FAIL: hal history add --type verification_failed --step '${stepId}' --task <task-path> --accept-id default --message '失敗理由'`,
     };
   }
 
@@ -399,7 +399,10 @@ async function handleCheck(opts: {
 
     // Output and exit
     if (result.action === "block") {
-      console.log(result.message);
+      console.log(JSON.stringify({
+        decision: "block",
+        reason: result.message,
+      }));
       process.exit(2); // exit 2 = blocking in Claude Code hooks
     } else {
       const role = opts.worker ? "worker" : "verifier";
@@ -431,7 +434,7 @@ async function handleCheck(opts: {
     const result = checkOrchestrator(task, panes);
 
     if (result.action === "block") {
-      console.log(result.message);
+      console.log(JSON.stringify({ decision: "block", reason: result.message }));
       process.exit(2); // exit 2 = blocking in Claude Code hooks
     } else {
       console.log(JSON.stringify({ systemMessage: `[haltr] orchestrator check passed` }));
@@ -450,7 +453,10 @@ async function handleCheck(opts: {
     // Check that reviewer recorded spec_reviewed with message
     const reviewed = task.history?.find((e) => e.type === "spec_reviewed");
     if (!reviewed) {
-      console.log("レビュー結果を記録してください: hal history add --type spec_reviewed --task <path> --message 'レビュー内容'");
+      console.log(JSON.stringify({
+        decision: "block",
+        reason: `レビュー結果を記録してください: hal history add --type spec_reviewed --task '${taskPath}' --message 'レビュー内容'`,
+      }));
       process.exit(2);
     }
 

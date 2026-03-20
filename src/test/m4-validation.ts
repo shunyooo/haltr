@@ -147,7 +147,7 @@ test("worker: history empty -> block + work_done message", () => {
   const result = checkWorker(task, "step-1");
   assertEqual(result.action, "block", "action");
   assert(
-    result.message!.includes("作業サマリーを hal history add で記録してください"),
+    result.message!.includes("hal history add --type work_done"),
     `message should contain instruction, got: ${result.message}`,
   );
 });
@@ -281,7 +281,7 @@ test("verifier: no verification result after work_done -> block", () => {
   const result = checkVerifier(task, "step-1");
   assertEqual(result.action, "block", "action");
   assert(
-    result.message!.includes("検証結果を hal history add で記録してください"),
+    result.message!.includes("hal history add --type verification"),
     `message should contain instruction, got: ${result.message}`,
   );
 });
@@ -508,7 +508,7 @@ test("worker: second attempt without work_done -> block", () => {
   const result = checkWorker(task, "step-1");
   assertEqual(result.action, "block", "action");
   assert(
-    result.message!.includes("作業サマリーを hal history add で記録してください"),
+    result.message!.includes("hal history add --type work_done"),
     `message should ask for work summary, got: ${result.message}`,
   );
 });
@@ -589,7 +589,7 @@ test("CLI: check --worker with empty history -> exit 2", () => {
     );
     assertEqual(res.exitCode, 2, "exit code");
     assert(
-      res.stdout.includes("作業サマリーを hal history add で記録してください"),
+      res.stdout.includes("hal history add --type work_done"),
       `stdout should contain block message, got: ${res.stdout}`,
     );
   } finally {
@@ -632,7 +632,7 @@ test("CLI: check --verifier with no verification result -> exit 2", () => {
     );
     assertEqual(res.exitCode, 2, "exit code");
     assert(
-      res.stdout.includes("検証結果を hal history add で記録してください"),
+      res.stdout.includes("hal history add --type verification"),
       `stdout should contain block message, got: ${res.stdout}`,
     );
   } finally {
