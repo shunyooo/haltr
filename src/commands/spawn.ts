@@ -379,7 +379,7 @@ function buildStepDetails(
   }
 
   let details = `## Step: ${step.id}\n`;
-  details += `Goal: ${step.goal}\n`;
+  details += `Instructions: ${step.instructions}\n`;
   if (step.status) {
     details += `Status: ${step.status}\n`;
   }
@@ -409,7 +409,7 @@ function buildAcceptCheckDetails(
   }
 
   let details = `## Verification Target: ${step.id}\n`;
-  details += `Goal: ${step.goal}\n\n`;
+  details += `Instructions: ${step.instructions}\n\n`;
   details += `### Accept Checks\n`;
 
   if (step.accept) {
@@ -455,7 +455,7 @@ export function assemblePrompt(
   const acceptDetails = stepPath ? buildAcceptCheckDetails(taskYaml, stepPath) : "";
   let stepsOverview = "";
   for (const step of taskYaml.steps) {
-    stepsOverview += `- ${step.id}: ${step.goal} (${step.status ?? "pending"})\n`;
+    stepsOverview += `- ${step.id}: ${step.instructions} (${step.status ?? "pending"})\n`;
     if (step.accept) {
       if (typeof step.accept === "string") {
         stepsOverview += `  accept: ${step.accept}\n`;

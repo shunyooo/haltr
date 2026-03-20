@@ -214,8 +214,8 @@ await testAsync("full flow: init → epic → task → session → panes", async
     const taskWithSteps = {
       ...task,
       steps: [
-        { id: "step-1", goal: "Create hello.txt", accept: "hello.txt exists", status: "pending" },
-        { id: "step-2", goal: "Create world.txt", status: "pending" },
+        { id: "step-1", instructions: "Create hello.txt", accept: "hello.txt exists", status: "pending" },
+        { id: "step-2", instructions: "Create world.txt", status: "pending" },
       ],
       context: "E2E test task",
     };
@@ -261,7 +261,7 @@ await testAsync("hal spawn creates new tmux pane", async () => {
 
     // Add a step + approval events
     const task = yaml.load(readFileSync(taskPath, "utf-8")) as any;
-    task.steps = [{ id: "step-1", goal: "Test step", accept: "test passes", status: "pending" }];
+    task.steps = [{ id: "step-1", instructions: "Test step", accept: "test passes", status: "pending" }];
     task.history = [
       ...(task.history || []),
       { at: new Date().toISOString(), type: "spec_reviewed", by: "test", message: "OK" },
@@ -306,7 +306,7 @@ await testAsync("hal spawn verifier creates separate pane", async () => {
     const taskPath = taskOut.replace("Created task: ", "").trim();
 
     const task = yaml.load(readFileSync(taskPath, "utf-8")) as any;
-    task.steps = [{ id: "step-1", goal: "Test", accept: "passes", status: "in_progress" }];
+    task.steps = [{ id: "step-1", instructions: "Test", accept: "passes", status: "in_progress" }];
     task.history = [
       ...(task.history || []),
       { at: new Date().toISOString(), type: "spec_reviewed", by: "test", message: "OK" },
@@ -349,7 +349,7 @@ await testAsync("hal kill removes task panes from tmux", async () => {
     const taskPath = taskOut.replace("Created task: ", "").trim();
 
     const task = yaml.load(readFileSync(taskPath, "utf-8")) as any;
-    task.steps = [{ id: "step-1", goal: "Test", status: "pending" }];
+    task.steps = [{ id: "step-1", instructions: "Test", status: "pending" }];
     task.history = [
       ...(task.history || []),
       { at: new Date().toISOString(), type: "spec_reviewed", by: "test", message: "OK" },
@@ -396,7 +396,7 @@ await testAsync("full workflow: start → history → status → check", async (
 
     // Add step
     const task = yaml.load(readFileSync(taskPath, "utf-8")) as any;
-    task.steps = [{ id: "step-1", goal: "Implement feature", accept: "tests pass", status: "pending" }];
+    task.steps = [{ id: "step-1", instructions: "Implement feature", accept: "tests pass", status: "pending" }];
     writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }), "utf-8");
 
     // Record step_started
@@ -445,7 +445,7 @@ await testAsync("renderHooks generates settings.yaml and settings.json for Claud
     const taskPath = taskOut.replace("Created task: ", "").trim();
 
     const task = yaml.load(readFileSync(taskPath, "utf-8")) as any;
-    task.steps = [{ id: "step-1", goal: "Test", status: "pending" }];
+    task.steps = [{ id: "step-1", instructions: "Test", status: "pending" }];
     writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }), "utf-8");
 
     tmux("new-session", "-d", "-s", SESSION_NAME);

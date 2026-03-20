@@ -20,7 +20,7 @@ export type StepStatus =
 
 export interface Step {
   id: string;
-  goal: string;
+  instructions: string;
   status?: StepStatus;
   accept?: string | AcceptObject[];
   agents?: {

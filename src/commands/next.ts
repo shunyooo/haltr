@@ -124,7 +124,7 @@ function buildStepInstruction(task: any, stepId: string, taskPath: string): stri
 
   let msg = `次のステップに進んでください。\n\n`;
   msg += `## Step: ${step.id}\n`;
-  msg += `Goal: ${step.goal}\n`;
+  msg += `Instructions: ${step.instructions}\n`;
   if (step.accept) {
     if (typeof step.accept === "string") {
       msg += `Accept: ${step.accept}\n`;

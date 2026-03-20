@@ -83,12 +83,12 @@ function makeBaseTask(overrides: Partial<TaskYaml> = {}): TaskYaml {
     steps: [
       {
         id: "step-1",
-        goal: "First step",
+        instructions: "First step",
         status: "in_progress",
       },
       {
         id: "step-2",
-        goal: "Second step with accept",
+        instructions: "Second step with accept",
         status: "in_progress",
         accept: [
           { id: "test-check", check: "npm test passes" },
@@ -96,7 +96,7 @@ function makeBaseTask(overrides: Partial<TaskYaml> = {}): TaskYaml {
       },
       {
         id: "step-3",
-        goal: "Third step with human accept",
+        instructions: "Third step with human accept",
         status: "in_progress",
         accept: [
           { id: "human-check", type: "human", instruction: "Review the UI" },
@@ -104,7 +104,7 @@ function makeBaseTask(overrides: Partial<TaskYaml> = {}): TaskYaml {
       },
       {
         id: "step-4",
-        goal: "Fourth step with mixed accept",
+        instructions: "Fourth step with mixed accept",
         status: "in_progress",
         accept: [
           { id: "agent-check", check: "tests pass" },
@@ -343,8 +343,8 @@ test("orchestrator: in_progress step exists -> block", () => {
 test("orchestrator: panes exist (worker/verifier running) -> block", () => {
   const task = makeBaseTask({
     steps: [
-      { id: "step-1", goal: "done step", status: "done" },
-      { id: "step-2", goal: "done step", status: "done" },
+      { id: "step-1", instructions: "done step", status: "done" },
+      { id: "step-2", instructions: "done step", status: "done" },
     ],
   });
   const panes = [
@@ -362,8 +362,8 @@ test("orchestrator: panes exist (worker/verifier running) -> block", () => {
 test("orchestrator: both clear -> allow + decision reminder", () => {
   const task = makeBaseTask({
     steps: [
-      { id: "step-1", goal: "done step", status: "done" },
-      { id: "step-2", goal: "done step", status: "done" },
+      { id: "step-1", instructions: "done step", status: "done" },
+      { id: "step-2", instructions: "done step", status: "done" },
     ],
   });
   const result = checkOrchestrator(task, []);
@@ -377,7 +377,7 @@ test("orchestrator: both clear -> allow + decision reminder", () => {
 test("orchestrator: non-worker/verifier panes don't block", () => {
   const task = makeBaseTask({
     steps: [
-      { id: "step-1", goal: "done step", status: "done" },
+      { id: "step-1", instructions: "done step", status: "done" },
     ],
   });
   // Orchestrator panes should NOT trigger the "実行中の agent がいます" block
@@ -391,10 +391,10 @@ test("orchestrator: nested in_progress step detected", () => {
     steps: [
       {
         id: "step-1",
-        goal: "Parent step",
+        instructions: "Parent step",
         status: "in_progress",
         steps: [
-          { id: "child-1", goal: "Child step", status: "in_progress" },
+          { id: "child-1", instructions: "Child step", status: "in_progress" },
         ],
       },
     ],
@@ -687,7 +687,7 @@ test("CLI: check --orchestrator all done, no panes -> exit 0", () => {
   try {
     const task = makeBaseTask({
       steps: [
-        { id: "step-1", goal: "done", status: "done" },
+        { id: "step-1", instructions: "done", status: "done" },
       ],
     });
     const taskPath = createTaskFile(dir, task);
@@ -705,7 +705,7 @@ test("CLI: check --orchestrator with active worker panes -> exit 2", () => {
   try {
     const task = makeBaseTask({
       steps: [
-        { id: "step-1", goal: "done", status: "done" },
+        { id: "step-1", instructions: "done", status: "done" },
       ],
     });
     const taskPath = createTaskFile(dir, task);

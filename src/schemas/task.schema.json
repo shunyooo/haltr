@@ -137,13 +137,13 @@
     },
     "step": {
       "type": "object",
-      "required": ["id", "goal"],
+      "required": ["id", "instructions"],
       "additionalProperties": false,
       "properties": {
         "id": {
           "type": "string"
         },
-        "goal": {
+        "instructions": {
           "type": "string"
         },
         "status": {

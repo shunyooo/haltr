@@ -115,25 +115,25 @@ function makeBaseTask(overrides: Partial<TaskYaml> = {}): TaskYaml {
     steps: [
       {
         id: "step-1",
-        goal: "First step",
+        instructions: "First step",
         status: "pending",
         steps: [
           {
             id: "data-collection",
-            goal: "Collect data",
+            instructions: "Collect data",
             status: "pending",
             accept: [{ id: "default", check: "data collected" }],
           },
           {
             id: "analysis",
-            goal: "Analyze data",
+            instructions: "Analyze data",
             status: "pending",
           },
         ],
       },
       {
         id: "step-2",
-        goal: "Second step",
+        instructions: "Second step",
         status: "pending",
         agents: { worker: "gemini", verifier: "claude" },
       },
@@ -983,8 +983,8 @@ console.log("\n--- Unit Tests: task-utils ---");
 
 test("findStep: root-level step", () => {
   const steps = [
-    { id: "s1", goal: "g1" },
-    { id: "s2", goal: "g2" },
+    { id: "s1", instructions: "g1" },
+    { id: "s2", instructions: "g2" },
   ];
   const found = findStep(steps, "s1");
   if (!found || found.id !== "s1") throw new Error("Expected to find step s1");
@@ -994,9 +994,9 @@ test("findStep: nested step", () => {
   const steps = [
     {
       id: "s1",
-      goal: "g1",
+      instructions: "g1",
       steps: [
-        { id: "child", goal: "gc" },
+        { id: "child", instructions: "gc" },
       ],
     },
   ];
@@ -1006,13 +1006,13 @@ test("findStep: nested step", () => {
 });
 
 test("findStep: non-existent returns undefined", () => {
-  const steps = [{ id: "s1", goal: "g1" }];
+  const steps = [{ id: "s1", instructions: "g1" }];
   const found = findStep(steps, "nonexistent");
   if (found !== undefined) throw new Error("Expected undefined");
 });
 
 test("findParentStep: root-level has no parent", () => {
-  const steps = [{ id: "s1", goal: "g1" }];
+  const steps = [{ id: "s1", instructions: "g1" }];
   const parent = findParentStep(steps, "s1");
   if (parent !== undefined) throw new Error("Expected undefined");
 });
@@ -1021,8 +1021,8 @@ test("findParentStep: nested step returns parent", () => {
   const steps = [
     {
       id: "s1",
-      goal: "g1",
-      steps: [{ id: "child", goal: "gc" }],
+      instructions: "g1",
+      steps: [{ id: "child", instructions: "gc" }],
     },
   ];
   const parent = findParentStep(steps, "s1/child");
@@ -1099,10 +1099,10 @@ test("validateTaskTransition: pending -> pivoted OK", () => {
 test("judgeParentStatus: all children done -> done", () => {
   const parent = {
     id: "p",
-    goal: "g",
+    instructions: "g",
     steps: [
-      { id: "c1", goal: "g1", status: "done" as const },
-      { id: "c2", goal: "g2", status: "done" as const },
+      { id: "c1", instructions: "g1", status: "done" as const },
+      { id: "c2", instructions: "g2", status: "done" as const },
     ],
   };
   assertEqual(judgeParentStatus(parent), "done", "parent status");
@@ -1111,10 +1111,10 @@ test("judgeParentStatus: all children done -> done", () => {
 test("judgeParentStatus: mixed done + skipped -> done", () => {
   const parent = {
     id: "p",
-    goal: "g",
+    instructions: "g",
     steps: [
-      { id: "c1", goal: "g1", status: "done" as const },
-      { id: "c2", goal: "g2", status: "skipped" as const },
+      { id: "c1", instructions: "g1", status: "done" as const },
+      { id: "c2", instructions: "g2", status: "skipped" as const },
     ],
   };
   assertEqual(judgeParentStatus(parent), "done", "parent status");
@@ -1123,10 +1123,10 @@ test("judgeParentStatus: mixed done + skipped -> done", () => {
 test("judgeParentStatus: child in_progress -> in_progress", () => {
   const parent = {
     id: "p",
-    goal: "g",
+    instructions: "g",
     steps: [
-      { id: "c1", goal: "g1", status: "in_progress" as const },
-      { id: "c2", goal: "g2", status: "pending" as const },
+      { id: "c1", instructions: "g1", status: "in_progress" as const },
+      { id: "c2", instructions: "g2", status: "pending" as const },
     ],
   };
   assertEqual(judgeParentStatus(parent), "in_progress", "parent status");
@@ -1135,10 +1135,10 @@ test("judgeParentStatus: child in_progress -> in_progress", () => {
 test("judgeParentStatus: child failed -> failed", () => {
   const parent = {
     id: "p",
-    goal: "g",
+    instructions: "g",
     steps: [
-      { id: "c1", goal: "g1", status: "failed" as const },
-      { id: "c2", goal: "g2", status: "pending" as const },
+      { id: "c1", instructions: "g1", status: "failed" as const },
+      { id: "c2", instructions: "g2", status: "pending" as const },
     ],
   };
   assertEqual(judgeParentStatus(parent), "failed", "parent status");
@@ -1147,10 +1147,10 @@ test("judgeParentStatus: child failed -> failed", () => {
 test("judgeParentStatus: child blocked -> blocked", () => {
   const parent = {
     id: "p",
-    goal: "g",
+    instructions: "g",
     steps: [
-      { id: "c1", goal: "g1", status: "blocked" as const },
-      { id: "c2", goal: "g2", status: "pending" as const },
+      { id: "c1", instructions: "g1", status: "blocked" as const },
+      { id: "c2", instructions: "g2", status: "pending" as const },
     ],
   };
   assertEqual(judgeParentStatus(parent), "blocked", "parent status");

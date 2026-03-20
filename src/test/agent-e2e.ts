@@ -223,7 +223,7 @@ try {
    - agents.verifier: claude
    - steps に1つだけステップを追加:
      - id: create-file
-     - goal: "${targetFile} に 'Hello from haltr E2E' という内容のファイルを作成する"
+     - instructions: "${targetFile} に 'Hello from haltr E2E' という内容のファイルを作成する"
      - accept: "${targetFile} が存在し中身に 'Hello from haltr E2E' が含まれること"
      - status: pending
    - context: "E2E テスト用のシンプルなタスク"
@@ -238,7 +238,7 @@ agents:
   verifier: claude
 steps:
   - id: create-file
-    goal: "${targetFile} に 'Hello from haltr E2E' という内容のファイルを作成する"
+    instructions: "${targetFile} に 'Hello from haltr E2E' という内容のファイルを作成する"
     accept: "${targetFile} が存在し中身に 'Hello from haltr E2E' が含まれること"
     status: pending
 context: "E2E テスト用のシンプルなタスク"

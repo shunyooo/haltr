@@ -50,7 +50,7 @@ function makeBaseTask(overrides: Partial<TaskYaml> = {}): TaskYaml {
     steps: [
       {
         id: "step-1",
-        goal: "First step",
+        instructions: "First step",
         status: "in_progress",
         accept: [
           { id: "default", check: "data collected" },
@@ -60,7 +60,7 @@ function makeBaseTask(overrides: Partial<TaskYaml> = {}): TaskYaml {
       },
       {
         id: "step-2",
-        goal: "Second step",
+        instructions: "Second step",
         status: "pending",
       },
     ],

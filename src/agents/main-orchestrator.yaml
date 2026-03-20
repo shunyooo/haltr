@@ -39,7 +39,7 @@ prompt: |
     verifier: claude:haiku
   steps:
     - id: step-1
-      goal: "ゴール"
+      instructions: "詳細な指示"
       accept: "受入条件"
       status: pending
   context: "背景"

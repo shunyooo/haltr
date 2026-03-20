@@ -94,23 +94,23 @@ const fullTaskData = {
   steps: [
     {
       id: "step-1",
-      goal: "Build evaluation data and tune prompts",
+      instructions: "Build evaluation data and tune prompts",
       status: "done",
       steps: [
         {
           id: "data-collection",
-          goal: "Collect reference x generated image pairs from prd logs",
+          instructions: "Collect reference x generated image pairs from prd logs",
           accept: "data/pairs/ contains 100+ JSON files",
           status: "done",
         },
         {
           id: "vlm-judgment",
-          goal: "Run initial plagiarism judgment with VLM",
+          instructions: "Run initial plagiarism judgment with VLM",
           status: "done",
         },
         {
           id: "annotation-ui",
-          goal: "Build annotation UI and share the URL",
+          instructions: "Build annotation UI and share the URL",
           accept: [
             {
               id: "ui-check",
@@ -124,12 +124,12 @@ const fullTaskData = {
     },
     {
       id: "step-2",
-      goal: "Optimize plagiarism detection prompt",
+      instructions: "Optimize plagiarism detection prompt",
       status: "in_progress",
       steps: [
         {
           id: "plagiarism-prompt",
-          goal: "Create and tune plagiarism detection prompt",
+          instructions: "Create and tune plagiarism detection prompt",
           accept: "Precision > 95%, Recall > 90%",
           status: "in_progress",
         },
@@ -137,17 +137,17 @@ const fullTaskData = {
     },
     {
       id: "step-3",
-      goal: "Implement cheap quality filter",
+      instructions: "Implement cheap quality filter",
       status: "pending",
       steps: [
         {
           id: "eval-data",
-          goal: "Build evaluation data",
+          instructions: "Build evaluation data",
           status: "pending",
         },
         {
           id: "prompt-tuning",
-          goal: "Optimize cheap detection prompt",
+          instructions: "Optimize cheap detection prompt",
           status: "pending",
         },
       ],
@@ -220,7 +220,7 @@ test("Accept as string shorthand", () => {
     steps: [
       {
         id: "s1",
-        goal: "test",
+        instructions: "test",
         accept: "npm test passes",
       },
     ],
@@ -244,7 +244,7 @@ test("Accept as array with agent type (default)", () => {
     steps: [
       {
         id: "s1",
-        goal: "test",
+        instructions: "test",
         accept: [
           { id: "tests", check: "npm test exits 0" },
           { id: "quality", check: "code review passes", type: "agent" },
@@ -262,7 +262,7 @@ test("Accept with human type requires instruction", () => {
     steps: [
       {
         id: "s1",
-        goal: "test",
+        instructions: "test",
         accept: [
           {
             id: "ux",
@@ -283,7 +283,7 @@ test("Accept human type without instruction fails", () => {
     steps: [
       {
         id: "s1",
-        goal: "test",
+        instructions: "test",
         accept: [
           {
             id: "ux",
@@ -304,7 +304,7 @@ test("Accept mixed agent + human", () => {
     steps: [
       {
         id: "s1",
-        goal: "test",
+        instructions: "test",
         accept: [
           { id: "tests", check: "npm test exits 0" },
           { id: "visual", type: "human", instruction: "Check the dashboard" },
@@ -322,7 +322,7 @@ test("Accept with verifier override", () => {
     steps: [
       {
         id: "s1",
-        goal: "test",
+        instructions: "test",
         accept: [
           { id: "tests", check: "npm test exits 0", verifier: "codex" },
           { id: "quality", check: "SOLID principles check", verifier: "claude" },
@@ -342,15 +342,15 @@ test("Nested steps validation (3 levels deep)", () => {
     steps: [
       {
         id: "level-1",
-        goal: "L1",
+        instructions: "L1",
         steps: [
           {
             id: "level-2",
-            goal: "L2",
+            instructions: "L2",
             steps: [
               {
                 id: "level-3",
-                goal: "L3",
+                instructions: "L3",
                 accept: "deepest check passes",
               },
             ],
@@ -370,7 +370,7 @@ test("Step-level agents override", () => {
     steps: [
       {
         id: "s1",
-        goal: "test",
+        instructions: "test",
         agents: { worker: "gemini", verifier: "claude" },
       },
     ],
@@ -384,7 +384,7 @@ test("Previous field is optional and accepted", () => {
     id: "test-previous",
     previous: "001_task.yaml",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
   };
   validateTask(structuredClone(data));
 });
@@ -398,7 +398,7 @@ test("Missing agents.worker -> error", () => {
   const data = {
     id: "test-missing-worker",
     agents: { verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
   };
   expectThrows(() => validateTask(structuredClone(data)));
 });
@@ -407,7 +407,7 @@ test("Missing agents.verifier -> error", () => {
   const data = {
     id: "test-missing-verifier",
     agents: { worker: "claude" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
   };
   expectThrows(() => validateTask(structuredClone(data)));
 });
@@ -417,7 +417,7 @@ test("Step status 'pivoted' -> error (invalid for steps)", () => {
     id: "test-step-pivoted",
     agents: { worker: "claude", verifier: "codex" },
     steps: [
-      { id: "s1", goal: "test", status: "pivoted" },
+      { id: "s1", instructions: "test", status: "pivoted" },
     ],
   };
   expectThrows(() => validateTask(structuredClone(data)));
@@ -428,7 +428,7 @@ test("Task status 'blocked' -> error (invalid for tasks)", () => {
     id: "test-task-blocked",
     status: "blocked",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
   };
   expectThrows(() => validateTask(structuredClone(data)));
 });
@@ -438,7 +438,7 @@ test("Task status 'pivoted' -> PASS (valid for tasks)", () => {
     id: "test-task-pivoted",
     status: "pivoted",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
   };
   validateTask(structuredClone(data));
 });
@@ -448,7 +448,7 @@ test("Step status 'skipped' -> PASS (valid for steps)", () => {
     id: "test-step-skipped",
     agents: { worker: "claude", verifier: "codex" },
     steps: [
-      { id: "s1", goal: "test", status: "skipped" },
+      { id: "s1", instructions: "test", status: "skipped" },
     ],
   };
   validateTask(structuredClone(data));
@@ -459,7 +459,7 @@ test("Invalid status 'running' -> error", () => {
     id: "test-invalid-status",
     status: "running",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
   };
   expectThrows(() => validateTask(structuredClone(data)));
 });
@@ -468,14 +468,14 @@ test("Missing step id -> error", () => {
   const data = {
     id: "test-missing-step-id",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ goal: "test" }],
+    steps: [{ instructions: "test" }],
   };
   expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("Missing step goal -> error", () => {
+test("Missing step instructions -> error", () => {
   const data = {
-    id: "test-missing-step-goal",
+    id: "test-missing-step-instructions",
     agents: { worker: "claude", verifier: "codex" },
     steps: [{ id: "s1" }],
   };
@@ -606,7 +606,7 @@ test("History: escalation event", () => {
   const data = {
     id: "test-escalation",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
     history: [
       {
         at: "2026-03-16T14:00:00Z",
@@ -625,7 +625,7 @@ test("History: blocked_resolved event", () => {
   const data = {
     id: "test-blocked-resolved",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
     history: [
       {
         at: "2026-03-16T14:00:00Z",
@@ -644,7 +644,7 @@ test("History: step_skipped event", () => {
   const data = {
     id: "test-step-skipped",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
     history: [
       {
         at: "2026-03-16T14:00:00Z",
@@ -662,7 +662,7 @@ test("History: completed event", () => {
   const data = {
     id: "test-completed",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
     history: [
       {
         at: "2026-03-16T14:00:00Z",
@@ -678,7 +678,7 @@ test("History: pivoted event", () => {
   const data = {
     id: "test-pivoted",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
     history: [
       {
         at: "2026-03-16T14:00:00Z",
@@ -696,7 +696,7 @@ test("History: updated event with diff", () => {
   const data = {
     id: "test-updated",
     agents: { worker: "claude", verifier: "codex" },
-    steps: [{ id: "s1", goal: "test" }],
+    steps: [{ id: "s1", instructions: "test" }],
     history: [
       {
         at: "2026-03-16T14:00:00Z",
