@@ -35,8 +35,8 @@ import type {
 // ============================================================================
 
 export interface CheckResult {
-  /** "allow" (exit 0) or "block" (exit 1). */
-  action: "allow" | "block";
+  /** "allow" (exit 0), "block" (exit 1), or "escalate" (exit 2). */
+  action: "allow" | "block" | "escalate";
   /** Message to display (stdout for hooks). */
   message?: string;
   /** Notification to send to parent orchestrator pane. */
@@ -97,6 +97,20 @@ export function checkWorker(
   const history = task.history ?? [];
   const stepHistory = getStepHistory(history, stepId);
 
+  // Check max_retries guard
+  const step = findStep(task.steps, stepId);
+  if (step?.max_retries !== undefined) {
+    const attemptCount = history.filter(
+      (e) => e.type === "step_started" && "step" in e && e.step === stepId,
+    ).length;
+    if (attemptCount > step.max_retries) {
+      return {
+        action: "escalate",
+        message: `リトライ上限（${step.max_retries}回）に達しました。オーケストレーターに判断を委ねます`,
+      };
+    }
+  }
+
   // Find the latest work_done event
   let lastWorkDoneIndex = -1;
   for (let i = stepHistory.length - 1; i >= 0; i--) {
@@ -136,7 +150,7 @@ export function checkWorker(
   }
 
   // 3. work_done exists (and no unresolved verification_failed)
-  const step = findStep(task.steps, stepId);
+  // (step already retrieved above for max_retries check)
 
   // Check if accept is defined
   const hasAccept =
@@ -398,9 +412,9 @@ async function handleCheck(opts: {
     }
 
     // Output and exit
-    if (result.action === "block") {
+    if (result.action === "block" || result.action === "escalate") {
       console.log(JSON.stringify({
-        decision: "block",
+        decision: result.action,
         reason: result.message,
       }));
       process.exit(2); // exit 2 = blocking in Claude Code hooks

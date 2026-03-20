@@ -2,9 +2,8 @@
 
 export interface AcceptObject {
   id: string;
-  check?: string;
+  check: string;
   type?: "agent" | "human";
-  instruction?: string;
   verifier?: string;
 }
 
@@ -27,6 +26,7 @@ export interface Step {
     worker?: string;
     verifier?: string;
   };
+  max_retries?: number;
   steps?: Step[];
 }
 
@@ -119,7 +119,7 @@ export interface StepSkippedEvent extends HistoryEventBase {
 
 export interface CompletedEvent extends HistoryEventBase {
   type: "completed";
-  summary?: string;
+  message?: string;
 }
 
 export interface SpecReviewedEvent extends HistoryEventBase {

@@ -24,7 +24,7 @@ import {
 import { join, resolve, dirname } from "node:path";
 import * as yaml from "js-yaml";
 import { loadAndValidateTask } from "../lib/validator.js";
-import { findStep, loadConfig, validateCli, validateTaskPath, parseCli } from "../lib/task-utils.js";
+import { findStep, loadConfig, validateCli, validateTaskPath, parseCli, findHaltrDir } from "../lib/task-utils.js";
 import { getAgentSettings } from "../lib/agent-defaults.js";
 import { tmuxStylePane, tmuxEnableBorderStatus } from "../lib/tmux.js";
 import { PanesManager } from "../lib/panes-manager.js";
@@ -175,38 +175,6 @@ export function buildHooksDirName(
     return `${index}_${stepId}_${role}`;
   }
   return `${index}_${role}`;
-}
-
-/**
- * Find the haltr/ directory by searching up from the task.yaml path.
- * Returns the path to the haltr/ directory.
- */
-export function findHaltrDir(taskPath: string): string {
-  let dir = dirname(resolve(taskPath));
-
-  while (true) {
-    // Check if this directory IS a haltr directory
-    if (existsSync(join(dir, "config.yaml"))) {
-      return dir;
-    }
-
-    // Check if haltr/ subdirectory exists
-    const haltrSubDir = join(dir, "haltr");
-    if (
-      existsSync(haltrSubDir) &&
-      existsSync(join(haltrSubDir, "config.yaml"))
-    ) {
-      return haltrSubDir;
-    }
-
-    const parent = dirname(dir);
-    if (parent === dir) {
-      throw new Error(
-        `Could not find haltr/ directory searching up from ${taskPath}`,
-      );
-    }
-    dir = parent;
-  }
 }
 
 /**
@@ -389,7 +357,7 @@ function buildStepDetails(
     } else {
       details += `Accept criteria:\n`;
       for (const a of step.accept) {
-        details += `  - ${a.id}: ${a.check ?? a.instruction ?? ""}\n`;
+        details += `  - ${a.id}: ${a.check}\n`;
       }
     }
   }
@@ -417,7 +385,7 @@ function buildAcceptCheckDetails(
       details += `- ${step.accept}\n`;
     } else {
       for (const a of step.accept) {
-        details += `- [${a.id}] ${a.check ?? a.instruction ?? ""}\n`;
+        details += `- [${a.id}] ${a.check}\n`;
         if (a.type) details += `  type: ${a.type}\n`;
       }
     }
@@ -461,7 +429,7 @@ export function assemblePrompt(
         stepsOverview += `  accept: ${step.accept}\n`;
       } else if (Array.isArray(step.accept)) {
         for (const a of step.accept) {
-          stepsOverview += `  accept [${(a as any).id}]: ${(a as any).check ?? (a as any).instruction ?? ""}\n`;
+          stepsOverview += `  accept [${(a as any).id}]: ${(a as any).check}\n`;
         }
       }
     }

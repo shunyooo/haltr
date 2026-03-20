@@ -74,7 +74,7 @@
     },
     "acceptObject": {
       "type": "object",
-      "required": ["id"],
+      "required": ["id", "check"],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -87,39 +87,10 @@
           "type": "string",
           "enum": ["agent", "human"]
         },
-        "instruction": {
-          "type": "string"
-        },
         "verifier": {
           "type": "string"
         }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "type": { "const": "human" }
-            },
-            "required": ["type"]
-          },
-          "then": {
-            "required": ["instruction"]
-          }
-        },
-        {
-          "if": {
-            "not": {
-              "properties": {
-                "type": { "const": "human" }
-              },
-              "required": ["type"]
-            }
-          },
-          "then": {
-            "required": ["check"]
-          }
-        }
-      ]
+      }
     },
     "accept": {
       "oneOf": [
@@ -154,6 +125,10 @@
         },
         "agents": {
           "$ref": "#/$defs/stepAgents"
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 1
         },
         "steps": {
           "type": "array",

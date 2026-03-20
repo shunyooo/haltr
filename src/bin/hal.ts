@@ -24,7 +24,6 @@ import { handleSpawn, VALID_ROLES } from "../commands/spawn.js";
 import { handleNext } from "../commands/next.js";
 import { handleSend } from "../commands/send.js";
 import { handleStart } from "../commands/start.js";
-import { handleStop } from "../commands/stop.js";
 import { TmuxRuntime } from "../lib/tmux-runtime.js";
 import { registerHookCommand } from "../commands/hook.js";
 import {

@@ -35,7 +35,7 @@ import {
   type ClaudeSettings,
 } from "./spawn.js";
 import * as yaml from "js-yaml";
-import { validateCli, parseCli } from "../lib/task-utils.js";
+import { validateCli, parseCli, findHaltrDir } from "../lib/task-utils.js";
 import { getAgentSettings } from "../lib/agent-defaults.js";
 import { Watcher, type WatcherDeps } from "../lib/watcher.js";
 
@@ -86,7 +86,7 @@ export async function handleStart(
   }
 
   // 2. Find haltr directory and load config
-  const haltrDir = findHaltrDirFromBase(base);
+  const haltrDir = findHaltrDir(base, false);
   const configPath = join(haltrDir, "config.yaml");
   const configYaml = loadAndValidateConfig(configPath);
 
@@ -203,31 +203,6 @@ export async function handleStart(
 
   return { paneId, cli: resolvedCli };
 }
-
-/**
- * Find the haltr directory from a base path.
- * Checks both `base/haltr/` and `base/` itself.
- */
-function findHaltrDirFromBase(base: string): string {
-  // Check if base itself is a haltr directory
-  if (existsSync(join(base, "config.yaml"))) {
-    return base;
-  }
-
-  // Check haltr/ subdirectory
-  const haltrSubDir = join(base, "haltr");
-  if (
-    existsSync(haltrSubDir) &&
-    existsSync(join(haltrSubDir, "config.yaml"))
-  ) {
-    return haltrSubDir;
-  }
-
-  throw new Error(
-    `Could not find haltr/ directory in ${base}. Run 'hal init' first.`,
-  );
-}
-
 
 /**
  * Generate a prompt for the main orchestrator when no task exists yet.

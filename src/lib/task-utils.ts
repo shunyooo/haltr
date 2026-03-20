@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { readFileSync, existsSync, statSync } from "node:fs";
+import { dirname, resolve, join } from "node:path";
 import type {
   Step,
   StepStatus,
@@ -114,7 +114,6 @@ const orchestratorEvents = new Set([
   "execution_approved",
   "completed",
   "step_skipped",
-  "completed",
 ]);
 
 /**
@@ -203,6 +202,59 @@ export function resolveAttempt(
   // For non-step_started events, inherit from the latest step_started
   // If no step_started exists, default to 1
   return Math.max(stepStartedCount, 1);
+}
+
+/**
+ * Find the haltr/ directory by searching up from the given path.
+ * Accepts both file paths (e.g., task.yaml) and directory paths.
+ * Returns the path to the haltr/ directory.
+ *
+ * @param path - A file path (e.g., task.yaml) or directory path
+ * @param searchUpward - If true, search upward from the path. If false, only check the path itself.
+ * @throws Error if haltr directory cannot be found
+ */
+export function findHaltrDir(path: string, searchUpward = true): string {
+  const resolved = resolve(path);
+
+  // Determine starting directory
+  let dir: string;
+  try {
+    const stats = statSync(resolved);
+    dir = stats.isDirectory() ? resolved : dirname(resolved);
+  } catch {
+    // If path doesn't exist, assume it's a file path and use its directory
+    dir = dirname(resolved);
+  }
+
+  while (true) {
+    // Check if this directory IS a haltr directory
+    if (existsSync(join(dir, "config.yaml"))) {
+      return dir;
+    }
+
+    // Check if haltr/ subdirectory exists
+    const haltrSubDir = join(dir, "haltr");
+    if (
+      existsSync(haltrSubDir) &&
+      existsSync(join(haltrSubDir, "config.yaml"))
+    ) {
+      return haltrSubDir;
+    }
+
+    if (!searchUpward) {
+      throw new Error(
+        `Could not find haltr/ directory in ${path}. Run 'hal init' first.`,
+      );
+    }
+
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new Error(
+        `Could not find haltr/ directory searching up from ${path}`,
+      );
+    }
+    dir = parent;
+  }
 }
 
 /**

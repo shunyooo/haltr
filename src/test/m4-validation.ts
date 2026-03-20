@@ -99,7 +99,7 @@ function makeBaseTask(overrides: Partial<TaskYaml> = {}): TaskYaml {
         instructions: "Third step with human accept",
         status: "in_progress",
         accept: [
-          { id: "human-check", type: "human", instruction: "Review the UI" },
+          { id: "human-check", type: "human", check: "Review the UI" },
         ],
       },
       {
@@ -111,7 +111,7 @@ function makeBaseTask(overrides: Partial<TaskYaml> = {}): TaskYaml {
           {
             id: "human-check",
             type: "human",
-            instruction: "Verify visually",
+            check: "Verify visually",
           },
         ],
       },
@@ -263,6 +263,123 @@ test("worker: accept is agent + human mixed -> allow + notification", () => {
   assert(
     result.notification !== undefined,
     "should have notification",
+  );
+});
+
+test("worker: max_retries not set -> no guard", () => {
+  const task = makeBaseTask({
+    steps: [
+      {
+        id: "step-5",
+        instructions: "Step without max_retries",
+        status: "in_progress",
+      },
+    ],
+    history: [
+      makeHistoryEvent("step_started", "step-5", 1),
+      makeHistoryEvent("step_started", "step-5", 2),
+      makeHistoryEvent("step_started", "step-5", 3),
+      makeHistoryEvent("step_started", "step-5", 4),
+    ],
+  });
+  const result = checkWorker(task, "step-5");
+  // Should block for work_done, not escalate
+  assertEqual(result.action, "block", "action");
+  assert(
+    result.message!.includes("hal history add --type work_done"),
+    `message should ask for work_done, got: ${result.message}`,
+  );
+});
+
+test("worker: max_retries=2, attempt 1 -> no escalate", () => {
+  const task = makeBaseTask({
+    steps: [
+      {
+        id: "step-6",
+        instructions: "Step with max_retries=2",
+        status: "in_progress",
+        max_retries: 2,
+      },
+    ],
+    history: [
+      makeHistoryEvent("step_started", "step-6", 1),
+    ],
+  });
+  const result = checkWorker(task, "step-6");
+  assertEqual(result.action, "block", "action");
+  assert(
+    result.message!.includes("hal history add --type work_done"),
+    `message should ask for work_done, got: ${result.message}`,
+  );
+});
+
+test("worker: max_retries=2, attempt 2 -> no escalate", () => {
+  const task = makeBaseTask({
+    steps: [
+      {
+        id: "step-7",
+        instructions: "Step with max_retries=2",
+        status: "in_progress",
+        max_retries: 2,
+      },
+    ],
+    history: [
+      makeHistoryEvent("step_started", "step-7", 1),
+      makeHistoryEvent("step_started", "step-7", 2),
+    ],
+  });
+  const result = checkWorker(task, "step-7");
+  assertEqual(result.action, "block", "action");
+  assert(
+    result.message!.includes("hal history add --type work_done"),
+    `message should ask for work_done, got: ${result.message}`,
+  );
+});
+
+test("worker: max_retries=2, attempt 3 -> escalate", () => {
+  const task = makeBaseTask({
+    steps: [
+      {
+        id: "step-8",
+        instructions: "Step with max_retries=2",
+        status: "in_progress",
+        max_retries: 2,
+      },
+    ],
+    history: [
+      makeHistoryEvent("step_started", "step-8", 1),
+      makeHistoryEvent("step_started", "step-8", 2),
+      makeHistoryEvent("step_started", "step-8", 3),
+    ],
+  });
+  const result = checkWorker(task, "step-8");
+  assertEqual(result.action, "escalate", "action");
+  assert(
+    result.message!.includes("リトライ上限（2回）に達しました"),
+    `message should mention retry limit, got: ${result.message}`,
+  );
+});
+
+test("worker: max_retries=1, attempt 2 -> escalate", () => {
+  const task = makeBaseTask({
+    steps: [
+      {
+        id: "step-9",
+        instructions: "Step with max_retries=1",
+        status: "in_progress",
+        max_retries: 1,
+      },
+    ],
+    history: [
+      makeHistoryEvent("step_started", "step-9", 1),
+      makeHistoryEvent("step_started", "step-9", 2),
+    ],
+  });
+  const result = checkWorker(task, "step-9");
+  assertEqual(result.action, "escalate", "action");
+  assert(
+    result.message!.includes("リトライ上限（1回）に達しました"),
+    `message should mention retry limit, got: ${result.message}`,
   );
 });
 

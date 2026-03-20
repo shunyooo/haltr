@@ -115,7 +115,7 @@ const fullTaskData = {
             {
               id: "ui-check",
               type: "human" as const,
-              instruction: "Verify the UI works correctly",
+              check: "Verify the UI works correctly",
             },
           ],
           status: "done",
@@ -267,7 +267,7 @@ test("Accept with human type requires instruction", () => {
           {
             id: "ux",
             type: "human",
-            instruction: "Check the UI manually",
+            check: "Check the UI manually",
           },
         ],
       },
@@ -307,7 +307,7 @@ test("Accept mixed agent + human", () => {
         instructions: "test",
         accept: [
           { id: "tests", check: "npm test exits 0" },
-          { id: "visual", type: "human", instruction: "Check the dashboard" },
+          { id: "visual", type: "human", check: "Check the dashboard" },
         ],
       },
     ],

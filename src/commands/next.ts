@@ -131,7 +131,7 @@ function buildStepInstruction(task: any, stepId: string, taskPath: string): stri
     } else if (Array.isArray(step.accept)) {
       msg += `Accept criteria:\n`;
       for (const a of step.accept) {
-        msg += `  - ${(a as any).id}: ${(a as any).check ?? (a as any).instruction ?? ""}\n`;
+        msg += `  - ${(a as any).id}: ${(a as any).check}\n`;
       }
     }
   }
