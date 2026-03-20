@@ -1,0 +1,26 @@
+# Source (dist/ only is published)
+src/
+biome.json
+tsconfig.json
+
+# Dev files
+.devcontainer/
+Dockerfile.dev
+.env
+.claude/
+.ztile
+.serena
+.mcp.json
+
+# Runtime data
+haltr/
+.panes.yaml
+.hooks/
+todo-app/
+exp/
+
+# Tests
+dist/test/
+
+# Stale build artifacts
+dist/commands/layout.*
