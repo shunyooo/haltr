@@ -4,10 +4,9 @@
  * Used by the orchestrator to send instructions to worker/verifier panes.
  */
 
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { PanesManager } from "../lib/panes-manager.js";
-import { tmuxSendKeys } from "../lib/tmux.js";
-import { resolve } from "node:path";
+import { tmuxSendKeys, tmuxListPanes, tmuxCurrentSession } from "../lib/tmux.js";
 import { validateTaskPath } from "../lib/task-utils.js";
 
 export interface SendOptions {
@@ -33,6 +32,15 @@ export async function handleSend(opts: SendOptions): Promise<void> {
   if (!target) {
     throw new Error(
       `Pane not found: role=${role}, step=${opts.step}. hal panes で確認してください。`,
+    );
+  }
+
+  // Check if the pane is actually alive
+  const sessionName = await tmuxCurrentSession() ?? "haltr";
+  const alivePanes = await tmuxListPanes(sessionName);
+  if (!alivePanes.includes(target.pane_id)) {
+    throw new Error(
+      `Pane ${target.pane_id} (${role}: ${opts.step}) は既に終了しています。hal spawn で再起動してください。`,
     );
   }
 
