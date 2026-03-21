@@ -50,6 +50,10 @@
         }
       }
     },
+    "timezone": {
+      "type": "string",
+      "description": "IANA timezone for displaying times (e.g. Asia/Tokyo). Falls back to TZ env var, then UTC."
+    },
     "defaults": {
       "type": "object",
       "additionalProperties": false,

@@ -5,59 +5,68 @@
  */
 
 import { resolve } from "node:path";
+import { loadConfig, validateTaskPath } from "../lib/task-utils.js";
+import { formatLocalDateTime, resolveTimezone } from "../lib/timezone.js";
 import { loadAndValidateTask } from "../lib/validator.js";
-import { validateTaskPath } from "../lib/task-utils.js";
 
 export interface HistoryShowOptions {
-  task: string;
-  step?: string;
-  type?: string;
-  last?: boolean;
+	task: string;
+	step?: string;
+	type?: string;
+	last?: boolean;
 }
 
 export function handleHistoryShow(opts: HistoryShowOptions): string {
-  const taskPath = resolve(opts.task);
-  validateTaskPath(taskPath);
-  const task = loadAndValidateTask(taskPath);
+	const taskPath = resolve(opts.task);
+	validateTaskPath(taskPath);
+	const task = loadAndValidateTask(taskPath);
 
-  let events = task.history ?? [];
+	let events = task.history ?? [];
 
-  // Filter by step
-  if (opts.step) {
-    events = events.filter((e: any) => e.step === opts.step);
-  }
+	// Filter by step
+	if (opts.step) {
+		events = events.filter((e) => "step" in e && e.step === opts.step);
+	}
 
-  // Filter by type
-  if (opts.type) {
-    events = events.filter((e) => e.type === opts.type);
-  }
+	// Filter by type
+	if (opts.type) {
+		events = events.filter((e) => e.type === opts.type);
+	}
 
-  if (events.length === 0) {
-    return "該当するイベントはありません。";
-  }
+	if (events.length === 0) {
+		return "該当するイベントはありません。";
+	}
 
-  // If --last, show only the most recent
-  if (opts.last) {
-    events = [events[events.length - 1]];
-  }
+	// If --last, show only the most recent
+	if (opts.last) {
+		events = [events[events.length - 1]];
+	}
 
-  // Format output
-  const lines: string[] = [];
-  for (const e of events) {
-    const ev = e as any;
-    let line = `[${ev.at}] ${ev.type}`;
-    if (ev.step) line += ` (${ev.step})`;
-    if (ev.attempt) line += ` attempt:${ev.attempt}`;
-    line += ` by:${ev.by}`;
-    lines.push(line);
-    if (ev.message) {
-      lines.push(ev.message);
-    }
-    if (ev.accept_id) {
-      lines.push(`accept_id: ${ev.accept_id}`);
-    }
-    lines.push("");
-  }
+	// Resolve timezone
+	let timezone = resolveTimezone();
+	try {
+		const config = loadConfig(taskPath);
+		timezone = resolveTimezone(config.timezone);
+	} catch {
+		// Config not found — use TZ env or UTC
+	}
 
-  return lines.join("\n").trim();
+	// Format output
+	const lines: string[] = [];
+	for (const e of events) {
+		let line = `[${formatLocalDateTime(e.at, timezone)}] ${e.type}`;
+		if ("step" in e) line += ` (${e.step})`;
+		if ("attempt" in e) line += ` attempt:${e.attempt}`;
+		line += ` by:${e.by}`;
+		lines.push(line);
+		if ("message" in e && e.message) {
+			lines.push(e.message);
+		}
+		if ("accept_id" in e && e.accept_id) {
+			lines.push(`accept_id: ${e.accept_id}`);
+		}
+		lines.push("");
+	}
+
+	return lines.join("\n").trim();
 }

@@ -5,13 +5,13 @@
  * via tmux, and removes entries from .panes.yaml.
  */
 
-import { resolve, dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { PanesManager } from "../lib/panes-manager.js";
-import { tmuxKillPane } from "../lib/tmux.js";
 import { validateTaskPath } from "../lib/task-utils.js";
+import { tmuxKillPane } from "../lib/tmux.js";
 
 export interface KillOptions {
-  task: string;
+	task: string;
 }
 
 /**
@@ -22,37 +22,37 @@ export interface KillOptions {
  * @param basePath      base path for .panes.yaml lookup (defaults to cwd)
  */
 export async function handleKill(
-  opts: KillOptions,
-  killPaneFn: (paneId: string) => Promise<void> = tmuxKillPane,
-  basePath?: string,
+	opts: KillOptions,
+	killPaneFn: (paneId: string) => Promise<void> = tmuxKillPane,
+	basePath?: string,
 ): Promise<void> {
-  const { task: taskPath } = opts;
-  const resolvedPath = resolve(taskPath);
-  validateTaskPath(resolvedPath);
+	const { task: taskPath } = opts;
+	const resolvedPath = resolve(taskPath);
+	validateTaskPath(resolvedPath);
 
-  const panesManager = new PanesManager(dirname(resolvedPath));
-  const allPanes = panesManager.load();
+	const panesManager = new PanesManager(dirname(resolvedPath));
+	const allPanes = panesManager.load();
 
-  // Find panes matching the task (use resolved path for consistent comparison)
-  const matching = allPanes.filter((p) => p.task_path === resolvedPath);
+	// Find panes matching the task (use resolved path for consistent comparison)
+	const matching = allPanes.filter((p) => p.task_path === resolvedPath);
 
-  if (matching.length === 0) {
-    console.log(`No panes found for task: ${taskPath}`);
-    return;
-  }
+	if (matching.length === 0) {
+		console.log(`No panes found for task: ${taskPath}`);
+		return;
+	}
 
-  // Kill each pane
-  for (const pane of matching) {
-    try {
-      await killPaneFn(pane.pane_id);
-    } catch {
-      // Pane may already be dead — that's fine, just clean up
-    }
-  }
+	// Kill each pane
+	for (const pane of matching) {
+		try {
+			await killPaneFn(pane.pane_id);
+		} catch {
+			// Pane may already be dead — that's fine, just clean up
+		}
+	}
 
-  // Remove entries from .panes.yaml
-  const remaining = allPanes.filter((p) => p.task_path !== resolvedPath);
-  panesManager.save(remaining);
+	// Remove entries from .panes.yaml
+	const remaining = allPanes.filter((p) => p.task_path !== resolvedPath);
+	panesManager.save(remaining);
 
-  console.log(`Killed ${matching.length} pane(s) for task: ${taskPath}`);
+	console.log(`Killed ${matching.length} pane(s) for task: ${taskPath}`);
 }

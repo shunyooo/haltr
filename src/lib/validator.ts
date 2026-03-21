@@ -1,12 +1,15 @@
+import { readFileSync } from "node:fs";
 import AjvModule, { type ValidateFunction } from "ajv";
 import * as yaml from "js-yaml";
-import { readFileSync } from "node:fs";
-import type { TaskYaml, ConfigYaml, Step } from "../types.js";
+import configSchemaJson from "../schemas/config.schema.json" with {
+	type: "json",
+};
 
 import taskSchemaJson from "../schemas/task.schema.json" with { type: "json" };
-import configSchemaJson from "../schemas/config.schema.json" with { type: "json" };
+import type { ConfigYaml, Step, TaskYaml } from "../types.js";
 
 // Handle both ESM default and CJS interop
+// biome-ignore lint/suspicious/noExplicitAny: ESM/CJS interop requires any
 const Ajv = (AjvModule as any).default ?? AjvModule;
 const ajv = new Ajv({ allErrors: true, discriminator: true });
 
@@ -19,14 +22,14 @@ const configValidator: ValidateFunction = ajv.compile(configSchemaJson);
  * Operates recursively on nested steps.
  */
 function expandAcceptShorthand(steps: Step[]): void {
-  for (const step of steps) {
-    if (typeof step.accept === "string") {
-      step.accept = [{ id: "default", check: step.accept }];
-    }
-    if (step.steps) {
-      expandAcceptShorthand(step.steps);
-    }
-  }
+	for (const step of steps) {
+		if (typeof step.accept === "string") {
+			step.accept = [{ id: "default", check: step.accept }];
+		}
+		if (step.steps) {
+			expandAcceptShorthand(step.steps);
+		}
+	}
 }
 
 /**
@@ -34,24 +37,24 @@ function expandAcceptShorthand(steps: Step[]): void {
  * Returns typed TaskYaml or throws with clear error messages.
  */
 export function validateTask(data: unknown): TaskYaml {
-  const valid = taskValidator(data);
-  if (!valid) {
-    const errors = taskValidator.errors ?? [];
-    const messages = errors.map((e) => {
-      const path = e.instancePath || "(root)";
-      return `  ${path}: ${e.message}${e.params ? ` (${JSON.stringify(e.params)})` : ""}`;
-    });
-    throw new Error(`Task validation failed:\n${messages.join("\n")}`);
-  }
+	const valid = taskValidator(data);
+	if (!valid) {
+		const errors = taskValidator.errors ?? [];
+		const messages = errors.map((e) => {
+			const path = e.instancePath || "(root)";
+			return `  ${path}: ${e.message}${e.params ? ` (${JSON.stringify(e.params)})` : ""}`;
+		});
+		throw new Error(`Task validation failed:\n${messages.join("\n")}`);
+	}
 
-  const task = data as TaskYaml;
+	const task = data as TaskYaml;
 
-  // Expand accept string shorthand after validation
-  if (task.steps) {
-    expandAcceptShorthand(task.steps);
-  }
+	// Expand accept string shorthand after validation
+	if (task.steps) {
+		expandAcceptShorthand(task.steps);
+	}
 
-  return task;
+	return task;
 }
 
 /**
@@ -59,32 +62,32 @@ export function validateTask(data: unknown): TaskYaml {
  * Returns typed ConfigYaml or throws with clear error messages.
  */
 export function validateConfig(data: unknown): ConfigYaml {
-  const valid = configValidator(data);
-  if (!valid) {
-    const errors = configValidator.errors ?? [];
-    const messages = errors.map((e) => {
-      const path = e.instancePath || "(root)";
-      return `  ${path}: ${e.message}${e.params ? ` (${JSON.stringify(e.params)})` : ""}`;
-    });
-    throw new Error(`Config validation failed:\n${messages.join("\n")}`);
-  }
-  return data as ConfigYaml;
+	const valid = configValidator(data);
+	if (!valid) {
+		const errors = configValidator.errors ?? [];
+		const messages = errors.map((e) => {
+			const path = e.instancePath || "(root)";
+			return `  ${path}: ${e.message}${e.params ? ` (${JSON.stringify(e.params)})` : ""}`;
+		});
+		throw new Error(`Config validation failed:\n${messages.join("\n")}`);
+	}
+	return data as ConfigYaml;
 }
 
 /**
  * Load a YAML file, parse it, and validate against the task schema.
  */
 export function loadAndValidateTask(filePath: string): TaskYaml {
-  const content = readFileSync(filePath, "utf-8");
-  const data = yaml.load(content);
-  return validateTask(data);
+	const content = readFileSync(filePath, "utf-8");
+	const data = yaml.load(content);
+	return validateTask(data);
 }
 
 /**
  * Load a YAML file, parse it, and validate against the config schema.
  */
 export function loadAndValidateConfig(filePath: string): ConfigYaml {
-  const content = readFileSync(filePath, "utf-8");
-  const data = yaml.load(content);
-  return validateConfig(data);
+	const content = readFileSync(filePath, "utf-8");
+	const data = yaml.load(content);
+	return validateConfig(data);
 }

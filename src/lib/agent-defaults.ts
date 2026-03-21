@@ -6,7 +6,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __filename_local = fileURLToPath(import.meta.url);
@@ -25,18 +25,18 @@ const BUILTIN_AGENTS_DIR = join(__dirname_local, "..", "agents");
  *   3. Minimal fallback
  */
 export function getAgentSettings(haltrDir: string, role: string): string {
-  // 1. User override
-  const overridePath = join(haltrDir, "agents", `${role}.yaml`);
-  if (existsSync(overridePath)) {
-    return readFileSync(overridePath, "utf-8");
-  }
+	// 1. User override
+	const overridePath = join(haltrDir, "agents", `${role}.yaml`);
+	if (existsSync(overridePath)) {
+		return readFileSync(overridePath, "utf-8");
+	}
 
-  // 2. Built-in default
-  const builtinPath = join(BUILTIN_AGENTS_DIR, `${role}.yaml`);
-  if (existsSync(builtinPath)) {
-    return readFileSync(builtinPath, "utf-8");
-  }
+	// 2. Built-in default
+	const builtinPath = join(BUILTIN_AGENTS_DIR, `${role}.yaml`);
+	if (existsSync(builtinPath)) {
+		return readFileSync(builtinPath, "utf-8");
+	}
 
-  // 3. Minimal fallback
-  return `roles: [${role}]\nhooks: {}\n`;
+	// 3. Minimal fallback
+	return `roles: [${role}]\nhooks: {}\n`;
 }
