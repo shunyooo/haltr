@@ -62,18 +62,6 @@ export function createEpic(baseDir: string, name: string, date?: Date): string {
 
 	mkdirSync(epicPath, { recursive: true });
 
-	// If running inside a haltr tmux session, rename it to match the epic
-	import("../lib/tmux.js")
-		.then(async ({ tmuxCurrentSession, tmuxRenameSession }) => {
-			const currentSession = await tmuxCurrentSession();
-			if (currentSession?.startsWith("haltr-")) {
-				await tmuxRenameSession(currentSession, `haltr-${name}`);
-			}
-		})
-		.catch(() => {
-			// Not in tmux or rename failed — that's fine
-		});
-
 	return epicPath;
 }
 

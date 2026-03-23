@@ -1,40 +1,33 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { registerCheckCommand } from "../commands/check.js";
+import { handleCheck } from "../commands/check.js";
+import {
+	handleContextCreate,
+	handleContextDelete,
+	handleContextList,
+	handleContextLog,
+	handleContextShow,
+} from "../commands/context.js";
 import {
 	archiveEpic,
 	createEpic,
 	currentEpic,
 	listEpics,
 } from "../commands/epic.js";
-import { handleEscalate } from "../commands/escalate.js";
-import { registerHistoryCommand } from "../commands/history.js";
-import { registerHookCommand } from "../commands/hook.js";
 import { initHaltr } from "../commands/init.js";
-import { handleKill } from "../commands/kill-cmd.js";
-import { handleNext } from "../commands/next.js";
-import { handlePanes } from "../commands/panes.js";
-import { listPatterns, showPattern } from "../commands/patterns.js";
-import { addRule, listRules } from "../commands/rule.js";
-import { handleSend } from "../commands/send.js";
 import {
-	handleAttach as handleSessionAttach,
-	handleDefault as handleSessionDefault,
-	handleNew as handleSessionNew,
-	handleStopSession as handleSessionStop,
-	listSessions as sessionListSessions,
-} from "../commands/session.js";
-import { handleSpawn, VALID_ROLES } from "../commands/spawn.js";
-import { handleStart } from "../commands/start.js";
-import { registerStatusCommand } from "../commands/status.js";
-import { createTask, editTask, writeTask } from "../commands/task.js";
-import { handleTui } from "../commands/tui.js";
-import { TmuxRuntime } from "../lib/tmux-runtime.js";
+	handleStepAdd,
+	handleStepDone,
+	handleStepPause,
+	handleStepResume,
+	handleStepStart,
+} from "../commands/step.js";
+import { handleStatus } from "../commands/status.js";
+import { handleTaskCreate, handleTaskEdit } from "../commands/task.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -47,17 +40,10 @@ const program = new Command();
 
 program
 	.name("hal")
-	.description("haltr — Quality assurance orchestration for coding agents")
-	.version(pkg.version)
-	.action(async () => {
-		try {
-			await handleSessionDefault();
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.description("haltr — Quality assurance tool for coding agent outputs")
+	.version(pkg.version);
+
+// ---- init ----
 
 program
 	.command("init")
@@ -65,7 +51,6 @@ program
 	.action(() => {
 		try {
 			initHaltr(process.cwd());
-			console.log("Initialized haltr/ directory structure.");
 		} catch (e: unknown) {
 			const msg = e instanceof Error ? e.message : String(e);
 			console.error(`Error: ${msg}`);
@@ -152,225 +137,82 @@ program.addCommand(epicCmd);
 
 // ---- task ----
 
-const taskCmd = new Command("task").description("Manage tasks (new, edit)");
+const taskCmd = new Command("task").description("Manage tasks (create, edit)");
 
 taskCmd
-	.command("new")
-	.description("Create a new task in an epic")
-	.requiredOption("--epic <name>", "Epic name (suffix match)")
-	.action((opts: { epic: string }) => {
-		try {
-			const taskPath = createTask(process.cwd(), opts.epic);
-			console.log(`Created task: ${taskPath}`);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-taskCmd
-	.command("edit <path>")
-	.description("Edit a task.yaml file")
-	.option("--field <field>", "Field to update")
-	.option("--value <value>", "Value to set")
-	.action((path: string, opts: { field?: string; value?: string }) => {
-		try {
-			if (!opts.field && !opts.value) {
-				// Open in $EDITOR
-				const editor = process.env.EDITOR || "vi";
-				execFileSync(editor, [path], { stdio: "inherit" });
-				// After editor closes, add updated event
-				editTask(path);
-			} else {
-				editTask(path, opts.field, opts.value);
+	.command("create")
+	.description("Create a new task in the current epic")
+	.requiredOption("--goal <goal>", "Task goal")
+	.option("--accept <accept...>", "Accept criteria (repeatable)")
+	.option("--plan <plan>", "Task plan")
+	.option("--notes <notes>", "Task notes")
+	.action(
+		(opts: {
+			goal: string;
+			accept?: string[];
+			plan?: string;
+			notes?: string;
+		}) => {
+			try {
+				handleTaskCreate(opts);
+			} catch (e: unknown) {
+				const msg = e instanceof Error ? e.message : String(e);
+				console.error(`Error: ${msg}`);
+				process.exit(1);
 			}
-			console.log(`Updated task: ${path}`);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+		},
+	);
 
 taskCmd
-	.command("write <path>")
-	.description("Write task.yaml from stdin (validates against schema)")
-	.action((path: string) => {
-		try {
-			const content = readFileSync(0, "utf-8"); // read from stdin
-			writeTask(path, content);
-			console.log(`Written task: ${path}`);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.command("edit")
+	.description("Edit the current task")
+	.option("--goal <goal>", "New goal")
+	.option("--accept <accept...>", "New accept criteria (repeatable)")
+	.option("--plan <plan>", "New plan")
+	.option("--notes <notes>", "New notes")
+	.requiredOption("--message <message>", "Change reason")
+	.action(
+		(opts: {
+			goal?: string;
+			accept?: string[];
+			plan?: string;
+			notes?: string;
+			message: string;
+		}) => {
+			try {
+				handleTaskEdit(opts);
+			} catch (e: unknown) {
+				const msg = e instanceof Error ? e.message : String(e);
+				console.error(`Error: ${msg}`);
+				process.exit(1);
+			}
+		},
+	);
 
 program.addCommand(taskCmd);
 
-// ---- history, status, check ----
+// ---- step ----
 
-registerHistoryCommand(program);
-registerStatusCommand(program);
-registerCheckCommand(program);
-
-// ---- escalate ----
-
-program
-	.command("escalate")
-	.description("Report a problem from worker (status -> blocked)")
-	.requiredOption("--task <path>", "Path to task.yaml")
-	.requiredOption("--step <step>", "Step path")
-	.requiredOption("--message <message>", "Message for escalation")
-	.action(async (opts: { task: string; step: string; message: string }) => {
-		try {
-			await handleEscalate(opts);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-// ---- kill ----
-
-program
-	.command("kill")
-	.description("Kill all panes related to a task")
-	.requiredOption("--task <path>", "Path to task.yaml")
-	.action(async (opts: { task: string }) => {
-		try {
-			await handleKill(opts);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-// ---- panes ----
-
-program
-	.command("panes")
-	.description("List current panes")
-	.action(() => {
-		try {
-			const output = handlePanes();
-			console.log(output);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-// ---- rule ----
-
-const ruleCmd = new Command("rule").description(
-	"Manage project rules (add, list)",
+const stepCmd = new Command("step").description(
+	"Manage steps (add, start, done, pause, resume)",
 );
 
-ruleCmd
-	.command("list")
-	.description("List all rules")
-	.action(() => {
-		try {
-			const content = listRules(process.cwd());
-			console.log(content);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-ruleCmd
-	.command("add <rule>")
-	.description("Add a rule")
-	.action((rule: string) => {
-		try {
-			addRule(process.cwd(), rule);
-			console.log(`Rule added: ${rule}`);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-program.addCommand(ruleCmd);
-
-// ---- spawn ----
-
-program
-	.command("spawn <role>")
-	.description(`Spawn a new agent pane (roles: ${[...VALID_ROLES].join(", ")})`)
-	.requiredOption("--task <path>", "Path to task.yaml")
-	.option("--step <step>", "Step path")
-	.option("--cli <cli>", "CLI override (claude, codex, gemini)")
-	.action(
-		async (
-			role: string,
-			opts: { task: string; step?: string; cli?: string },
-		) => {
-			try {
-				// Detect current tmux session name (spawn runs inside a haltr session)
-				const { tmuxCurrentSession } = await import("../lib/tmux.js");
-				const currentSession = (await tmuxCurrentSession()) ?? "haltr";
-				const runtime = new TmuxRuntime(currentSession, process.cwd());
-				await handleSpawn(
-					{ role, task: opts.task, step: opts.step, cli: opts.cli },
-					runtime,
-				);
-			} catch (e: unknown) {
-				const msg = e instanceof Error ? e.message : String(e);
-				console.error(`Error: ${msg}`);
-				process.exit(1);
-			}
-		},
-	);
-
-// ---- next ----
-
-program
-	.command("next")
-	.description("Advance to next step (done → spawn worker)")
-	.requiredOption("--task <path>", "Path to task.yaml")
-	.requiredOption("--from <step>", "Current step to mark as done")
-	.requiredOption("--to <step>", "Next step to start")
-	.action(async (opts: { task: string; from: string; to: string }) => {
-		try {
-			const { tmuxCurrentSession } = await import("../lib/tmux.js");
-			const currentSession = (await tmuxCurrentSession()) ?? "haltr";
-			const runtime = new TmuxRuntime(currentSession, process.cwd());
-			await handleNext(opts, runtime);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-// ---- send ----
-
-program
-	.command("send")
-	.description("Send a message to an agent pane")
-	.requiredOption("--task <path>", "Path to task.yaml")
+stepCmd
+	.command("add")
+	.description("Add a new step to the current task")
 	.requiredOption("--step <step>", "Step ID")
-	.requiredOption("--message <text>", "Message to send")
-	.option("--role <role>", "Target role (default: worker)")
+	.requiredOption("--goal <goal>", "Step goal")
+	.option("--accept <accept...>", "Accept criteria (repeatable)")
+	.option("--after <after>", "Insert after this step ID")
 	.action(
-		async (opts: {
-			task: string;
+		(opts: {
 			step: string;
-			message: string;
-			role?: string;
+			goal: string;
+			accept?: string[];
+			after?: string;
 		}) => {
 			try {
-				await handleSend(opts);
+				handleStepAdd(opts);
 			} catch (e: unknown) {
 				const msg = e instanceof Error ? e.message : String(e);
 				console.error(`Error: ${msg}`);
@@ -379,132 +221,177 @@ program
 		},
 	);
 
-// ---- patterns ----
-
-const patternsCmd = new Command("patterns").description("Task design patterns");
-
-patternsCmd
-	.command("list")
-	.description("List available patterns")
-	.action(() => {
-		console.log(listPatterns());
-	});
-
-patternsCmd
-	.command("show <id>")
-	.description("Show a specific pattern")
-	.action((id: string) => {
-		try {
-			console.log(showPattern(id));
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-program.addCommand(patternsCmd);
-
-// ---- session management ----
-
-program
-	.command("new")
-	.description("Start a new haltr session")
-	.action(async () => {
-		try {
-			await handleSessionNew();
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-program
-	.command("ls")
-	.description("List active haltr sessions")
-	.action(async () => {
-		try {
-			const sessions = await sessionListSessions();
-			if (sessions.length === 0) {
-				console.log("アクティブなセッションはありません。");
-				return;
-			}
-			for (const s of sessions) {
-				console.log(`  ${s.epicName}`);
-			}
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-program
-	.command("attach [epic]")
-	.description("Attach to an existing haltr session")
-	.action(async (epic?: string) => {
-		try {
-			if (epic) {
-				await handleSessionAttach(epic);
-			} else {
-				await handleSessionDefault();
-			}
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-program
-	.command("stop [epic]")
-	.description("Stop haltr session(s)")
-	.option("--all", "Stop all sessions")
-	.action(async (epic: string | undefined, opts: { all?: boolean }) => {
-		try {
-			await handleSessionStop(epic, opts.all ?? false);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
-
-// Keep start for backward compat (used internally by session.ts)
-program
+stepCmd
 	.command("start")
-	.description("Start tmux session and orchestrator agent (internal)")
-	.option("--cli <cli>", "CLI override for orchestrator")
-	.option("--task <path>", "Path to task.yaml")
-	.option("--session-name <name>", "tmux session name")
-	.action(
-		async (opts: { cli?: string; task?: string; sessionName?: string }) => {
-			try {
-				await handleStart(opts);
-			} catch (e: unknown) {
-				const msg = e instanceof Error ? e.message : String(e);
-				console.error(`Error: ${msg}`);
-				process.exit(1);
-			}
-		},
-	);
-
-registerHookCommand(program);
-
-// ---- tui ----
-
-program
-	.command("tui")
-	.description("Launch interactive TUI dashboard")
-	.action(async () => {
+	.description("Start working on a step")
+	.requiredOption("--step <step>", "Step ID")
+	.action((opts: { step: string }) => {
 		try {
-			await handleTui();
+			handleStepStart(opts);
 		} catch (e: unknown) {
 			const msg = e instanceof Error ? e.message : String(e);
 			console.error(`Error: ${msg}`);
 			process.exit(1);
 		}
 	});
+
+stepCmd
+	.command("done")
+	.description("Mark a step as done (PASS/FAIL)")
+	.requiredOption("--step <step>", "Step ID")
+	.requiredOption("--result <result>", "Result: PASS or FAIL")
+	.option("--message <message>", "Result message")
+	.action((opts: { step: string; result: string; message?: string }) => {
+		try {
+			handleStepDone(opts);
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+stepCmd
+	.command("pause")
+	.description("Pause current work (copilot mode)")
+	.action(() => {
+		try {
+			handleStepPause();
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+stepCmd
+	.command("resume")
+	.description("Resume paused work")
+	.action(() => {
+		try {
+			handleStepResume();
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+program.addCommand(stepCmd);
+
+// ---- status ----
+
+program
+	.command("status")
+	.description("Show current task status")
+	.action(() => {
+		try {
+			handleStatus();
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+// ---- check ----
+
+program
+	.command("check")
+	.description("Stop hook gate check (reads session_id from stdin)")
+	.action(() => {
+		try {
+			handleCheck();
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+// ---- context ----
+
+const contextCmd = new Command("context").description(
+	"Manage context (skills and knowledge)",
+);
+
+contextCmd
+	.command("list")
+	.description("List all context entries")
+	.action(() => {
+		try {
+			handleContextList();
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+contextCmd
+	.command("show")
+	.description("Show content of a context entry")
+	.requiredOption("--id <id>", "Context entry ID")
+	.action((opts: { id: string }) => {
+		try {
+			handleContextShow(opts);
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+contextCmd
+	.command("create")
+	.description("Create a new context entry")
+	.requiredOption("--type <type>", "Entry type: skill or knowledge")
+	.requiredOption("--id <id>", "Entry ID")
+	.requiredOption("--description <description>", "Entry description")
+	.action((opts: { type: string; id: string; description: string }) => {
+		try {
+			handleContextCreate(opts);
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+contextCmd
+	.command("delete")
+	.description("Delete a context entry")
+	.requiredOption("--id <id>", "Context entry ID")
+	.requiredOption("--reason <reason>", "Deletion reason")
+	.action((opts: { id: string; reason: string }) => {
+		try {
+			handleContextDelete(opts);
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+contextCmd
+	.command("log")
+	.description("Record a history event for a context entry")
+	.requiredOption("--id <id>", "Context entry ID")
+	.requiredOption(
+		"--type <type>",
+		"Event type: updated, confirmed, deprecated, promoted",
+	)
+	.option("--message <message>", "Event message")
+	.action((opts: { id: string; type: string; message?: string }) => {
+		try {
+			handleContextLog(opts);
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	});
+
+program.addCommand(contextCmd);
 
 program.parse();
