@@ -1,10 +1,10 @@
 <p align="center">
   <h1 align="center">haltr</h1>
   <p align="center">
-    コーディングエージェントの出力品質を、エージェント自身に担保させる
+    コーディングエージェントの自律性を高めるフレームワーク
   </p>
   <p align="center">
-    <a href="#インストール">インストール</a> · <a href="#使い方">使い方</a> · <a href="#仕組み">仕組み</a> · <a href="#コマンド一覧">コマンド一覧</a> · <a href="#設定">設定</a>
+    <a href="#インストール">インストール</a> · <a href="#使い方">使い方</a> · <a href="#仕組み">仕組み</a> · <a href="#コマンド一覧">コマンド一覧</a>
   </p>
   <p align="center">
     <a href="./README.md">English</a> | 日本語
@@ -15,45 +15,25 @@
 
 ## 解決する問題
 
-エージェントが「完了しました」と言っても、実際にはテストが通っていなかったり、要件の一部をスキップしていたり、既存機能を壊していたりします。
+コーディングエージェントは、人間が張り付いて対話・方向修正・レビューを行わないとまともなアウトプットが出せません。エージェントは「道具」であり、人間が操縦し続ける必要があります。
 
-結局、人間がセッションを逐一監視して、手動でテストを走らせて、「本当に確認した？」と何度も聞くことになります。これでは自律エージェントを使う意味がありません。
-
-haltr は**作業と検証を別のエージェントに分離**することで、この問題を解決します。さらに、作業者と検証者には**異なる LLM** を使います。同じ LLM だと同じバイアスを共有してしまい、見落としが検証でも見つからないためです。
+haltr は**エージェントが自律的に長時間作業し、高品質なアウトプットを出せる状態**を目指します。
 
 ```
-人間: 「ログイン機能を実装して」
- ↓
-haltr がステップと受入条件を構造化
- ↓
-Worker（Claude）が実装
- ↓
-Verifier（Codex / Gemini）が独立検証
- ↓
-FAIL → 修正 → 再検証（自動ループ）
- ↓
-全ステップ PASS → 人間に報告
+1度やることを決めたら、あとはエージェントが数時間、
+自律的に作業し、高品質なアウトプットを出す。
 ```
 
-人間がやるのは最初の指示と最終確認だけです。途中の品質担保は haltr が回します。
+人間は最初の意思決定と最終確認だけ。途中の品質担保は haltr が行います。
 
-### 既存ツールとの比較
+## 特徴
 
-|  | haltr | Ruflo (21.7k★) | Gas Town (12.5k★) | agent-orchestrator (4.8k★) |
-|:---|:---:|:---:|:---:|:---:|
-| クロス CLI 検証（作業者 ≠ 検証者の LLM） | ✅ | ❌ | ❌ | ❌ |
-| CLI 非依存（Claude / Codex / Gemini） | ✅ | ❌¹ | ❌¹ | ✅ |
-| 独立した検証エージェント | ✅ | ❌ | ❌ | ❌ |
-| スペックドリブン（構造化された受入条件） | ✅ | ❌ | ❌ | △ |
-| 途中からの人間介入・ピボット | ✅ | ❌ | ❌ | ❌ |
-| 人間 + agent の混合検証 | ✅ | ❌ | ❌ | ❌ |
-| 自動リトライループ | ✅ | ✅ | ✅ | ✅ |
-| ファイルベース（YAML が Single Source of Truth） | ✅ | ❌ | ❌ | ✅ |
-| pane クラッシュ検知・自動通知 | ✅ | ❌ | ✅ | ❌ |
-
-<sub>¹ Claude Code 専用</sub>
-
-既存のオーケストレーション系ツールは**水平スケール**（複数 Issue を並列処理）に注力しています。haltr は**垂直スケール**（1タスクの品質担保）に注力しており、クロス CLI による独立検証とスペックドリブンな受入条件が最大の違いです。
+- **hal コマンドが唯一のインターフェース** — エージェントは `hal` コマンドで品質ゲート・状態管理・知識管理を行います。CLI 非依存（Claude Code / Codex / Gemini CLI 等どこからでも使える）
+- **エージェントの自律性を支援** — 管理するのではなく、エージェントが自律的に動ける仕組みを提供します
+- **外部記憶によるコンテキスト劣化対策** — task.yaml + プランファイル + notes.md で長時間作業でも方向を見失わない
+- **品質ゲート** — ステップ完了時に accept 条件をチェック。Stop hook で早期離脱を防止
+- **知識のライフサイクル管理** — skills（方法論）と knowledge（ドメイン知識）を蓄積・参照・陳腐化検知
+- **コマンドヒントによるリマインド** — hal コマンドの返り値で次の動線を常にガイド
 
 ## インストール
 
@@ -64,8 +44,7 @@ npm install -g haltr
 ### 必要なもの
 
 - Node.js >= 20
-- tmux >= 3.0
-- コーディングエージェントの CLI（`claude`, `codex`, `gemini` のうち1つ以上）
+- コーディングエージェントの CLI（`claude` 等）
 
 ## 使い方
 
@@ -75,204 +54,225 @@ npm install -g haltr
 hal init
 ```
 
-### セッション開始
+`haltr/` ディレクトリが作成されます。以下も設定してください：
 
-```bash
-hal start
+1. `CLAUDE.md` に `@haltr/README.md` を追加（Claude Code の場合）
+2. SessionStart hook に `haltr/` 内の `session-start-hook.sh` を設定
+
+### ワークフロー
+
+ユーザーは普通に Claude Code を起動するだけ。haltr/README.md が自動ロードされ、エージェントが hal コマンドを使いながら作業します。
+
+```
+ユーザー: 「ログイン機能を実装して」
+  ↓
+エージェント: プランファイル（plan.md）を作成
+ユーザー: フィードバック → ブラッシュアップ → 「OK」
+  ↓
+エージェント: hal task create → hal step add → hal step start
+  ↓ 自律実行（ユーザーは放置）
+エージェント: 実装 → notes.md に記録 → hal step done --result PASS
+  ↓ ステップを繰り返す
+全ステップ完了 → CCR（クロスコンテキスト検証）→ 完了報告
 ```
 
-これだけです。tmux セッションが立ち上がり、pane 0 にオーケストレーターエージェントが起動します。あとはオーケストレーターに指示を出してください。
-
-```
-あなた: 「ログイン機能を実装して」
-   ↓
-orchestrator がエピック・タスクを作成し、ステップと受入条件を定義
-   ↓
-hal spawn worker → 実装エージェントが起動
-   ↓
-worker 完了 → hal spawn verifier → 別の LLM が独立検証
-   ↓
-PASS → 次のステップ / FAIL → フィードバック付きでリトライ
-```
-
-エピックの作成、タスクの定義、ステップや受入条件の設計は**オーケストレーターが対話の中でやります**。`hal` コマンドは人間が直接叩くものではなく、**エージェントが使う CLI** です。人間はオーケストレーターとの対話を通じてワークフローを制御します。
-
-途中で方向転換したくなったら、オーケストレーターに伝えるか、`hal task edit` で直接タスク定義を編集できます。
+途中で確認したい場合は `hal step pause` で copilot モードに切り替え、エージェントと直接対話できます。`hal step resume` で自律実行に戻ります。
 
 ## 仕組み
 
-### 全体像
+### アーキテクチャ
 
 ```
-┌───────────────────────────────────────────┐
-│  haltr（ワークフロー層）                    │
-│  ├── task.yaml の管理                      │
-│  ├── 受入条件の検証                         │
-│  ├── 履歴の追跡                            │
-│  ├── ステップの実行制御                      │
-│  └── リトライ / エスカレーション / ピボット    │
-├───────────────────────────────────────────┤
-│  Runtime Interface                        │
-│  spawn / kill / send / list / isAlive     │
-├───────────────────────────────────────────┤
-│  Agent Runtime（差し替え可能）               │
-│  └── v1: tmux（pane ベース）               │
-└───────────────────────────────────────────┘
+メインワーカー（1セッション、全てやる）
+  │
+  ├─ hal コマンド（データ管理のみ。LLM は呼ばない）
+  │   ├─ hal task create/edit    — タスク管理
+  │   ├─ hal step add/start/done — ステップ管理 + 品質ゲート
+  │   ├─ hal step pause/resume   — copilot/autopilot 切替
+  │   ├─ hal context *           — 知識管理（CRUD + イベント記録）
+  │   ├─ hal check               — Stop hook 用（早期離脱防止）
+  │   └─ hal status              — 進捗確認
+  │
+  ├─ task.yaml（外部記憶 — 状態管理）
+  ├─ plan.md（外部記憶 — 方法論）
+  ├─ notes.md（外部記憶 — 作業メモ）
+  │
+  ├─ haltr/context/（知識管理 — skills + knowledge）
+  │
+  └─ サブエージェント（必要時のみ、Worker 自身がスポーン）
+      └─ verifier（CCR 用）
 ```
 
-ワークフローと runtime は分離されています。haltr はワークフローロジックだけを持ち、エージェントの起動・管理・通信は runtime が担当します。v1 では tmux ですが、将来は SDK ベースや Docker ベースに差し替えられる設計です。
-
-### 流れ
-
-1. **オーケストレーター**が `task.yaml` を読んで、次の pending ステップの **worker** を spawn します
-2. Worker が作業を終えると `hal check --worker` で完了を通知します（stop hook 経由）
-3. オーケストレーターが別の CLI で **verifier** を spawn し、受入条件を独立検証します
-4. PASS なら次のステップへ。FAIL なら verifier のフィードバックを添えてリトライします
-5. バックグラウンドで **watcher** が pane の生死を監視し、クラッシュ時にオーケストレーターへ通知します
+hal はデータ管理に徹します。LLM 呼び出しやエージェントスポーンは行いません。判断と実行はエージェントの責務です。
 
 ### task.yaml
 
-タスクの定義、状態、履歴、コンテキストを1ファイルに集約します。
+タスクの状態を管理するファイル。人間が意識する必要はありません。
 
 ```yaml
 id: implement-auth
+goal: "Google OAuth でログイン機能を実装する"
+accept:
+  - "npm test -- --grep 'auth' が exit 0"
+  - "playwright で /login のフローを確認"
+plan: 001_plan.md
+notes: 001_notes.md
 status: in_progress
-agents:
-  worker: claude        # 実装は Claude
-  verifier: codex       # 検証は Codex
 
-steps:
-  - id: api-endpoints
-    goal: "認証 API のエンドポイントを実装する"
-    accept: "npm test -- --grep 'auth' が exit 0 で通ること"
-
-  - id: ui-flow
-    goal: "ログイン/サインアップの UI を作る"
+steps:  # エージェントが自律管理
+  - id: setup
+    goal: "OAuth クライアントのセットアップ"
+    status: done
+  - id: implement
+    goal: "認証フローの実装"
     accept:
-      - id: tests
-        check: "npm test -- --grep 'login' が exit 0 で通ること"
-      - id: visual
-        type: human                                        # 人間が目視確認
-        instruction: "/login を開いて動作確認"
+      - "npm test passes"
+    status: in_progress
 
-  - id: docs
-    goal: "認証 API のドキュメントを書く"
-    # accept なし = 探索的タスク
-
-context: |
-  セッション管理は JWT。
-  OAuth は Google と GitHub に対応。
+history:
+  - at: "2026-03-23T10:00:00Z"
+    type: created
+    message: "タスク作成"
 ```
 
-- `goal` — 何を達成するかを記述します。全ステップ必須です
-- `accept` — 受入条件です。あれば verifier が検証し、なければ agent か人間が判断します
-- `accept` に `type: human` を指定すると、人間による確認になります
-- ステップは再帰的にネストできます（`steps` の中に `steps`）
+### 外部記憶の分離
 
-### ディレクトリ構成
+| ファイル | 役割 | 誰が書くか |
+|----------|------|-----------|
+| **plan.md** | 方法論の記述（何をどの順序でやるか） | 人間とエージェントが対話で詰める |
+| **task.yaml** | 状態管理（goal, accept, steps, history） | エージェントが hal コマンド経由で更新 |
+| **notes.md** | 作業メモ（中間結果、発見事項） | エージェントが直接編集 |
+
+### 品質ゲート
 
 ```
-haltr/
-├── config.yaml              # グローバル設定
-├── rules.md                 # プロジェクトルール（全 agent に注入されます）
-├── agents/                  # ロールごとの agent 定義
-│   ├── worker.yaml
-│   ├── verifier.yaml
-│   └── ...
-└── epics/
-    ├── 20260319-001_implement-auth/
-    │   ├── 001_task.yaml    # タスク定義
-    │   ├── .panes.yaml      # pane の追跡（runtime が管理）
-    │   └── .hooks/          # spawn 時に生成
-    └── archive/             # 完了したエピック
+Layer 1: 決定的検証 + 軌道修正（step 完了時）
+  エージェントが accept 条件を検証 → hal step done で報告
+
+Layer 2: クロスコンテキスト検証（タスク完了時）
+  異なる LLM のサブエージェントで独立検証（CCR）
+
+Layer 3: 人間レビュー（最終確認）
+  必要な時だけ介入
 ```
 
-エピック内のファイルは連番で管理されます。タスク定義、調査コード、レポートが時系列で並ぶので、探索→発見→ピボットの流れを自然に追えます。
+### 知識管理
+
+```
+haltr/context/
+  index.yaml        — 統合インデックス（description リスト）
+  history.yaml      — 使用履歴（イベントログ）
+  skills/           — 方法論（SKILL.md フォーマット）
+  knowledge/        — ドメイン知識
+```
 
 ## コマンド一覧
 
-### 初期化
+### タスク管理
 
 | コマンド | 説明 |
 |---------|------|
-| `hal init` | `haltr/` を作成して初期化します |
+| `hal task create --goal "..." --accept "..."` | タスクを作成 |
+| `hal task edit --goal "..." --message "理由"` | タスクを編集 |
 
-### エピック
-
-| コマンド | 説明 |
-|---------|------|
-| `hal epic create <name>` | エピックを作成します |
-| `hal epic list` | エピック一覧を表示します |
-| `hal epic current` | 最新のエピックを表示します |
-| `hal epic archive <name>` | エピックをアーカイブに移動します |
-
-### タスク
+### ステップ管理
 
 | コマンド | 説明 |
 |---------|------|
-| `hal task new <epic>` | 新規タスクを作成します（前タスクがあればピボット） |
-| `hal task edit [--field --value]` | `$EDITOR` で編集、またはフィールドを直接更新します |
+| `hal step add --step <id> --goal "..."` | ステップを追加 |
+| `hal step start --step <id>` | ステップを開始 |
+| `hal step done --step <id> --result PASS` | ステップ完了を報告 |
+| `hal step pause` | copilot モードに切替 |
+| `hal step resume` | autopilot モードに復帰 |
 
-### セッション制御
-
-| コマンド | 説明 |
-|---------|------|
-| `hal start [--task] [--cli]` | tmux セッションを開始します |
-| `hal spawn <role> [--step] [--task]` | agent pane を追加します（worker / verifier / sub-orchestrator 等） |
-| `hal stop` | セッションと watcher を停止します |
-| `hal kill --task <path>` | タスクの全 pane を停止します |
-
-### 完了ゲート
+### 知識管理
 
 | コマンド | 説明 |
 |---------|------|
-| `hal check --worker` | worker の完了判定です（stop hook から自動実行） |
-| `hal check --verifier` | verifier の完了判定です（stop hook から自動実行） |
-| `hal check --orchestrator` | ステップの完了を判定します |
-| `hal escalate --task --step` | worker から問題を報告します（ステータスが blocked に） |
-
-### 状態管理
-
-| コマンド | 説明 |
-|---------|------|
-| `hal status <target> <status>` | ステップ/タスクのステータスを変更します |
-| `hal history add --type <type>` | 履歴イベントを追加します |
-| `hal history list --task <path>` | 履歴を表示します |
-| `hal panes` | pane 一覧を表示します |
+| `hal context list` | skills + knowledge の一覧 |
+| `hal context show --id <id>` | 内容表示 + used 記録 |
+| `hal context create --type skill --id <id> --description "..."` | 新規作成 |
+| `hal context delete --id <id> --reason "..."` | 削除 |
+| `hal context log --id <id> --type updated --message "..."` | イベント記録 |
 
 ### その他
 
 | コマンド | 説明 |
 |---------|------|
-| `hal rule add "<rule>"` | ルールを追加します |
-| `hal rule list` | ルールを表示します |
-| `hal layout <type>` | tmux レイアウトを変更します |
-| `hal hook guard-bash <cmd>` | `hal` 以外のコマンドをブロックします（hook 用） |
+| `hal init` | haltr/ ディレクトリを初期化 |
+| `hal status` | 現在の状態を表示 |
+| `hal check` | Stop hook 用ゲートチェック |
+| `hal epic create <name>` | エピックを作成 |
+| `hal epic list` | エピック一覧 |
 
-## 設定
+## 設計原則
 
-### config.yaml
+1. **自律性のための構造** — エージェントを管理するのではなく、自律的に動けるよう支援する
+2. **削除を前提に設計する（Bitter Lesson）** — モデルが進化すれば不要になる構造は最小限に
+3. **検証可能なゴール > 冗長な仕様** — accept 条件を具体的かつ検証可能に
+4. **コンテキストの質 > エージェントの数** — 1つのエージェントに適切なコンテキストを提供
+5. **hal はデータ管理に徹する** — LLM 呼び出し・エージェントスポーンはしない
 
-```yaml
-orchestrator_cli: claude        # オーケストレーターの CLI
-watcher:
-  poll_interval: 30             # pane 監視の間隔（秒）
-  inactivity_threshold: 300     # 無応答アラートまでの時間（秒）
-panes:
-  max_concurrent: 10            # pane の同時最大数
-retry:
-  max_attempts: 3               # ステップごとの最大リトライ回数
-```
+## 設計の経緯
 
-### CLI の解決順序
+### なぜマルチエージェント構成にしなかったのか？
 
-ロールごとに使う CLI は、より具体的な指定が優先されます:
+haltr v1 はオーケストレーター + ワーカー + ベリファイアーのマルチエージェント構成でした。しかし実運用で以下の問題が発生しました。
 
-**Worker**: step.agents.worker → task.agents.worker
+- **伝言ゲーム** — orchestrator がユーザーの意図を worker に伝える過程で情報が劣化する。修正のたびに orchestrator を経由するため、修正サイクルが遅い
+- **コンテキスト損失** — step ごとに worker を kill → re-spawn すると、前の step で得た暗黙知が失われる。step を細かく切るほど品質が下がるという矛盾
+- **オーバーヘッド** — 簡単な修正でもフルフローが走る。ユーザーが「普通に Claude Code でやった方が早い」と感じる
 
-**Verifier**: accept[].verifier → step.agents.verifier → task.agents.verifier
+これは haltr だけの問題ではありません。[Google/MIT の研究（2025年12月）](https://arxiv.org/html/2512.08296v1)では、逐次的なタスクでマルチエージェントを使うと **-39〜70% の性能低下** が確認されています。[Microsoft Azure SRE チーム](https://techcommunity.microsoft.com/blog/appsonazureblog/context-engineering-lessons-from-building-azure-sre-agent/4481200/)は 50+ のエージェントを数個の汎用エージェントに統合しました。4回以上のハンドオフでほぼ必ず失敗するとも報告しています。
 
-**オーケストレーター系**: config.orchestrator_cli
+> "most coding tasks involve fewer truly parallelizable tasks than research, and LLM agents are not yet great at coordinating and delegating to other agents in real time."
+>
+> （「ほとんどのコーディングタスクはリサーチより並列化可能なタスクが少なく、LLM エージェントはまだリアルタイムでの他エージェントへの調整・委譲が得意ではない」）
+>
+> — Anthropic
+
+v2 ではメインワーカー1つに統合し、haltr はデータ管理（task.yaml + 品質ゲート + 知識管理）に徹する設計にしました。
+
+### なぜ hal はLLM を呼ばないのか？
+
+hal コマンドの中で LLM を呼ぶ設計も検討しましたが、やめました。
+
+- **責務の分離** — 判断はエージェント、記録は hal。境界が明確になる
+- **実装のシンプルさ** — hal に LLM クライアントを持たせると、API キー管理・モデル選択・エラーハンドリングが必要になる
+- **CLI 非依存** — hal が特定の LLM API に依存すると、CLI 非依存の原則が崩れる
+- **テスタビリティ** — データ管理だけなら決定的にテストできる
+
+### なぜ Spec-driven にしなかったのか？
+
+Spec-driven development（事前に詳細な仕様を書いてからエージェントに実装させる）も検討しましたが、採用しませんでした。
+
+[Birgitta Boeckeler（Thoughtworks）](https://martinfowler.com/)は3つの SDD ツールを評価し、「同じ時間でプレーンな AI コーディングで実装できた」と報告しています。[Colin Eberhardt（Scott Logic）](https://blog.scottlogic.com/)は定量比較で **SDD なしの方が約10倍速い** という結果を出しています。
+
+> "A spec detailed enough to fully describe a program is more or less the program, just written in a non-executable language."
+>
+> （「プログラムを完全に記述するほど詳細な仕様は、実行不能な言語で書かれたプログラムそのものだ」）
+>
+> — Addy Osmani（Google）
+
+haltr では、重い仕様ではなく**軽量なプランファイル**（対話で詰めた合意内容）と**検証可能な accept 条件**の組み合わせを選びました。
+
+### Bitter Lesson: 構造は最小限に
+
+> "Design for deletion."
+>
+> （「削除を前提に設計せよ」）
+>
+> — Microsoft Azure SRE
+
+モデルは急速に進化しています。GPT-3.5 用の複雑なオーケストレーションは GPT-4 で不要になりました。Claude 2 用のマルチステップ推論チェーンは Claude 3 で単一プロンプトに置き換わりました。
+
+haltr が足す構造はすべて「今のモデルでは必要だが、将来のモデルでは不要になるかもしれない」という前提で設計しています。各機能について「この構造を削除したら、エージェントは自律的に動けなくなるか？」を問い、Yes のものだけを残しています。
+
+### クロスコンテキスト検証（CCR）の根拠
+
+[Song（2026）の研究](https://arxiv.org/html/2603.12123)で、独立コンテキストでのレビューが同一セッション自己レビューより有効であることが実証されています（F1: 28.6% vs 24.6%）。同一セッションで2回レビューしても改善しない（21.7%）ことから、繰り返しではなく**文脈分離**が重要であることがわかっています。
+
+ただし効果は控えめであり、「銀の弾丸」ではありません。haltr では品質スタックの一層として位置づけ、タスク完了時にエージェント自身がサブエージェントとして実行する形を取っています。
 
 ## 開発
 
@@ -280,18 +280,10 @@ retry:
 npm install          # 依存インストール
 npm run build        # ビルド
 npm run lint         # Biome によるリント
-
-# テスト（マイルストーン別）
-npm run test:m1      # スキーマ・バリデーション
-npm run test:m2      # ディレクトリ・タスク管理
-npm run test:m3      # 履歴・ステータス
-npm run test:m4      # Hook ゲート
-npm run test:m5      # tmux ランタイム
-npm run test:m6      # Spawn・Start
-npm run test:m7      # サポートコマンド
-npm run test:m8      # Agent 定義・Watcher
-npm run test:m9a     # E2E（前半）
-npm run test:m9b     # E2E（後半）
+npm run test         # 全テスト実行
+npm run test:schema  # スキーマバリデーションテスト
+npm run test:commands # コマンドテスト
+npm run test:e2e     # E2E テスト
 ```
 
 ## ライセンス
