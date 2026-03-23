@@ -168,13 +168,27 @@ function setupClaudeCodeHooks(baseDir: string, haltrDir: string): string {
 	if (!Array.isArray(hooks.SessionStart)) {
 		hooks.SessionStart = [];
 	}
-	const hasSessionHook = hooks.SessionStart.some(
-		(h: unknown) => typeof h === "object" && h !== null && "command" in h &&
-			String((h as Record<string, unknown>).command).includes("session-start-hook"),
+	const hasSessionHook = (hooks.SessionStart as unknown[]).some(
+		(entry: unknown) => {
+			if (typeof entry !== "object" || entry === null) return false;
+			const e = entry as Record<string, unknown>;
+			const innerHooks = e.hooks as unknown[];
+			if (!Array.isArray(innerHooks)) return false;
+			return innerHooks.some(
+				(h: unknown) => typeof h === "object" && h !== null && "command" in h &&
+					String((h as Record<string, unknown>).command).includes("session-start-hook"),
+			);
+		},
 	);
 	if (!hasSessionHook) {
 		hooks.SessionStart.push({
-			command: sessionStartHookPath,
+			matcher: "startup",
+			hooks: [
+				{
+					type: "command",
+					command: sessionStartHookPath,
+				},
+			],
 		});
 	}
 
@@ -182,13 +196,26 @@ function setupClaudeCodeHooks(baseDir: string, haltrDir: string): string {
 	if (!Array.isArray(hooks.Stop)) {
 		hooks.Stop = [];
 	}
-	const hasStopHook = hooks.Stop.some(
-		(h: unknown) => typeof h === "object" && h !== null && "command" in h &&
-			String((h as Record<string, unknown>).command).includes("hal check"),
+	const hasStopHook = (hooks.Stop as unknown[]).some(
+		(entry: unknown) => {
+			if (typeof entry !== "object" || entry === null) return false;
+			const e = entry as Record<string, unknown>;
+			const innerHooks = e.hooks as unknown[];
+			if (!Array.isArray(innerHooks)) return false;
+			return innerHooks.some(
+				(h: unknown) => typeof h === "object" && h !== null && "command" in h &&
+					String((h as Record<string, unknown>).command).includes("hal check"),
+			);
+		},
 	);
 	if (!hasStopHook) {
 		hooks.Stop.push({
-			command: "hal check",
+			hooks: [
+				{
+					type: "command",
+					command: "hal check",
+				},
+			],
 		});
 	}
 

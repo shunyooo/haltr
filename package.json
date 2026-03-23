@@ -1,6 +1,6 @@
 {
   "name": "haltr",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Quality assurance tool for coding agent outputs",
   "type": "module",
   "main": "./dist/bin/hal.js",
