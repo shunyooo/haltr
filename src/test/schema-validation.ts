@@ -1,8 +1,8 @@
 /**
- * v2 Schema Validation Test Script
+ * Schema Validation Test Script
  *
- * Verifies schema, types, and validation for haltr v2.
- * Run with: npm run test:v2
+ * Verifies schema, types, and validation for haltr.
+ * Run with: npm run test:schema
  */
 
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -76,19 +76,18 @@ function assertEqual(actual: unknown, expected: unknown, label?: string): void {
 }
 
 // Helper: create a temp dir for test files
-const tmpDir = mkdtempSync(join(tmpdir(), "haltr-v2-test-"));
+const tmpDir = mkdtempSync(join(tmpdir(), "haltr-test-"));
 
 // ============================================================================
-// Section 1: Task Schema Validation (v2)
+// Section 1: Task Schema Validation
 // ============================================================================
-console.log("\n--- v2 Task Schema Validation ---");
+console.log("\n--- Task Schema Validation ---");
 
-const fullV2Task = {
+const fullTask = {
 	id: "reference-quality",
 	goal: "リファレンス品質改善",
 	accept: ["Precision > 95%, Recall > 90%"],
 	plan: "001_plan.md",
-	notes: "001_notes.md",
 	status: "in_progress",
 	steps: [
 		{
@@ -112,15 +111,14 @@ const fullV2Task = {
 	],
 };
 
-test("Full v2 task.yaml validates successfully", () => {
-	const result = validateTask(structuredClone(fullV2Task));
+test("Full task.yaml validates successfully", () => {
+	const result = validateTask(structuredClone(fullTask));
 	assertEqual(result.id, "reference-quality", "id");
 	assertEqual(result.goal, "リファレンス品質改善", "goal");
 	assertEqual(result.plan, "001_plan.md", "plan");
-	assertEqual(result.notes, "001_notes.md", "notes");
 });
 
-test("Minimal v2 task (id + goal only)", () => {
+test("Minimal task (id + goal only)", () => {
 	const data = { id: "minimal", goal: "Do something" };
 	const result = validateTask(structuredClone(data));
 	assertEqual(result.id, "minimal");
@@ -200,7 +198,7 @@ test("Task without steps is valid", () => {
 // ============================================================================
 // Section 2: Task Schema Error Cases
 // ============================================================================
-console.log("\n--- v2 Task Schema Error Cases ---");
+console.log("\n--- Task Schema Error Cases ---");
 
 test("Missing goal -> error", () => {
 	const data = { id: "no-goal" };
@@ -230,7 +228,7 @@ test("Missing step id -> error", () => {
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("Invalid task status 'pivoted' -> error (removed in v2)", () => {
+test("Invalid task status 'pivoted' -> error (not supported)", () => {
 	const data = {
 		id: "bad-status",
 		goal: "Test",
@@ -239,7 +237,7 @@ test("Invalid task status 'pivoted' -> error (removed in v2)", () => {
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("Invalid step status 'blocked' -> error (removed in v2)", () => {
+test("Invalid step status 'blocked' -> error (not supported)", () => {
 	const data = {
 		id: "bad-step-status",
 		goal: "Test",
@@ -248,7 +246,7 @@ test("Invalid step status 'blocked' -> error (removed in v2)", () => {
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("Invalid step status 'skipped' -> error (removed in v2)", () => {
+test("Invalid step status 'skipped' -> error (not supported)", () => {
 	const data = {
 		id: "bad-step-status",
 		goal: "Test",
@@ -275,16 +273,16 @@ test("Unknown field at root -> error (additionalProperties: false)", () => {
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("v1 'instructions' field on step -> error (replaced by goal)", () => {
+test("'instructions' field on step -> error (use 'goal' instead)", () => {
 	const data = {
-		id: "v1-step",
+		id: "test-step",
 		goal: "Test",
 		steps: [{ id: "s1", instructions: "do something" }],
 	};
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("Nested steps -> error (removed in v2)", () => {
+test("Nested steps -> error (not supported)", () => {
 	const data = {
 		id: "nested",
 		goal: "Test",
@@ -299,7 +297,7 @@ test("Nested steps -> error (removed in v2)", () => {
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("v1 'previous' field -> error (removed in v2)", () => {
+test("'previous' field -> error (not supported)", () => {
 	const data = {
 		id: "with-previous",
 		goal: "Test",
@@ -308,7 +306,7 @@ test("v1 'previous' field -> error (removed in v2)", () => {
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("v1 'worker_session' field -> error (removed in v2)", () => {
+test("'worker_session' field -> error (not supported)", () => {
 	const data = {
 		id: "with-ws",
 		goal: "Test",
@@ -327,11 +325,11 @@ test("Empty accept array -> error (minItems: 1)", () => {
 });
 
 // ============================================================================
-// Section 3: History Event Validation (v2)
+// Section 3: History Event Validation
 // ============================================================================
-console.log("\n--- v2 History Event Validation ---");
+console.log("\n--- History Event Validation ---");
 
-const v2EventTypes = [
+const eventTypes = [
 	"created",
 	"updated",
 	"step_added",
@@ -344,7 +342,7 @@ const v2EventTypes = [
 	"user_feedback",
 ];
 
-for (const eventType of v2EventTypes) {
+for (const eventType of eventTypes) {
 	test(`History: ${eventType} event validates`, () => {
 		const event: Record<string, unknown> = {
 			at: "2026-03-22T10:00:00Z",
@@ -385,9 +383,9 @@ test("History: step event without step field -> error", () => {
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("History: v1 event type 'work_done' -> error (removed in v2)", () => {
+test("History: event type 'work_done' -> error (not supported)", () => {
 	const data = {
-		id: "v1-history",
+		id: "test-history",
 		goal: "Test",
 		history: [
 			{
@@ -402,9 +400,9 @@ test("History: v1 event type 'work_done' -> error (removed in v2)", () => {
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("History: v1 event type 'pivoted' -> error (removed in v2)", () => {
+test("History: event type 'pivoted' -> error (not supported)", () => {
 	const data = {
-		id: "v1-history",
+		id: "test-history",
 		goal: "Test",
 		history: [
 			{
@@ -417,7 +415,7 @@ test("History: v1 event type 'pivoted' -> error (removed in v2)", () => {
 	expectThrows(() => validateTask(structuredClone(data)));
 });
 
-test("History: no 'by' field required in v2", () => {
+test("History: 'by' field is optional", () => {
 	const data = {
 		id: "no-by",
 		goal: "Test",
@@ -433,41 +431,37 @@ test("History: no 'by' field required in v2", () => {
 });
 
 // ============================================================================
-// Section 4: Config Schema Validation (v2)
+// Section 4: Config Schema Validation
 // ============================================================================
-console.log("\n--- v2 Config Schema Validation ---");
+console.log("\n--- Config Schema Validation ---");
 
-test("Empty config validates (all optional)", () => {
-	const result = validateConfig({});
-	if (result.timezone !== undefined) {
-		throw new Error("Expected no timezone");
-	}
+test("Empty config -> error (directory required)", () => {
+	expectThrows(() => validateConfig({}));
 });
 
-test("Config with timezone only", () => {
-	const result = validateConfig({ timezone: "Asia/Tokyo" });
-	assertEqual(result.timezone, "Asia/Tokyo");
+test("Config with timezone only -> error (directory required)", () => {
+	expectThrows(() => validateConfig({ timezone: "Asia/Tokyo" }));
 });
 
-test("Config with haltr_dir only", () => {
-	const result = validateConfig({ haltr_dir: "my-haltr" });
-	assertEqual(result.haltr_dir, "my-haltr");
+test("Config with directory only", () => {
+	const result = validateConfig({ directory: "my-work" });
+	assertEqual(result.directory, "my-work");
 });
 
-test("Config with both timezone and haltr_dir", () => {
+test("Config with both directory and timezone", () => {
 	const result = validateConfig({
+		directory: "work",
 		timezone: "UTC",
-		haltr_dir: "haltr",
 	});
+	assertEqual(result.directory, "work");
 	assertEqual(result.timezone, "UTC");
-	assertEqual(result.haltr_dir, "haltr");
 });
 
-test("Config: v1 orchestrator_cli -> error (removed in v2)", () => {
+test("Config: orchestrator_cli -> error (not supported)", () => {
 	expectThrows(() => validateConfig({ orchestrator_cli: "claude" }));
 });
 
-test("Config: v1 watcher -> error (removed in v2)", () => {
+test("Config: watcher -> error (not supported)", () => {
 	expectThrows(
 		() =>
 			validateConfig({
@@ -476,11 +470,11 @@ test("Config: v1 watcher -> error (removed in v2)", () => {
 	);
 });
 
-test("Config: v1 panes -> error (removed in v2)", () => {
+test("Config: panes -> error (not supported)", () => {
 	expectThrows(() => validateConfig({ panes: { max_concurrent: 10 } }));
 });
 
-test("Config: v1 retry -> error (removed in v2)", () => {
+test("Config: retry -> error (not supported)", () => {
 	expectThrows(() => validateConfig({ retry: { max_attempts: 3 } }));
 });
 
@@ -491,10 +485,10 @@ test("Config: unknown field -> error", () => {
 // ============================================================================
 // Section 5: File I/O (loadAndValidate*)
 // ============================================================================
-console.log("\n--- v2 File I/O Tests ---");
+console.log("\n--- File I/O Tests ---");
 
 test("loadAndValidateTask with YAML file", () => {
-	const taskYaml = yaml.dump(fullV2Task);
+	const taskYaml = yaml.dump(fullTask);
 	const filePath = join(tmpDir, "test-task.yaml");
 	writeFileSync(filePath, taskYaml);
 	const result = loadAndValidateTask(filePath);
@@ -508,24 +502,26 @@ test("loadAndValidateTask with invalid YAML -> error", () => {
 	expectThrows(() => loadAndValidateTask(filePath));
 });
 
-test("loadAndValidateConfig with YAML file", () => {
-	const configYaml = yaml.dump({ timezone: "Asia/Tokyo" });
-	const filePath = join(tmpDir, "test-config.yaml");
-	writeFileSync(filePath, configYaml);
+test("loadAndValidateConfig with JSON file", () => {
+	const configJson = JSON.stringify({ directory: "work", timezone: "Asia/Tokyo" });
+	const filePath = join(tmpDir, "test-config.json");
+	writeFileSync(filePath, configJson);
 	const result = loadAndValidateConfig(filePath);
+	assertEqual(result.directory, "work");
 	assertEqual(result.timezone, "Asia/Tokyo");
 });
 
-test("loadAndValidateConfig with empty YAML -> valid (v2 config is all optional)", () => {
-	const filePath = join(tmpDir, "empty-config.yaml");
-	writeFileSync(filePath, yaml.dump({}));
-	loadAndValidateConfig(filePath);
+test("loadAndValidateConfig with minimal JSON (directory only)", () => {
+	const filePath = join(tmpDir, "minimal-config.json");
+	writeFileSync(filePath, JSON.stringify({ directory: "work" }));
+	const result = loadAndValidateConfig(filePath);
+	assertEqual(result.directory, "work");
 });
 
 // ============================================================================
-// Section 6: Step Status Transitions (v2)
+// Section 6: Step Status Transitions
 // ============================================================================
-console.log("\n--- v2 Step Status Transitions ---");
+console.log("\n--- Step Status Transitions ---");
 
 test("Step: pending -> in_progress (valid)", () => {
 	validateStepTransition("pending", "in_progress");
@@ -555,18 +551,18 @@ test("Step: pending -> failed (invalid)", () => {
 	expectThrows(() => validateStepTransition("pending", "failed"));
 });
 
-test("Step: invalid status 'blocked' -> error (removed in v2)", () => {
+test("Step: invalid status 'blocked' -> error (not supported)", () => {
 	expectThrows(() => validateStepTransition("pending", "blocked"));
 });
 
-test("Step: invalid status 'skipped' -> error (removed in v2)", () => {
+test("Step: invalid status 'skipped' -> error (not supported)", () => {
 	expectThrows(() => validateStepTransition("pending", "skipped"));
 });
 
 // ============================================================================
-// Section 7: Task Status Transitions (v2)
+// Section 7: Task Status Transitions
 // ============================================================================
-console.log("\n--- v2 Task Status Transitions ---");
+console.log("\n--- Task Status Transitions ---");
 
 test("Task: pending -> in_progress (valid)", () => {
 	validateTaskTransition("pending", "in_progress");
@@ -592,14 +588,14 @@ test("Task: done -> failed (invalid)", () => {
 	expectThrows(() => validateTaskTransition("done", "failed"));
 });
 
-test("Task: invalid status 'pivoted' -> error (removed in v2)", () => {
+test("Task: invalid status 'pivoted' -> error (not supported)", () => {
 	expectThrows(() => validateTaskTransition("pending", "pivoted"));
 });
 
 // ============================================================================
-// Section 8: Task Utils (v2)
+// Section 8: Task Utils
 // ============================================================================
-console.log("\n--- v2 Task Utils ---");
+console.log("\n--- Task Utils ---");
 
 test("findStep finds step by id in flat array", () => {
 	const steps = [
@@ -635,7 +631,7 @@ test("resolveTaskPath throws on empty session ID", () => {
 // ============================================================================
 // Section 9: All valid task statuses
 // ============================================================================
-console.log("\n--- v2 Valid Statuses ---");
+console.log("\n--- Valid Statuses ---");
 
 for (const status of ["pending", "in_progress", "done", "failed"]) {
 	test(`Task status '${status}' is valid`, () => {

@@ -1,5 +1,5 @@
 /**
- * haltr v2 End-to-End Test
+ * haltr End-to-End Test
  *
  * Tests the full CLI workflow:
  * hal init → hal task create → hal step add → hal step start → hal step done → completion

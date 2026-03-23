@@ -1,8 +1,8 @@
 /**
- * v2 Commands Test Script
+ * Commands Test Script
  *
- * Comprehensive tests for haltr v2 commands and libraries.
- * Run with: npx tsx src/test/v2-commands-test.ts
+ * Comprehensive tests for haltr commands and libraries.
+ * Run with: npx tsx src/test/commands-test.ts
  */
 
 import {
@@ -48,6 +48,7 @@ import {
 	handleStepPause,
 	handleStepResume,
 	handleStepStart,
+	handleStepVerify,
 } from "../commands/step.js";
 import {
 	handleContextCreate,
@@ -69,19 +70,24 @@ const results: Array<{
 	detail?: string;
 }> = [];
 
-function test(name: string, fn: () => void): void {
-	try {
-		fn();
-		results.push({ name, status: "PASS" });
-		passed++;
-		console.log(`  PASS: ${name}`);
-	} catch (e: unknown) {
-		const detail = e instanceof Error ? e.message : String(e);
-		results.push({ name, status: "FAIL", detail });
-		failed++;
-		console.log(`  FAIL: ${name}`);
-		console.log(`        ${detail.split("\n")[0]}`);
-	}
+const pendingTests: Promise<void>[] = [];
+
+function test(name: string, fn: () => void | Promise<void>): void {
+	const runTest = async () => {
+		try {
+			await fn();
+			results.push({ name, status: "PASS" });
+			passed++;
+			console.log(`  PASS: ${name}`);
+		} catch (e: unknown) {
+			const detail = e instanceof Error ? e.message : String(e);
+			results.push({ name, status: "FAIL", detail });
+			failed++;
+			console.log(`  FAIL: ${name}`);
+			console.log(`        ${detail.split("\n")[0]}`);
+		}
+	};
+	pendingTests.push(runTest());
 }
 
 function expectThrows(fn: () => void, containsMsg?: string): void {
@@ -140,16 +146,16 @@ function assertIncludes(str: string, substr: string, label?: string): void {
  * Create a minimal haltr directory structure for testing.
  * Returns the haltr directory path.
  */
-function setupHaltrDir(baseDir: string): string {
-	const haltrDir = join(baseDir, "haltr");
+function setupHaltrDir(baseDir: string, dirName = "work"): string {
+	const haltrDir = join(baseDir, dirName);
 	mkdirSync(haltrDir, { recursive: true });
 	mkdirSync(join(haltrDir, "context", "skills"), { recursive: true });
 	mkdirSync(join(haltrDir, "context", "knowledge"), { recursive: true });
 	mkdirSync(join(haltrDir, "epics"), { recursive: true });
 	mkdirSync(join(haltrDir, ".sessions"), { recursive: true });
 
-	// Write config.yaml
-	writeFileSync(join(haltrDir, "config.yaml"), yaml.dump({}, { lineWidth: -1 }));
+	// Write .haltr.json in baseDir
+	writeFileSync(join(baseDir, ".haltr.json"), JSON.stringify({ directory: dirName }, null, 2));
 
 	// Write context/index.yaml (empty array)
 	writeFileSync(
@@ -186,6 +192,23 @@ function captureConsoleLog(fn: () => void): string {
 	};
 	try {
 		fn();
+	} finally {
+		console.log = originalLog;
+	}
+	return captured;
+}
+
+/**
+ * Capture console.log output during an async function call.
+ */
+async function captureConsoleLogAsync(fn: () => Promise<void>): Promise<string> {
+	const originalLog = console.log;
+	let captured = "";
+	console.log = (msg: string) => {
+		captured += String(msg) + "\n";
+	};
+	try {
+		await fn();
 	} finally {
 		console.log = originalLog;
 	}
@@ -912,14 +935,18 @@ test("hal step done PASS sets step to done", () => {
 					handleStepStart({ step: "s1" });
 				});
 				captureConsoleLog(() => {
-					handleStepDone({ step: "s1", result: "PASS" });
+					handleStepVerify({ step: "s1", result: "PASS", message: "Verified OK" });
+				});
+				captureConsoleLog(() => {
+					handleStepDone({ step: "s1", result: "PASS", message: "Step completed" });
 				});
 			});
 		});
 
 		const task = yaml.load(readFileSync(taskPath!, "utf-8")) as Record<string, unknown>;
-		const steps = task.steps as Array<{ id: string; status: string }>;
+		const steps = task.steps as Array<{ id: string; status: string; verified: boolean }>;
 		assertEqual(steps[0].status, "done", "step should be done");
+		assertEqual(steps[0].verified, true, "step should be verified");
 	} finally {
 		rmSync(tmpDir, { recursive: true, force: true });
 	}
@@ -990,7 +1017,10 @@ test("hal step done with all steps done sets task to done", () => {
 					handleStepStart({ step: "s1" });
 				});
 				captureConsoleLog(() => {
-					handleStepDone({ step: "s1", result: "PASS" });
+					handleStepVerify({ step: "s1", result: "PASS", message: "Verified OK" });
+				});
+				captureConsoleLog(() => {
+					handleStepDone({ step: "s1", result: "PASS", message: "Step completed" });
 				});
 
 				// Complete step 2
@@ -998,7 +1028,10 @@ test("hal step done with all steps done sets task to done", () => {
 					handleStepStart({ step: "s2" });
 				});
 				captureConsoleLog(() => {
-					handleStepDone({ step: "s2", result: "PASS" });
+					handleStepVerify({ step: "s2", result: "PASS", message: "Verified OK" });
+				});
+				captureConsoleLog(() => {
+					handleStepDone({ step: "s2", result: "PASS", message: "Step completed" });
 				});
 			});
 		});
@@ -1036,13 +1069,13 @@ test("hal step pause records paused event", () => {
 					handleStepStart({ step: "s1" });
 				});
 				captureConsoleLog(() => {
-					handleStepPause();
+					handleStepPause({ message: "test pause" });
 				});
 			});
 		});
 
 		const task = yaml.load(readFileSync(taskPath!, "utf-8")) as Record<string, unknown>;
-		const history = task.history as Array<{ type: string }>;
+		const history = task.history as Array<{ type: string; message?: string }>;
 		const pauseEvents = history.filter((e) => e.type === "paused");
 		assertTrue(pauseEvents.length >= 1, "should have paused event");
 	} finally {
@@ -1071,7 +1104,7 @@ test("hal step resume records resumed event", () => {
 					handleStepStart({ step: "s1" });
 				});
 				captureConsoleLog(() => {
-					handleStepPause();
+					handleStepPause({ message: "test pause for resume" });
 				});
 				captureConsoleLog(() => {
 					handleStepResume();
@@ -1080,7 +1113,7 @@ test("hal step resume records resumed event", () => {
 		});
 
 		const task = yaml.load(readFileSync(taskPath!, "utf-8")) as Record<string, unknown>;
-		const history = task.history as Array<{ type: string }>;
+		const history = task.history as Array<{ type: string; message?: string }>;
 		const resumeEvents = history.filter((e) => e.type === "resumed");
 		assertTrue(resumeEvents.length >= 1, "should have resumed event");
 	} finally {
@@ -1393,7 +1426,10 @@ test("Check: returns allow (exit 0 logic) when task is done", () => {
 					handleStepStart({ step: "s1" });
 				});
 				captureConsoleLog(() => {
-					handleStepDone({ step: "s1", result: "PASS" });
+					handleStepVerify({ step: "s1", result: "PASS", message: "Verified OK" });
+				});
+				captureConsoleLog(() => {
+					handleStepDone({ step: "s1", result: "PASS", message: "Step completed" });
 				});
 			});
 		});
@@ -1404,6 +1440,38 @@ test("Check: returns allow (exit 0 logic) when task is done", () => {
 		// Check command logic: if task.status === "done", exit 0
 		const shouldAllow = task.status === "done";
 		assertTrue(shouldAllow, "should allow stop when task is done");
+	} finally {
+		rmSync(tmpDir, { recursive: true, force: true });
+	}
+});
+
+test("Check: returns allow (exit 0 logic) when task is pending (not started)", () => {
+	const tmpDir = mkdtempSync(join(tmpdir(), "haltr-cmd-test-"));
+	try {
+		const haltrDir = setupHaltrDir(tmpDir);
+		setupEpicDir(haltrDir);
+
+		let taskPath: string;
+		withCwd(tmpDir, () => {
+			withEnv({ HALTR_SESSION_ID: "check-pending" }, () => {
+				captureConsoleLog(() => {
+					handleTaskCreate({ goal: "Check pending test" });
+				});
+				taskPath = getCurrentTaskPath();
+
+				captureConsoleLog(() => {
+					handleStepAdd({ step: "s1", goal: "A step" });
+				});
+				// Note: step not started, task remains pending
+			});
+		});
+
+		const task = loadAndValidateTask(taskPath!);
+		assertEqual(task.status, "pending", "task should be pending");
+
+		// Check command logic: if task.status === "pending", exit 0
+		const shouldAllow = task.status === "pending" || task.status === "done";
+		assertTrue(shouldAllow, "should allow stop when task is pending");
 	} finally {
 		rmSync(tmpDir, { recursive: true, force: true });
 	}
@@ -1430,7 +1498,7 @@ test("Check: returns allow (exit 0 logic) when paused (copilot mode)", () => {
 					handleStepStart({ step: "s1" });
 				});
 				captureConsoleLog(() => {
-					handleStepPause();
+					handleStepPause({ message: "copilot mode test" });
 				});
 			});
 		});
@@ -1474,7 +1542,10 @@ test("Check: returns block (exit 2 logic) when steps remain", () => {
 					handleStepStart({ step: "s1" });
 				});
 				captureConsoleLog(() => {
-					handleStepDone({ step: "s1", result: "PASS" });
+					handleStepVerify({ step: "s1", result: "PASS", message: "Verified OK" });
+				});
+				captureConsoleLog(() => {
+					handleStepDone({ step: "s1", result: "PASS", message: "Step completed" });
 				});
 				// s2 is still pending
 			});
@@ -1507,52 +1578,45 @@ test("Check: returns block (exit 2 logic) when steps remain", () => {
 // ============================================================================
 console.log("\n--- Init Command Tests ---");
 
-test("initHaltr creates haltr/ directory structure", () => {
+test("initHaltr creates work/ directory structure", async () => {
 	const tmpDir = mkdtempSync(join(tmpdir(), "haltr-cmd-test-"));
 	try {
-		captureConsoleLog(() => {
-			initHaltr(tmpDir);
-		});
+		await captureConsoleLogAsync(() => initHaltr(tmpDir, "work"));
 
-		const haltrDir = join(tmpDir, "haltr");
-		assertTrue(existsSync(haltrDir), "haltr/ should exist");
-		assertTrue(existsSync(join(haltrDir, "context")), "context/ should exist");
-		assertTrue(existsSync(join(haltrDir, "context", "skills")), "context/skills/ should exist");
-		assertTrue(existsSync(join(haltrDir, "context", "knowledge")), "context/knowledge/ should exist");
-		assertTrue(existsSync(join(haltrDir, "epics")), "epics/ should exist");
-		assertTrue(existsSync(join(haltrDir, ".sessions")), ".sessions/ should exist");
+		const workDir = join(tmpDir, "work");
+		assertTrue(existsSync(workDir), "work/ should exist");
+		assertTrue(existsSync(join(workDir, "context")), "context/ should exist");
+		assertTrue(existsSync(join(workDir, "context", "skills")), "context/skills/ should exist");
+		assertTrue(existsSync(join(workDir, "context", "knowledge")), "context/knowledge/ should exist");
+		assertTrue(existsSync(join(workDir, "epics")), "epics/ should exist");
+		assertTrue(existsSync(join(workDir, ".sessions")), ".sessions/ should exist");
 	} finally {
 		rmSync(tmpDir, { recursive: true, force: true });
 	}
 });
 
-test("initHaltr creates config.yaml", () => {
+test("initHaltr creates .haltr.json", async () => {
 	const tmpDir = mkdtempSync(join(tmpdir(), "haltr-cmd-test-"));
 	try {
-		captureConsoleLog(() => {
-			initHaltr(tmpDir);
-		});
+		await captureConsoleLogAsync(() => initHaltr(tmpDir, "work"));
 
-		const configPath = join(tmpDir, "haltr", "config.yaml");
-		assertTrue(existsSync(configPath), "config.yaml should exist");
+		const configPath = join(tmpDir, ".haltr.json");
+		assertTrue(existsSync(configPath), ".haltr.json should exist");
 
 		const content = readFileSync(configPath, "utf-8");
-		// Should be valid YAML
-		const config = yaml.load(content);
-		assertTrue(config !== undefined, "config should be parseable YAML");
+		const config = JSON.parse(content);
+		assertEqual(config.directory, "work", "directory should be 'work'");
 	} finally {
 		rmSync(tmpDir, { recursive: true, force: true });
 	}
 });
 
-test("initHaltr creates context/index.yaml (empty array)", () => {
+test("initHaltr creates context/index.yaml (empty array)", async () => {
 	const tmpDir = mkdtempSync(join(tmpdir(), "haltr-cmd-test-"));
 	try {
-		captureConsoleLog(() => {
-			initHaltr(tmpDir);
-		});
+		await captureConsoleLogAsync(() => initHaltr(tmpDir, "work"));
 
-		const indexPath = join(tmpDir, "haltr", "context", "index.yaml");
+		const indexPath = join(tmpDir, "work", "context", "index.yaml");
 		assertTrue(existsSync(indexPath), "index.yaml should exist");
 
 		const content = readFileSync(indexPath, "utf-8");
@@ -1564,14 +1628,12 @@ test("initHaltr creates context/index.yaml (empty array)", () => {
 	}
 });
 
-test("initHaltr creates README.md from template", () => {
+test("initHaltr creates README.md from template", async () => {
 	const tmpDir = mkdtempSync(join(tmpdir(), "haltr-cmd-test-"));
 	try {
-		captureConsoleLog(() => {
-			initHaltr(tmpDir);
-		});
+		await captureConsoleLogAsync(() => initHaltr(tmpDir, "work"));
 
-		const readmePath = join(tmpDir, "haltr", "README.md");
+		const readmePath = join(tmpDir, "work", "README.md");
 		assertTrue(existsSync(readmePath), "README.md should exist");
 
 		const content = readFileSync(readmePath, "utf-8");
@@ -1585,19 +1647,21 @@ test("initHaltr creates README.md from template", () => {
 // ============================================================================
 // Cleanup & Summary
 // ============================================================================
-console.log("\n========================================");
-console.log(`  Total: ${passed + failed}`);
-console.log(`  PASS:  ${passed}`);
-console.log(`  FAIL:  ${failed}`);
-console.log("========================================");
+Promise.all(pendingTests).then(() => {
+	console.log("\n========================================");
+	console.log(`  Total: ${passed + failed}`);
+	console.log(`  PASS:  ${passed}`);
+	console.log(`  FAIL:  ${failed}`);
+	console.log("========================================");
 
-if (failed > 0) {
-	console.log("\nFailed tests:");
-	for (const r of results.filter((r) => r.status === "FAIL")) {
-		console.log(`  - ${r.name}: ${r.detail}`);
+	if (failed > 0) {
+		console.log("\nFailed tests:");
+		for (const r of results.filter((r) => r.status === "FAIL")) {
+			console.log(`  - ${r.name}: ${r.detail}`);
+		}
+		process.exit(1);
+	} else {
+		console.log("\nAll tests passed!");
+		process.exit(0);
 	}
-	process.exit(1);
-} else {
-	console.log("\nAll tests passed!");
-	process.exit(0);
-}
+});

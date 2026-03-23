@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import * as yaml from "js-yaml";
+import { findHaltrDir } from "../lib/task-utils.js";
 
 /**
  * Format date as YYYYMMDD string.
@@ -31,10 +32,11 @@ export function createEpic(baseDir: string, name: string, date?: Date): string {
 		throw new Error("Epic name must not contain path separators");
 	}
 
-	const epicsDir = join(baseDir, "haltr", "epics");
+	const haltrDir = findHaltrDir(baseDir, false);
+	const epicsDir = join(haltrDir, "epics");
 
 	if (!existsSync(epicsDir)) {
-		throw new Error("haltr/epics/ directory not found. Run 'hal init' first.");
+		throw new Error("epics/ directory not found. Run 'hal init' first.");
 	}
 
 	const dateStr = formatDate(date ?? new Date());
@@ -71,10 +73,11 @@ export function createEpic(baseDir: string, name: string, date?: Date): string {
  * Returns the full directory path, or throws if not found / ambiguous.
  */
 export function findEpicDir(baseDir: string, name: string): string {
-	const epicsDir = join(baseDir, "haltr", "epics");
+	const haltrDir = findHaltrDir(baseDir, false);
+	const epicsDir = join(haltrDir, "epics");
 
 	if (!existsSync(epicsDir)) {
-		throw new Error("haltr/epics/ directory not found. Run 'hal init' first.");
+		throw new Error("epics/ directory not found. Run 'hal init' first.");
 	}
 
 	const entries = readdirSync(epicsDir);
@@ -109,10 +112,11 @@ export function findEpicDir(baseDir: string, name: string): string {
 export function listEpics(
 	baseDir: string,
 ): Array<{ name: string; status: string }> {
-	const epicsDir = join(baseDir, "haltr", "epics");
+	const haltrDir = findHaltrDir(baseDir, false);
+	const epicsDir = join(haltrDir, "epics");
 
 	if (!existsSync(epicsDir)) {
-		throw new Error("haltr/epics/ directory not found. Run 'hal init' first.");
+		throw new Error("epics/ directory not found. Run 'hal init' first.");
 	}
 
 	const entries = readdirSync(epicsDir).filter((entry) => {
@@ -145,10 +149,11 @@ export function listEpics(
 export function currentEpic(
 	baseDir: string,
 ): { name: string; taskPath: string | null } | null {
-	const epicsDir = join(baseDir, "haltr", "epics");
+	const haltrDir = findHaltrDir(baseDir, false);
+	const epicsDir = join(haltrDir, "epics");
 
 	if (!existsSync(epicsDir)) {
-		throw new Error("haltr/epics/ directory not found. Run 'hal init' first.");
+		throw new Error("epics/ directory not found. Run 'hal init' first.");
 	}
 
 	const entries = readdirSync(epicsDir).filter((entry) => {
@@ -180,10 +185,11 @@ export function currentEpic(
  * Errors if destination already exists.
  */
 export function archiveEpic(baseDir: string, name: string): void {
-	const epicsDir = join(baseDir, "haltr", "epics");
+	const haltrDir = findHaltrDir(baseDir, false);
+	const epicsDir = join(haltrDir, "epics");
 
 	if (!existsSync(epicsDir)) {
-		throw new Error("haltr/epics/ directory not found. Run 'hal init' first.");
+		throw new Error("epics/ directory not found. Run 'hal init' first.");
 	}
 
 	// Find the epic directory (exact name or suffix match)

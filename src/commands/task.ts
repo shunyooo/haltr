@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { basename, join } from "node:path";
 import * as yaml from "js-yaml";
+import { HINTS } from "../lib/hints.js";
 import { buildResponse, formatResponse } from "../lib/response-builder.js";
 import {
 	getCurrentTaskPath,
@@ -81,7 +82,6 @@ export function handleTaskCreate(opts: {
 	goal: string;
 	accept?: string[];
 	plan?: string;
-	notes?: string;
 }): void {
 	const haltrDir = findHaltrDir(process.cwd());
 	const epicDir = findCurrentEpicDir(haltrDir);
@@ -115,10 +115,6 @@ export function handleTaskCreate(opts: {
 		newTask.plan = opts.plan;
 	}
 
-	if (opts.notes) {
-		newTask.notes = opts.notes;
-	}
-
 	// Validate before writing
 	validateTask(newTask);
 
@@ -138,8 +134,7 @@ export function handleTaskCreate(opts: {
 			status: "pending",
 		},
 		haltrDir,
-		commands_hint:
-			"hal step add --step <step-id> --goal '<goal>' でステップを追加してください",
+		commands_hint: HINTS.TASK_CREATED,
 	});
 
 	console.log(formatResponse(response));
@@ -154,7 +149,6 @@ export function handleTaskEdit(opts: {
 	goal?: string;
 	accept?: string[];
 	plan?: string;
-	notes?: string;
 	message: string;
 }): void {
 	const taskPath = getCurrentTaskPath();
@@ -179,11 +173,6 @@ export function handleTaskEdit(opts: {
 	if (opts.plan !== undefined) {
 		task.plan = opts.plan;
 		changes.push("plan");
-	}
-
-	if (opts.notes !== undefined) {
-		task.notes = opts.notes;
-		changes.push("notes");
 	}
 
 	if (changes.length === 0) {
@@ -216,8 +205,7 @@ export function handleTaskEdit(opts: {
 			updated_fields: changes,
 		},
 		haltrDir,
-		commands_hint:
-			"hal status でタスクの状態を確認できます",
+		commands_hint: HINTS.TASK_UPDATED,
 	});
 
 	console.log(formatResponse(response));

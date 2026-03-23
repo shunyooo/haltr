@@ -23,9 +23,6 @@
     "plan": {
       "type": "string"
     },
-    "notes": {
-      "type": "string"
-    },
     "context": {
       "type": "string"
     },
@@ -94,6 +91,9 @@
         },
         "accept": {
           "$ref": "#/$defs/accept"
+        },
+        "verified": {
+          "type": "boolean"
         }
       }
     },
@@ -165,6 +165,18 @@
             "at": { "type": "string" },
             "type": { "const": "step_failed" },
             "step": { "type": "string" },
+            "message": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "type", "step"],
+          "properties": {
+            "at": { "type": "string" },
+            "type": { "const": "step_verified" },
+            "step": { "type": "string" },
+            "result": { "type": "string", "enum": ["PASS", "FAIL"] },
             "message": { "type": "string" }
           }
         },

@@ -1,22 +1,90 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import type { ConfigYaml, Step } from "../types.js";
-import { loadAndValidateConfig } from "./validator.js";
+import type { HaltrConfig, Step } from "../types.js";
+
+/** Config file name */
+const CONFIG_FILE = ".haltr.json";
+
+/** Default directory name */
+const DEFAULT_DIR = "work";
+
+/**
+ * Find .haltr.json by searching upward from the given directory.
+ * Returns the parsed config and the directory containing the config file.
+ */
+export function findHaltrConfig(startPath: string): { config: HaltrConfig; projectDir: string } {
+	const resolved = resolve(startPath);
+	let dir: string;
+	try {
+		const stats = statSync(resolved);
+		dir = stats.isDirectory() ? resolved : dirname(resolved);
+	} catch {
+		dir = dirname(resolved);
+	}
+
+	while (true) {
+		const configPath = join(dir, CONFIG_FILE);
+		if (existsSync(configPath)) {
+			try {
+				const content = readFileSync(configPath, "utf-8");
+				const config = JSON.parse(content) as HaltrConfig;
+				return { config, projectDir: dir };
+			} catch {
+				throw new Error(`Invalid ${CONFIG_FILE} at ${configPath}`);
+			}
+		}
+
+		const parent = dirname(dir);
+		if (parent === dir) {
+			throw new Error(
+				`Could not find ${CONFIG_FILE}. Run 'hal init' first.`,
+			);
+		}
+		dir = parent;
+	}
+}
+
+/**
+ * Find the haltr directory by searching up for .haltr.json.
+ * Returns the path to the haltr directory.
+ *
+ * @param path - A file path (e.g., task.yaml) or directory path
+ * @param searchUpward - If true, search upward from the path. If false, only check the path itself.
+ * @throws Error if haltr directory cannot be found
+ */
+export function findHaltrDir(path: string, searchUpward = true): string {
+	const { config, projectDir } = findHaltrConfig(path);
+	const haltrDir = join(projectDir, config.directory);
+
+	if (!existsSync(haltrDir)) {
+		throw new Error(
+			`Haltr directory "${config.directory}" not found. Run 'hal init' first.`,
+		);
+	}
+
+	return haltrDir;
+}
+
+/**
+ * Load config from .haltr.json.
+ */
+export function loadConfig(path: string): HaltrConfig {
+	const { config } = findHaltrConfig(path);
+	return config;
+}
 
 /**
  * Validate that a resolved task path is within a haltr directory tree.
- * The resolved path must contain `/haltr/` somewhere in the path,
- * and must not contain path traversal sequences after resolution.
- * Throws an error if the path escapes the expected tree.
+ * Checks that findHaltrDir can find the haltr directory from this path.
+ * Throws an error if the path is not within a valid haltr tree.
  */
 export function validateTaskPath(resolvedPath: string): void {
 	const normalized = resolve(resolvedPath);
-	// path.resolve() already normalizes traversal sequences;
-	// primary guard is /haltr/ check below
-	// The path must be within a haltr/ directory tree
-	if (!normalized.includes("/haltr/")) {
+	try {
+		findHaltrDir(normalized);
+	} catch {
 		throw new Error(
-			`Invalid task path: "${resolvedPath}" is not within a haltr/ directory tree`,
+			`Invalid task path: "${resolvedPath}" is not within a haltr directory tree`,
 		);
 	}
 }
@@ -30,119 +98,14 @@ export function findStep(steps: Step[], stepId: string): Step | undefined {
 }
 
 /**
- * Find the haltr/ directory by searching up from the given path.
- * Accepts both file paths (e.g., task.yaml) and directory paths.
- * Returns the path to the haltr/ directory.
- *
- * @param path - A file path (e.g., task.yaml) or directory path
- * @param searchUpward - If true, search upward from the path. If false, only check the path itself.
- * @throws Error if haltr directory cannot be found
+ * Valid status values (unified for tasks and steps).
  */
-export function findHaltrDir(path: string, searchUpward = true): string {
-	const resolved = resolve(path);
-
-	// Determine starting directory
-	let dir: string;
-	try {
-		const stats = statSync(resolved);
-		dir = stats.isDirectory() ? resolved : dirname(resolved);
-	} catch {
-		// If path doesn't exist, assume it's a file path and use its directory
-		dir = dirname(resolved);
-	}
-
-	while (true) {
-		// Check if this directory IS a haltr directory
-		if (existsSync(join(dir, "config.yaml"))) {
-			return dir;
-		}
-
-		// Check if haltr/ subdirectory exists
-		const haltrSubDir = join(dir, "haltr");
-		if (
-			existsSync(haltrSubDir) &&
-			existsSync(join(haltrSubDir, "config.yaml"))
-		) {
-			return haltrSubDir;
-		}
-
-		if (!searchUpward) {
-			throw new Error(
-				`Could not find haltr/ directory in ${path}. Run 'hal init' first.`,
-			);
-		}
-
-		const parent = dirname(dir);
-		if (parent === dir) {
-			throw new Error(
-				`Could not find haltr/ directory searching up from ${path}`,
-			);
-		}
-		dir = parent;
-	}
-}
+const VALID_STATUSES = new Set(["pending", "in_progress", "done", "failed"]);
 
 /**
- * Load config.yaml by searching upward from the task.yaml location
- * for a haltr/ directory containing config.yaml.
+ * Allowed status transitions (unified for tasks and steps).
  */
-export function loadConfig(taskPath: string): ConfigYaml {
-	let dir = dirname(resolve(taskPath));
-
-	// Walk upward to find haltr/ directory
-	while (true) {
-		// Check if this directory IS a haltr directory (contains config.yaml)
-		try {
-			const configPath = resolve(dir, "config.yaml");
-			readFileSync(configPath, "utf-8");
-			return loadAndValidateConfig(configPath);
-		} catch {
-			// not found here
-		}
-
-		// Check if parent/haltr/config.yaml exists
-		try {
-			const configPath = resolve(dir, "haltr", "config.yaml");
-			readFileSync(configPath, "utf-8");
-			return loadAndValidateConfig(configPath);
-		} catch {
-			// not found here
-		}
-
-		const parent = dirname(dir);
-		if (parent === dir) {
-			throw new Error(
-				`Could not find haltr/config.yaml searching up from ${taskPath}`,
-			);
-		}
-		dir = parent;
-	}
-}
-
-/**
- * Valid step status values.
- */
-const VALID_STEP_STATUSES = new Set([
-	"pending",
-	"in_progress",
-	"done",
-	"failed",
-]);
-
-/**
- * Valid task status values.
- */
-const VALID_TASK_STATUSES = new Set([
-	"pending",
-	"in_progress",
-	"done",
-	"failed",
-]);
-
-/**
- * Allowed status transitions for steps.
- */
-const STEP_TRANSITIONS: Record<string, Set<string>> = {
+const STATUS_TRANSITIONS: Record<string, Set<string>> = {
 	pending: new Set(["in_progress"]),
 	in_progress: new Set(["done", "failed"]),
 	done: new Set(),
@@ -150,50 +113,36 @@ const STEP_TRANSITIONS: Record<string, Set<string>> = {
 };
 
 /**
- * Allowed status transitions for tasks.
+ * Validate a status transition.
+ * Used for both task and step status changes.
  */
-const TASK_TRANSITIONS: Record<string, Set<string>> = {
-	pending: new Set(["in_progress"]),
-	in_progress: new Set(["done", "failed"]),
-	done: new Set(),
-	failed: new Set(["in_progress"]),
-};
-
-/**
- * Validate a step status transition.
- */
-export function validateStepTransition(
+export function validateStatusTransition(
 	currentStatus: string,
 	newStatus: string,
+	label = "status",
 ): void {
-	if (!VALID_STEP_STATUSES.has(newStatus)) {
-		throw new Error(`Invalid step status: "${newStatus}"`);
+	if (!VALID_STATUSES.has(newStatus)) {
+		throw new Error(`Invalid ${label}: "${newStatus}"`);
 	}
 
 	const current = currentStatus || "pending";
-	const allowed = STEP_TRANSITIONS[current];
+	const allowed = STATUS_TRANSITIONS[current];
 	if (!allowed || !allowed.has(newStatus)) {
 		throw new Error(`Invalid status transition: ${current} -> ${newStatus}`);
 	}
 }
 
-/**
- * Validate a task status transition.
- */
-export function validateTaskTransition(
+/** @deprecated Use validateStatusTransition instead */
+export const validateStepTransition = (
 	currentStatus: string,
 	newStatus: string,
-): void {
-	if (!VALID_TASK_STATUSES.has(newStatus)) {
-		throw new Error(`Invalid task status: "${newStatus}"`);
-	}
+): void => validateStatusTransition(currentStatus, newStatus, "step status");
 
-	const current = currentStatus || "pending";
-	const allowed = TASK_TRANSITIONS[current];
-	if (!allowed || !allowed.has(newStatus)) {
-		throw new Error(`Invalid status transition: ${current} -> ${newStatus}`);
-	}
-}
+/** @deprecated Use validateStatusTransition instead */
+export const validateTaskTransition = (
+	currentStatus: string,
+	newStatus: string,
+): void => validateStatusTransition(currentStatus, newStatus, "task status");
 
 /**
  * Resolve task.yaml path from a session ID.

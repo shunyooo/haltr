@@ -12,6 +12,7 @@ import {
 	handleContextLog,
 	handleContextShow,
 } from "../commands/context.js";
+import { handleSessionStart } from "../commands/session.js";
 import {
 	archiveEpic,
 	createEpic,
@@ -21,10 +22,12 @@ import {
 import { initHaltr } from "../commands/init.js";
 import {
 	handleStepAdd,
+	handleStepAddBatch,
 	handleStepDone,
 	handleStepPause,
 	handleStepResume,
 	handleStepStart,
+	handleStepVerify,
 } from "../commands/step.js";
 import { handleStatus } from "../commands/status.js";
 import { handleTaskCreate, handleTaskEdit } from "../commands/task.js";
@@ -35,6 +38,25 @@ const __dirname = dirname(__filename);
 // Resolve package.json from project root (two levels up from dist/bin/)
 const pkgPath = resolve(__dirname, "..", "..", "package.json");
 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+
+/**
+ * Wrap a command handler with common error handling.
+ * Catches errors, prints message, and exits with code 1.
+ * Supports both sync and async handlers.
+ */
+function withErrorHandler<T extends unknown[]>(
+	fn: (...args: T) => void | Promise<void>,
+): (...args: T) => void | Promise<void> {
+	return async (...args: T) => {
+		try {
+			await fn(...args);
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`Error: ${msg}`);
+			process.exit(1);
+		}
+	};
+}
 
 const program = new Command();
 
@@ -47,16 +69,13 @@ program
 
 program
 	.command("init")
-	.description("Initialize haltr/ directory structure")
-	.action(() => {
-		try {
-			initHaltr(process.cwd());
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.description("Initialize haltr directory structure")
+	.option("--dir <dir>", "Directory name (default: work, interactive if not specified)")
+	.action(
+		withErrorHandler((opts: { dir?: string }) =>
+			initHaltr(process.cwd(), opts.dir),
+		),
+	);
 
 // ---- epic ----
 
@@ -67,22 +86,18 @@ const epicCmd = new Command("epic").description(
 epicCmd
 	.command("create <name>")
 	.description("Create a new epic")
-	.action((name: string) => {
-		try {
+	.action(
+		withErrorHandler((name: string) => {
 			const epicPath = createEpic(process.cwd(), name);
 			console.log(`Created epic: ${epicPath}`);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+		}),
+	);
 
 epicCmd
 	.command("list")
 	.description("List all epics with status")
-	.action(() => {
-		try {
+	.action(
+		withErrorHandler(() => {
 			const epics = listEpics(process.cwd());
 			if (epics.length === 0) {
 				console.log("No epics found.");
@@ -91,18 +106,14 @@ epicCmd
 			for (const epic of epics) {
 				console.log(`${epic.name}  status: ${epic.status}`);
 			}
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+		}),
+	);
 
 epicCmd
 	.command("current")
 	.description("Show the most recent epic")
-	.action(() => {
-		try {
+	.action(
+		withErrorHandler(() => {
 			const epic = currentEpic(process.cwd());
 			if (!epic) {
 				console.log("No epics found.");
@@ -112,26 +123,18 @@ epicCmd
 			if (epic.taskPath) {
 				console.log(`Task: ${epic.taskPath}`);
 			}
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+		}),
+	);
 
 epicCmd
 	.command("archive <name>")
 	.description("Archive an epic")
-	.action((name: string) => {
-		try {
+	.action(
+		withErrorHandler((name: string) => {
 			archiveEpic(process.cwd(), name);
 			console.log(`Archived epic: ${name}`);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+		}),
+	);
 
 program.addCommand(epicCmd);
 
@@ -145,22 +148,14 @@ taskCmd
 	.requiredOption("--goal <goal>", "Task goal")
 	.option("--accept <accept...>", "Accept criteria (repeatable)")
 	.option("--plan <plan>", "Task plan")
-	.option("--notes <notes>", "Task notes")
 	.action(
-		(opts: {
-			goal: string;
-			accept?: string[];
-			plan?: string;
-			notes?: string;
-		}) => {
-			try {
-				handleTaskCreate(opts);
-			} catch (e: unknown) {
-				const msg = e instanceof Error ? e.message : String(e);
-				console.error(`Error: ${msg}`);
-				process.exit(1);
-			}
-		},
+		withErrorHandler(
+			(opts: {
+				goal: string;
+				accept?: string[];
+				plan?: string;
+			}) => handleTaskCreate(opts),
+		),
 	);
 
 taskCmd
@@ -169,24 +164,16 @@ taskCmd
 	.option("--goal <goal>", "New goal")
 	.option("--accept <accept...>", "New accept criteria (repeatable)")
 	.option("--plan <plan>", "New plan")
-	.option("--notes <notes>", "New notes")
 	.requiredOption("--message <message>", "Change reason")
 	.action(
-		(opts: {
-			goal?: string;
-			accept?: string[];
-			plan?: string;
-			notes?: string;
-			message: string;
-		}) => {
-			try {
-				handleTaskEdit(opts);
-			} catch (e: unknown) {
-				const msg = e instanceof Error ? e.message : String(e);
-				console.error(`Error: ${msg}`);
-				process.exit(1);
-			}
-		},
+		withErrorHandler(
+			(opts: {
+				goal?: string;
+				accept?: string[];
+				plan?: string;
+				message: string;
+			}) => handleTaskEdit(opts),
+		),
 	);
 
 program.addCommand(taskCmd);
@@ -194,88 +181,86 @@ program.addCommand(taskCmd);
 // ---- step ----
 
 const stepCmd = new Command("step").description(
-	"Manage steps (add, start, done, pause, resume)",
+	"Manage steps (add, start, done, pause, resume, verify)",
 );
 
 stepCmd
 	.command("add")
 	.description("Add a new step to the current task")
-	.requiredOption("--step <step>", "Step ID")
-	.requiredOption("--goal <goal>", "Step goal")
+	.option("--step <step>", "Step ID (single mode)")
+	.option("--goal <goal>", "Step goal (single mode)")
 	.option("--accept <accept...>", "Accept criteria (repeatable)")
 	.option("--after <after>", "Insert after this step ID")
+	.option("--stdin", "Read steps from stdin as YAML array (batch mode)")
 	.action(
-		(opts: {
-			step: string;
-			goal: string;
-			accept?: string[];
-			after?: string;
-		}) => {
-			try {
-				handleStepAdd(opts);
-			} catch (e: unknown) {
-				const msg = e instanceof Error ? e.message : String(e);
-				console.error(`Error: ${msg}`);
-				process.exit(1);
-			}
-		},
+		withErrorHandler(
+			(opts: {
+				step?: string;
+				goal?: string;
+				accept?: string[];
+				after?: string;
+				stdin?: boolean;
+			}) => {
+				if (opts.stdin) {
+					handleStepAddBatch();
+				} else if (opts.step && opts.goal) {
+					handleStepAdd({
+						step: opts.step,
+						goal: opts.goal,
+						accept: opts.accept,
+						after: opts.after,
+					});
+				} else {
+					throw new Error("--step と --goal を指定するか、--stdin でバッチモードを使用してください");
+				}
+			},
+		),
 	);
 
 stepCmd
 	.command("start")
 	.description("Start working on a step")
 	.requiredOption("--step <step>", "Step ID")
-	.action((opts: { step: string }) => {
-		try {
-			handleStepStart(opts);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.action(withErrorHandler((opts: { step: string }) => handleStepStart(opts)));
 
 stepCmd
 	.command("done")
 	.description("Mark a step as done (PASS/FAIL)")
 	.requiredOption("--step <step>", "Step ID")
 	.requiredOption("--result <result>", "Result: PASS or FAIL")
-	.option("--message <message>", "Result message")
-	.action((opts: { step: string; result: string; message?: string }) => {
-		try {
-			handleStepDone(opts);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.requiredOption("--message <message>", "Result message (what was done or why it failed)")
+	.action(
+		withErrorHandler(
+			(opts: { step: string; result: string; message: string }) =>
+				handleStepDone(opts),
+		),
+	);
 
 stepCmd
 	.command("pause")
-	.description("Pause current work (copilot mode)")
-	.action(() => {
-		try {
-			handleStepPause();
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.description("Pause task work and switch to dialogue mode")
+	.requiredOption("--message <message>", "Reason for pausing")
+	.action(
+		withErrorHandler((opts: { message: string }) => handleStepPause(opts)),
+	);
 
 stepCmd
 	.command("resume")
-	.description("Resume paused work")
-	.action(() => {
-		try {
-			handleStepResume();
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.description("Resume task work from dialogue mode")
+	.action(withErrorHandler(() => handleStepResume()));
+
+stepCmd
+	.command("verify")
+	.description("Record verification result for a step (called by verify agent)")
+	.requiredOption("--step <step>", "Step ID")
+	.requiredOption("--result <result>", "Result: PASS or FAIL")
+	.requiredOption("--message <message>", "Verification message (why it passed or failed)")
+	.action(
+		withErrorHandler(
+			(opts: { step: string; result: string; message: string }) =>
+				handleStepVerify(opts),
+		),
+	);
 
 program.addCommand(stepCmd);
 
@@ -284,30 +269,21 @@ program.addCommand(stepCmd);
 program
 	.command("status")
 	.description("Show current task status")
-	.action(() => {
-		try {
-			handleStatus();
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.action(withErrorHandler(() => handleStatus()));
 
 // ---- check ----
 
 program
 	.command("check")
 	.description("Stop hook gate check (reads session_id from stdin)")
-	.action(() => {
-		try {
-			handleCheck();
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.action(withErrorHandler(() => handleCheck()));
+
+// ---- session-start ----
+
+program
+	.command("session-start")
+	.description("SessionStart hook handler (reads session_id from stdin)")
+	.action(() => handleSessionStart());
 
 // ---- context ----
 
@@ -318,29 +294,13 @@ const contextCmd = new Command("context").description(
 contextCmd
 	.command("list")
 	.description("List all context entries")
-	.action(() => {
-		try {
-			handleContextList();
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.action(withErrorHandler(() => handleContextList()));
 
 contextCmd
 	.command("show")
 	.description("Show content of a context entry")
 	.requiredOption("--id <id>", "Context entry ID")
-	.action((opts: { id: string }) => {
-		try {
-			handleContextShow(opts);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.action(withErrorHandler((opts: { id: string }) => handleContextShow(opts)));
 
 contextCmd
 	.command("create")
@@ -348,30 +308,23 @@ contextCmd
 	.requiredOption("--type <type>", "Entry type: skill or knowledge")
 	.requiredOption("--id <id>", "Entry ID")
 	.requiredOption("--description <description>", "Entry description")
-	.action((opts: { type: string; id: string; description: string }) => {
-		try {
-			handleContextCreate(opts);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.action(
+		withErrorHandler(
+			(opts: { type: string; id: string; description: string }) =>
+				handleContextCreate(opts),
+		),
+	);
 
 contextCmd
 	.command("delete")
 	.description("Delete a context entry")
 	.requiredOption("--id <id>", "Context entry ID")
 	.requiredOption("--reason <reason>", "Deletion reason")
-	.action((opts: { id: string; reason: string }) => {
-		try {
-			handleContextDelete(opts);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.action(
+		withErrorHandler((opts: { id: string; reason: string }) =>
+			handleContextDelete(opts),
+		),
+	);
 
 contextCmd
 	.command("log")
@@ -382,15 +335,11 @@ contextCmd
 		"Event type: updated, confirmed, deprecated, promoted",
 	)
 	.option("--message <message>", "Event message")
-	.action((opts: { id: string; type: string; message?: string }) => {
-		try {
-			handleContextLog(opts);
-		} catch (e: unknown) {
-			const msg = e instanceof Error ? e.message : String(e);
-			console.error(`Error: ${msg}`);
-			process.exit(1);
-		}
-	});
+	.action(
+		withErrorHandler((opts: { id: string; type: string; message?: string }) =>
+			handleContextLog(opts),
+		),
+	);
 
 program.addCommand(contextCmd);
 

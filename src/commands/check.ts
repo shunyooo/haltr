@@ -1,5 +1,5 @@
 /**
- * `hal check` — Stop hook gate for v2.
+ * `hal check` — Stop hook gate.
  *
  * Used as a Stop Hook for Claude Code (and other CLI agents).
  * Reads session_id from stdin JSON (hooks pass JSON with session_id).
@@ -10,6 +10,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { HINTS } from "../lib/hints.js";
 import { buildResponse, formatResponse } from "../lib/response-builder.js";
 import { getTaskPathForSession } from "../lib/session-manager.js";
 import { findHaltrDir } from "../lib/task-utils.js";
@@ -79,8 +80,8 @@ export function handleCheck(): void {
 		process.exit(0);
 	}
 
-	// Task status is done — allow stop
-	if (task.status === "done") {
+	// Task status is pending (not started) or done — allow stop
+	if (task.status === "pending" || task.status === "done") {
 		process.exit(0);
 	}
 
@@ -107,8 +108,7 @@ export function handleCheck(): void {
 			})),
 		},
 		haltrDir,
-		commands_hint:
-			"現在の step の accept 条件を確認し、全て満たしているか検証してください。検証が完了し、残りの作業がなければ hal step done で報告してください",
+		commands_hint: HINTS.CHECK_BLOCKED,
 	});
 
 	console.log(formatResponse(response));

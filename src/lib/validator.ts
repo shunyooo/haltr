@@ -6,7 +6,7 @@ import configSchemaJson from "../schemas/config.schema.json" with {
 };
 
 import taskSchemaJson from "../schemas/task.schema.json" with { type: "json" };
-import type { ConfigYaml, TaskYaml } from "../types.js";
+import type { HaltrConfig, TaskYaml } from "../types.js";
 
 // Handle both ESM default and CJS interop
 // biome-ignore lint/suspicious/noExplicitAny: ESM/CJS interop requires any
@@ -36,9 +36,9 @@ export function validateTask(data: unknown): TaskYaml {
 
 /**
  * Validate parsed config data against the config schema.
- * Returns typed ConfigYaml or throws with clear error messages.
+ * Returns typed HaltrConfig or throws with clear error messages.
  */
-export function validateConfig(data: unknown): ConfigYaml {
+export function validateConfig(data: unknown): HaltrConfig {
 	const valid = configValidator(data);
 	if (!valid) {
 		const errors = configValidator.errors ?? [];
@@ -48,7 +48,7 @@ export function validateConfig(data: unknown): ConfigYaml {
 		});
 		throw new Error(`Config validation failed:\n${messages.join("\n")}`);
 	}
-	return data as ConfigYaml;
+	return data as HaltrConfig;
 }
 
 /**
@@ -61,10 +61,10 @@ export function loadAndValidateTask(filePath: string): TaskYaml {
 }
 
 /**
- * Load a YAML file, parse it, and validate against the config schema.
+ * Load a JSON config file and validate against the config schema.
  */
-export function loadAndValidateConfig(filePath: string): ConfigYaml {
+export function loadAndValidateConfig(filePath: string): HaltrConfig {
 	const content = readFileSync(filePath, "utf-8");
-	const data = yaml.load(content);
+	const data = JSON.parse(content);
 	return validateConfig(data);
 }

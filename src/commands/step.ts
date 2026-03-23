@@ -1,13 +1,52 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import * as yaml from "js-yaml";
+import { HINTS } from "../lib/hints.js";
 import { buildResponse, formatResponse } from "../lib/response-builder.js";
 import { getCurrentTaskPath } from "../lib/session-manager.js";
 import { findHaltrDir, findStep } from "../lib/task-utils.js";
 import { loadAndValidateTask, validateTask } from "../lib/validator.js";
-import type { HistoryEvent, Step } from "../types.js";
+import type { HistoryEvent, Step, TaskYaml } from "../types.js";
 
 /**
- * hal step add
+ * Read stdin synchronously (for YAML input).
+ */
+function readStdin(): string {
+	try {
+		return readFileSync(0, "utf-8");
+	} catch {
+		return "";
+	}
+}
+
+/**
+ * Format steps list for output.
+ */
+function formatStepsList(steps: Step[]): Array<{
+	id: string;
+	goal: string;
+	status: string;
+	accept?: string | string[];
+}> {
+	return steps.map((s) => {
+		const result: {
+			id: string;
+			goal: string;
+			status: string;
+			accept?: string | string[];
+		} = {
+			id: s.id,
+			goal: s.goal,
+			status: s.status ?? "pending",
+		};
+		if (s.accept) {
+			result.accept = s.accept;
+		}
+		return result;
+	});
+}
+
+/**
+ * hal step add (single step mode)
  *
  * Add a new step to the current task.
  */
@@ -79,8 +118,109 @@ export function handleStepAdd(opts: {
 			status: "pending",
 		},
 		haltrDir,
-		commands_hint:
-			"hal step start --step <step-id> でステップを開始できます",
+		commands_hint: HINTS.STEP_ADDED,
+	});
+
+	console.log(formatResponse(response));
+}
+
+/**
+ * Input format for batch step add.
+ */
+interface StepInput {
+	id: string;
+	goal: string;
+	accept?: string | string[];
+}
+
+/**
+ * hal step add --stdin (batch mode)
+ *
+ * Add multiple steps from stdin YAML.
+ */
+export function handleStepAddBatch(): void {
+	const input = readStdin().trim();
+	if (!input) {
+		throw new Error("stdin からステップデータを読み取れませんでした");
+	}
+
+	const stepsInput = yaml.load(input) as StepInput[];
+	if (!Array.isArray(stepsInput) || stepsInput.length === 0) {
+		throw new Error("stdin は YAML 配列形式で指定してください");
+	}
+
+	const taskPath = getCurrentTaskPath();
+	const task = loadAndValidateTask(taskPath);
+
+	if (!task.steps) {
+		task.steps = [];
+	}
+
+	const now = new Date().toISOString();
+	if (!task.history) {
+		task.history = [];
+	}
+
+	// Pre-validate: check for duplicates in input and existing steps
+	const inputIds = new Set<string>();
+	for (const stepInput of stepsInput) {
+		if (!stepInput.id || !stepInput.goal) {
+			throw new Error(`ステップには id と goal が必要です: ${JSON.stringify(stepInput)}`);
+		}
+		// Check duplicate within input
+		if (inputIds.has(stepInput.id)) {
+			throw new Error(`入力内でステップ ID "${stepInput.id}" が重複しています`);
+		}
+		inputIds.add(stepInput.id);
+		// Check duplicate with existing steps
+		const existing = findStep(task.steps, stepInput.id);
+		if (existing) {
+			throw new Error(`ステップ ID "${stepInput.id}" は既に存在します`);
+		}
+	}
+
+	const addedSteps: string[] = [];
+
+	for (const stepInput of stepsInput) {
+
+		const newStep: Step = {
+			id: stepInput.id,
+			goal: stepInput.goal,
+			status: "pending",
+		};
+
+		if (stepInput.accept) {
+			newStep.accept = stepInput.accept;
+		}
+
+		task.steps.push(newStep);
+		addedSteps.push(stepInput.id);
+
+		// Add history event
+		const event: HistoryEvent = {
+			at: now,
+			type: "step_added",
+			step: stepInput.id,
+			message: `Step added: ${stepInput.goal}`,
+		};
+		task.history.push(event);
+	}
+
+	// Validate and save
+	validateTask(task);
+	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
+
+	const haltrDir = findHaltrDir(taskPath);
+
+	const response = buildResponse({
+		status: "ok",
+		message: `${addedSteps.length} ステップを追加しました`,
+		data: {
+			added: addedSteps,
+			steps: formatStepsList(task.steps),
+		},
+		haltrDir,
+		commands_hint: HINTS.STEP_ADDED,
 	});
 
 	console.log(formatResponse(response));
@@ -136,12 +276,6 @@ export function handleStepStart(opts: { step: string }): void {
 
 	const haltrDir = findHaltrDir(taskPath);
 
-	// Load notes content if available
-	let notesContent: string | undefined;
-	if (task.notes) {
-		notesContent = task.notes;
-	}
-
 	const responseData: Record<string, unknown> = {
 		step_id: opts.step,
 		step_goal: step.goal,
@@ -154,18 +288,13 @@ export function handleStepStart(opts: { step: string }): void {
 		responseData.step_accept = step.accept;
 	}
 
-	if (notesContent) {
-		responseData.notes = notesContent;
-	}
-
 	const response = buildResponse({
 		status: "ok",
 		message: `ステップを開始しました: ${opts.step}`,
 		data: responseData,
 		haltrDir,
-		notes_prompt: "作業中に重要な発見や決定事項があれば hal task edit --notes '<notes>' --message '<reason>' で記録してください",
-		commands_hint:
-			"作業が完了したら hal step done --step <step-id> --result PASS で報告してください。問題があれば hal step done --step <step-id> --result FAIL --message '<reason>' で報告してください",
+		notes_prompt: HINTS.STATUS_NOTES_IN_PROGRESS,
+		commands_hint: HINTS.STEP_STARTED,
 	});
 
 	console.log(formatResponse(response));
@@ -179,7 +308,7 @@ export function handleStepStart(opts: { step: string }): void {
 export function handleStepDone(opts: {
 	step: string;
 	result: string;
-	message?: string;
+	message: string;
 }): void {
 	const result = opts.result.toUpperCase();
 	if (result !== "PASS" && result !== "FAIL") {
@@ -202,6 +331,13 @@ export function handleStepDone(opts: {
 	if (currentStatus !== "in_progress") {
 		throw new Error(
 			`ステップ "${opts.step}" は現在 ${currentStatus} です。in_progress のステップのみ done にできます`,
+		);
+	}
+
+	// Check verification status (only required if accept criteria exist)
+	if (result === "PASS" && step.accept && !step.verified) {
+		throw new Error(
+			`ステップ "${opts.step}" は未検証です。先にサブエージェントで hal step verify --step ${opts.step} --result PASS|FAIL を実行してください`,
 		);
 	}
 
@@ -264,18 +400,16 @@ export function handleStepDone(opts: {
 
 	let commandsHint: string;
 	if (allDone) {
-		commandsHint =
-			"全ステップが完了しました。CCR (Context Carry-over Report) を作成して、次のタスクに引き継ぐ情報をまとめてください";
+		commandsHint = HINTS.STEP_DONE_ALL;
 	} else if (result === "FAIL") {
-		commandsHint =
-			"失敗した内容を修正して、再度 hal step done --step <step-id> --result PASS で報告してください";
+		commandsHint = HINTS.STEP_DONE_FAIL;
 	} else {
 		// Find next pending step
 		const nextStep = task.steps.find((s) => (s.status ?? "pending") === "pending");
 		if (nextStep) {
-			commandsHint = `次のステップ: hal step start --step ${nextStep.id}`;
+			commandsHint = HINTS.STEP_DONE_NEXT(nextStep.id);
 		} else {
-			commandsHint = "hal status で残りのステップを確認してください";
+			commandsHint = HINTS.STEP_DONE_CHECK_STATUS;
 		}
 	}
 
@@ -287,7 +421,7 @@ export function handleStepDone(opts: {
 				: `ステップ失敗: ${opts.step}`,
 		data: responseData,
 		haltrDir,
-		notes_prompt: "作業結果や重要な発見を hal task edit --notes '<notes>' --message '<reason>' で記録してください",
+		notes_prompt: HINTS.STATUS_NOTES_DONE,
 		commands_hint: commandsHint,
 	});
 
@@ -299,7 +433,7 @@ export function handleStepDone(opts: {
  *
  * Pause the current work (copilot mode).
  */
-export function handleStepPause(): void {
+export function handleStepPause({ message }: { message: string }): void {
 	const taskPath = getCurrentTaskPath();
 	const task = loadAndValidateTask(taskPath);
 
@@ -310,7 +444,7 @@ export function handleStepPause(): void {
 	const event: HistoryEvent = {
 		at: now,
 		type: "paused",
-		message: "Work paused",
+		message,
 	};
 	task.history.push(event);
 
@@ -333,17 +467,14 @@ export function handleStepPause(): void {
 		responseData.step_goal = currentStep.goal;
 	}
 
-	if (task.notes) {
-		responseData.notes = task.notes;
-	}
+	responseData.pause_reason = message;
 
 	const response = buildResponse({
 		status: "ok",
-		message: "作業を一時停止しました",
+		message: `作業を一時停止しました: ${message}`,
 		data: responseData,
 		haltrDir,
-		commands_hint:
-			"hal step resume で作業を再開できます",
+		commands_hint: HINTS.STEP_PAUSED,
 	});
 
 	console.log(formatResponse(response));
@@ -375,12 +506,104 @@ export function handleStepResume(): void {
 
 	const haltrDir = findHaltrDir(taskPath);
 
+	// Find current in_progress step(s)
+	const inProgressSteps = (task.steps ?? []).filter((s) => s.status === "in_progress");
+	const pendingSteps = (task.steps ?? []).filter((s) => s.status === "pending" || !s.status);
+
+	const data: Record<string, unknown> = {
+		task_status: task.status ?? "pending",
+	};
+
+	if (inProgressSteps.length > 0) {
+		data.current_step = {
+			id: inProgressSteps[0].id,
+			goal: inProgressSteps[0].goal,
+		};
+	} else if (pendingSteps.length > 0) {
+		data.next_step = {
+			id: pendingSteps[0].id,
+			goal: pendingSteps[0].goal,
+		};
+	}
+
+	data.steps = formatStepsList(task.steps ?? []);
+
 	const response = buildResponse({
 		status: "ok",
 		message: "作業を再開しました",
+		data,
 		haltrDir,
-		commands_hint:
-			"hal status で現在の状態を確認できます。hal step done --step <step-id> --result PASS で完了を報告してください",
+		commands_hint: HINTS.STEP_RESUMED,
+	});
+
+	console.log(formatResponse(response));
+}
+
+/**
+ * hal step verify
+ *
+ * Record verification result for a step.
+ * Called by a verify agent (not the executor).
+ */
+export function handleStepVerify(opts: {
+	step: string;
+	result: string;
+	message: string;
+}): void {
+	const taskPath = getCurrentTaskPath();
+	const task = loadAndValidateTask(taskPath);
+
+	if (!task.steps || task.steps.length === 0) {
+		throw new Error("タスクにステップがありません");
+	}
+
+	const step = findStep(task.steps, opts.step);
+	if (!step) {
+		throw new Error(`ステップ "${opts.step}" が見つかりません`);
+	}
+
+	const result = opts.result.toUpperCase();
+	if (result !== "PASS" && result !== "FAIL") {
+		throw new Error('result は PASS または FAIL を指定してください');
+	}
+
+	// Update verified flag
+	step.verified = result === "PASS";
+
+	// Add history event
+	const now = new Date().toISOString();
+	if (!task.history) {
+		task.history = [];
+	}
+	const event: HistoryEvent = {
+		at: now,
+		type: "step_verified",
+		step: opts.step,
+		result: result as "PASS" | "FAIL",
+		message: opts.message,
+	};
+	task.history.push(event);
+
+	// Validate and save
+	validateTask(task);
+	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
+
+	const haltrDir = findHaltrDir(taskPath);
+
+	const response = buildResponse({
+		status: "ok",
+		message: result === "PASS"
+			? `検証完了: ステップ ${opts.step} は PASS`
+			: `検証失敗: ステップ ${opts.step} は FAIL`,
+		data: {
+			step_id: opts.step,
+			result,
+			verified: step.verified,
+		},
+		haltrDir,
+		commands_hint: result === "PASS"
+			? HINTS.STEP_DONE_NEXT(opts.step)
+			: HINTS.STEP_DONE_FAIL,
 	});
 
 	console.log(formatResponse(response));

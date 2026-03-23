@@ -1,4 +1,3 @@
-import { buildResponse, formatResponse } from "../lib/response-builder.js";
 import {
 	addHistoryEvent,
 	checkStaleness,
@@ -8,6 +7,8 @@ import {
 	getContent,
 	loadIndex,
 } from "../lib/context-manager.js";
+import { HINTS } from "../lib/hints.js";
+import { buildResponse, formatResponse } from "../lib/response-builder.js";
 import { findHaltrDir } from "../lib/task-utils.js";
 
 /**
@@ -35,8 +36,7 @@ export function handleContextList(): void {
 			entries: items,
 		},
 		haltrDir,
-		commands_hint:
-			"hal context show --id <id> で内容を表示、hal context create --type <skill|knowledge> --id <id> --description '<desc>' で新規作成",
+		commands_hint: HINTS.CONTEXT_LIST,
 	});
 
 	console.log(formatResponse(response));
@@ -86,8 +86,7 @@ export function handleContextShow(opts: { id: string }): void {
 		message: `コンテキスト: ${entry.id}`,
 		data,
 		haltrDir,
-		commands_hint:
-			"hal context log --id <id> --type confirmed で最新であることを確認できます",
+		commands_hint: HINTS.CONTEXT_SHOWN,
 	});
 
 	console.log(formatResponse(response));
@@ -127,10 +126,7 @@ export function handleContextCreate(opts: {
 			path: relativePath,
 		},
 		haltrDir,
-		commands_hint:
-			"ファイルに内容を直接書き込んでください。書き込み後 hal context log --id " +
-			opts.id +
-			" --type updated --message '<変更内容>' で記録してください",
+		commands_hint: HINTS.CONTEXT_CREATED(opts.id),
 	});
 
 	console.log(formatResponse(response));

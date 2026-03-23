@@ -15,6 +15,9 @@ Dockerfile.dev
 
 # haltr runtime data
 haltr/
+
+# Catalog output
+.catalog/output/
 .panes.yaml
 .hooks/
 exp

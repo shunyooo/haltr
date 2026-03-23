@@ -1,21 +1,22 @@
-// ---- Accept types (v2) ----
+// ---- Status types ----
 
-// In v2, accept is a simple string or string array — no AcceptObject needed.
+/** Unified status type for both tasks and steps */
+export type Status = "pending" | "in_progress" | "done" | "failed";
+
+/** @deprecated Use Status instead */
+export type StepStatus = Status;
+/** @deprecated Use Status instead */
+export type TaskStatus = Status;
 
 // ---- Step types ----
-
-export type StepStatus = "pending" | "in_progress" | "done" | "failed";
 
 export interface Step {
 	id: string;
 	goal: string;
-	status?: StepStatus;
+	status?: Status;
 	accept?: string | string[];
+	verified?: boolean;
 }
-
-// ---- Task types ----
-
-export type TaskStatus = "pending" | "in_progress" | "done" | "failed";
 
 // ---- History event types ----
 
@@ -57,6 +58,13 @@ export interface StepFailedEvent extends HistoryEventBase {
 	message?: string;
 }
 
+export interface StepVerifiedEvent extends HistoryEventBase {
+	type: "step_verified";
+	step: string;
+	result: "PASS" | "FAIL";
+	message?: string;
+}
+
 export interface PausedEvent extends HistoryEventBase {
 	type: "paused";
 	message?: string;
@@ -84,6 +92,7 @@ export type HistoryEvent =
 	| StepStartedEvent
 	| StepDoneEvent
 	| StepFailedEvent
+	| StepVerifiedEvent
 	| PausedEvent
 	| ResumedEvent
 	| CompletedEvent
@@ -94,10 +103,9 @@ export type HistoryEvent =
 export interface TaskYaml {
 	id: string;
 	goal: string;
-	status?: TaskStatus;
+	status?: Status;
 	accept?: string | string[];
 	plan?: string;
-	notes?: string;
 	context?: string;
 	steps?: Step[];
 	history?: HistoryEvent[];
@@ -105,7 +113,8 @@ export interface TaskYaml {
 
 // ---- Config types ----
 
-export interface ConfigYaml {
+/** .haltr.json configuration */
+export interface HaltrConfig {
+	directory: string;
 	timezone?: string;
-	haltr_dir?: string;
 }

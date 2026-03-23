@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { HINTS } from "../lib/hints.js";
 import { buildResponse, formatResponse } from "../lib/response-builder.js";
 import { getCurrentTaskPath } from "../lib/session-manager.js";
 import { findHaltrDir } from "../lib/task-utils.js";
@@ -42,23 +43,17 @@ export function handleStatus(): void {
 		responseData.plan = task.plan;
 	}
 
-	if (task.notes) {
-		responseData.notes = task.notes;
-	}
-
 	// Determine commands_hint based on state
 	let commandsHint: string;
 	const taskStatus = task.status ?? "pending";
 
 	if (taskStatus === "done") {
-		commandsHint = "タスクは完了しています。CCR を作成してください";
+		commandsHint = HINTS.STATUS_DONE;
 	} else if (taskStatus === "pending") {
 		if (steps.length === 0) {
-			commandsHint =
-				"hal step add --step <step-id> --goal '<goal>' でステップを追加してください";
+			commandsHint = HINTS.STATUS_NO_STEPS;
 		} else {
-			commandsHint =
-				"hal step start --step <step-id> でステップを開始してください";
+			commandsHint = HINTS.STATUS_PENDING;
 		}
 	} else {
 		// in_progress or failed
@@ -66,11 +61,11 @@ export function handleStatus(): void {
 		const nextPending = steps.find((s) => s.status === "pending");
 
 		if (currentStep) {
-			commandsHint = `現在のステップ: ${currentStep.id}。完了したら hal step done --step ${currentStep.id} --result PASS で報告してください`;
+			commandsHint = HINTS.STEP_IN_PROGRESS(currentStep.id);
 		} else if (nextPending) {
-			commandsHint = `次のステップ: hal step start --step ${nextPending.id}`;
+			commandsHint = HINTS.STEP_DONE_NEXT(nextPending.id);
 		} else {
-			commandsHint = "hal step add で新しいステップを追加するか、残りの作業を確認してください";
+			commandsHint = HINTS.STATUS_ADD_OR_CHECK;
 		}
 	}
 
@@ -79,7 +74,7 @@ export function handleStatus(): void {
 		message: `タスク状態: ${taskStatus}`,
 		data: responseData,
 		haltrDir,
-		notes_prompt: "重要な情報があれば hal task edit --notes '<notes>' --message '<reason>' で記録してください",
+		notes_prompt: HINTS.STATUS_NOTES,
 		commands_hint: commandsHint,
 	});
 

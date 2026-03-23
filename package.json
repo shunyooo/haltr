@@ -1,6 +1,6 @@
 {
   "name": "haltr",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Quality assurance tool for coding agent outputs",
   "type": "module",
   "main": "./dist/bin/hal.js",
@@ -9,14 +9,11 @@
   },
   "scripts": {
     "build": "tsc && cp -r src/templates dist/",
-    "test": "node --import tsx src/test/v2-schema-validation.ts && node --import tsx src/test/v2-commands-test.ts",
-    "test:schema": "node --import tsx src/test/v2-schema-validation.ts",
-    "test:commands": "node --import tsx src/test/m7-validation.ts",
-    "test:gates": "node --import tsx src/test/m4-validation.ts",
-    "test:cli": "node --import tsx src/test/m6-validation.ts",
-    "test:tmux": "node --import tsx src/test/tmux-e2e.ts",
-    "test:v2": "node --import tsx src/test/v2-schema-validation.ts",
-    "test:e2e": "node --import tsx src/test/agent-e2e.ts",
+    "test": "node --import tsx src/test/schema-validation.ts && node --import tsx src/test/commands-test.ts",
+    "test:schema": "node --import tsx src/test/schema-validation.ts",
+    "test:commands": "node --import tsx src/test/commands-test.ts",
+    "test:e2e": "node --import tsx src/test/e2e-test.ts",
+    "catalog": "node --import tsx .catalog/sync-check.ts && node --import tsx .catalog/generator.ts",
     "lint": "biome lint src/",
     "lint:fix": "biome lint --write src/"
   },
