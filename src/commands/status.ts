@@ -1,94 +1,87 @@
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-import type { Command } from "commander";
-import * as yaml from "js-yaml";
-import {
-	findStep,
-	judgeParentStatus,
-	validateStepTransition,
-	validateTaskPath,
-	validateTaskTransition,
-} from "../lib/task-utils.js";
+import { existsSync } from "node:fs";
+import { buildResponse, formatResponse } from "../lib/response-builder.js";
+import { getCurrentTaskPath } from "../lib/session-manager.js";
+import { findHaltrDir } from "../lib/task-utils.js";
 import { loadAndValidateTask } from "../lib/validator.js";
-import type { StepStatus, TaskStatus } from "../types.js";
-
-export function registerStatusCommand(program: Command): void {
-	program
-		.command("status")
-		.description("Update step or task status")
-		.argument("<target>", 'Step path (e.g., "step-1") or "task"')
-		.argument("<status>", "New status value")
-		.requiredOption("--task <path>", "Path to task.yaml")
-		.action((target: string, status: string, opts: { task: string }) => {
-			try {
-				handleStatusUpdate(target, status, opts.task);
-			} catch (e: unknown) {
-				const msg = e instanceof Error ? e.message : String(e);
-				console.error(`Error: ${msg}`);
-				process.exit(1);
-			}
-		});
-}
-
-function handleStatusUpdate(
-	target: string,
-	newStatus: string,
-	taskPath: string,
-): void {
-	const resolvedPath = resolve(taskPath);
-	validateTaskPath(resolvedPath);
-	const taskYaml = loadAndValidateTask(resolvedPath);
-
-	if (target === "task") {
-		// Task-level status update
-		const currentStatus = taskYaml.status || "pending";
-		validateTaskTransition(currentStatus, newStatus);
-		taskYaml.status = newStatus as TaskStatus;
-	} else {
-		// Step-level status update
-		const step = findStep(taskYaml.steps, target);
-		if (!step) {
-			throw new Error(`Step not found: "${target}"`);
-		}
-
-		const currentStatus = step.status || "pending";
-		validateStepTransition(currentStatus, newStatus);
-		step.status = newStatus as StepStatus;
-
-		// Auto-judge parent status
-		propagateParentStatus(taskYaml.steps, target);
-	}
-
-	// Write back to disk
-	const yamlContent = yaml.dump(taskYaml, {
-		lineWidth: -1,
-		noRefs: true,
-		quotingType: '"',
-	});
-	writeFileSync(resolvedPath, yamlContent);
-
-	console.log(`Updated ${target} status to ${newStatus}`);
-}
 
 /**
- * Propagate status changes upward through parent steps.
+ * hal status
+ *
+ * Show the current task status, all steps, knowledge list, and hints.
  */
-function propagateParentStatus(steps: Step[], stepPath: string): void {
-	// Walk up the path, judging each parent
-	const parts = stepPath.split("/");
+export function handleStatus(): void {
+	const taskPath = getCurrentTaskPath();
 
-	// Build parent paths from deepest to shallowest
-	for (let i = parts.length - 1; i >= 1; i--) {
-		const parentPath = parts.slice(0, i).join("/");
-		const parent = findStep(steps, parentPath);
-		if (!parent) continue;
+	if (!existsSync(taskPath)) {
+		throw new Error(`Task file not found: ${taskPath}`);
+	}
 
-		const newStatus = judgeParentStatus(parent);
-		if (newStatus !== undefined) {
-			parent.status = newStatus;
+	const task = loadAndValidateTask(taskPath);
+	const haltrDir = findHaltrDir(taskPath);
+
+	const steps = (task.steps ?? []).map((s) => ({
+		id: s.id,
+		goal: s.goal,
+		status: s.status ?? "pending",
+		accept: s.accept,
+	}));
+
+	const responseData: Record<string, unknown> = {
+		task_path: taskPath,
+		task_id: task.id,
+		goal: task.goal,
+		status: task.status ?? "pending",
+		steps,
+	};
+
+	if (task.accept) {
+		responseData.accept = task.accept;
+	}
+
+	if (task.plan) {
+		responseData.plan = task.plan;
+	}
+
+	if (task.notes) {
+		responseData.notes = task.notes;
+	}
+
+	// Determine commands_hint based on state
+	let commandsHint: string;
+	const taskStatus = task.status ?? "pending";
+
+	if (taskStatus === "done") {
+		commandsHint = "タスクは完了しています。CCR を作成してください";
+	} else if (taskStatus === "pending") {
+		if (steps.length === 0) {
+			commandsHint =
+				"hal step add --step <step-id> --goal '<goal>' でステップを追加してください";
+		} else {
+			commandsHint =
+				"hal step start --step <step-id> でステップを開始してください";
+		}
+	} else {
+		// in_progress or failed
+		const currentStep = steps.find((s) => s.status === "in_progress");
+		const nextPending = steps.find((s) => s.status === "pending");
+
+		if (currentStep) {
+			commandsHint = `現在のステップ: ${currentStep.id}。完了したら hal step done --step ${currentStep.id} --result PASS で報告してください`;
+		} else if (nextPending) {
+			commandsHint = `次のステップ: hal step start --step ${nextPending.id}`;
+		} else {
+			commandsHint = "hal step add で新しいステップを追加するか、残りの作業を確認してください";
 		}
 	}
-}
 
-// Re-export Step type for propagateParentStatus
-import type { Step } from "../types.js";
+	const response = buildResponse({
+		status: "ok",
+		message: `タスク状態: ${taskStatus}`,
+		data: responseData,
+		haltrDir,
+		notes_prompt: "重要な情報があれば hal task edit --notes '<notes>' --message '<reason>' で記録してください",
+		commands_hint: commandsHint,
+	});
+
+	console.log(formatResponse(response));
+}

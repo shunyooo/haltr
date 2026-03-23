@@ -1,34 +1,65 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
-import * as yaml from "js-yaml";
 import {
-	loadConfig,
-	validateTaskPath,
-	validateTaskTransition,
-} from "../lib/task-utils.js";
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
+import { basename, join } from "node:path";
+import * as yaml from "js-yaml";
+import { buildResponse, formatResponse } from "../lib/response-builder.js";
+import {
+	getCurrentTaskPath,
+	setSessionTask,
+} from "../lib/session-manager.js";
+import { findHaltrDir } from "../lib/task-utils.js";
 import { loadAndValidateTask, validateTask } from "../lib/validator.js";
-import type { CreatedEvent, HistoryEvent, TaskYaml } from "../types.js";
-import { findEpicDir } from "./epic.js";
+import type { HistoryEvent, TaskYaml } from "../types.js";
 
-function resolveOrchestratorBy(pathInHaltrTree: string): string {
-	try {
-		const config = loadConfig(pathInHaltrTree);
-		return `orchestrator(${config.orchestrator_cli})`;
-	} catch {
-		return "orchestrator(claude)";
+/**
+ * Find the current (latest) epic directory.
+ * Returns the path to the most recent epic dir under haltr/epics/.
+ */
+function findCurrentEpicDir(haltrDir: string): string {
+	const epicsDir = join(haltrDir, "epics");
+
+	if (!existsSync(epicsDir)) {
+		throw new Error(
+			"haltr/epics/ directory not found. Run 'hal init' first.",
+		);
 	}
+
+	const entries = readdirSync(epicsDir)
+		.filter((entry) => {
+			if (entry === "archive") return false;
+			const fullPath = join(epicsDir, entry);
+			try {
+				return statSync(fullPath).isDirectory();
+			} catch {
+				return false;
+			}
+		})
+		.sort();
+
+	if (entries.length === 0) {
+		throw new Error(
+			"No epics found. Run 'hal epic create <name>' first.",
+		);
+	}
+
+	return join(epicsDir, entries[entries.length - 1]);
 }
 
 /**
- * Scan an epic directory for all files matching NNN_* pattern and return
- * the next available index number.
+ * Generate the next task filename in an epic directory.
+ * Scans existing NNN_task.yaml files and returns the next sequence number.
  */
-function getNextFileIndex(epicDir: string): number {
+function getNextTaskFilename(epicDir: string): string {
 	const entries = readdirSync(epicDir);
 	let maxIndex = 0;
 
 	for (const entry of entries) {
-		const match = entry.match(/^(\d{3})_/);
+		const match = entry.match(/^(\d{3})_task\.yaml$/);
 		if (match) {
 			const idx = parseInt(match[1], 10);
 			if (idx > maxIndex) {
@@ -37,210 +68,157 @@ function getNextFileIndex(epicDir: string): number {
 		}
 	}
 
-	return maxIndex + 1;
+	const nextIndex = String(maxIndex + 1).padStart(3, "0");
+	return `${nextIndex}_task.yaml`;
 }
 
 /**
- * Find the most recent task.yaml file in an epic directory.
- * Returns the filename (e.g., "001_task.yaml") or null if none exist.
- */
-function findLatestTaskYaml(epicDir: string): string | null {
-	const entries = readdirSync(epicDir);
-	const taskFiles = entries.filter((e) => e.match(/^\d{3}_task\.yaml$/)).sort();
-
-	return taskFiles.length > 0 ? taskFiles[taskFiles.length - 1] : null;
-}
-
-/**
- * Create a new task.yaml in the specified epic directory.
- * Handles pivoting from previous task if one exists.
+ * hal task create
  *
- * Returns the path to the new task.yaml.
+ * Creates a new task in the current epic directory.
  */
-export function createTask(baseDir: string, epicName: string): string {
-	const epicDir = findEpicDir(baseDir, epicName);
-	const nextIndex = getNextFileIndex(epicDir);
-	const fileName = `${String(nextIndex).padStart(3, "0")}_task.yaml`;
+export function handleTaskCreate(opts: {
+	goal: string;
+	accept?: string[];
+	plan?: string;
+	notes?: string;
+}): void {
+	const haltrDir = findHaltrDir(process.cwd());
+	const epicDir = findCurrentEpicDir(haltrDir);
+	const fileName = getNextTaskFilename(epicDir);
 	const filePath = join(epicDir, fileName);
+
+	const epicDirName = basename(epicDir);
+	const taskId = `${epicDirName.replace(/^\d{8}-\d{3}_/, "")}-${fileName.replace("_task.yaml", "")}`;
 
 	const now = new Date().toISOString();
 
-	// Extract epic id from directory name (the part after NNN_)
-	const epicDirName = basename(epicDir);
-	const epicId = epicDirName.replace(/^\d{8}-\d{3}_/, "");
-
-	// Read defaults from config
-	let defaultWorker = "claude";
-	let defaultVerifier = "codex";
-	let defaultWorkerSession: "shared" | "per-step" | undefined;
-	try {
-		const config = loadConfig(filePath);
-		defaultWorker = config.defaults?.worker ?? defaultWorker;
-		defaultVerifier = config.defaults?.verifier ?? defaultVerifier;
-		defaultWorkerSession = config.defaults?.worker_session;
-	} catch {}
-
 	const newTask: TaskYaml = {
-		id: epicId,
+		id: taskId,
+		goal: opts.goal,
 		status: "pending",
-		agents: {
-			worker: defaultWorker,
-			verifier: defaultVerifier,
-		},
-		worker_session: defaultWorkerSession,
 		steps: [],
-		context: "",
 		history: [
 			{
 				at: now,
 				type: "created",
-				by: resolveOrchestratorBy(filePath),
 				message: "Task created",
 			},
 		],
 	};
 
-	// Check for previous task.yaml
-	const previousTaskFile = findLatestTaskYaml(epicDir);
-	if (previousTaskFile) {
-		newTask.previous = previousTaskFile;
-
-		// Update the previous task: set status to pivoted and add pivoted event
-		const previousPath = join(epicDir, previousTaskFile);
-		const previousTask = loadAndValidateTask(previousPath);
-
-		validateTaskTransition(previousTask.status || "pending", "pivoted");
-		previousTask.status = "pivoted";
-		if (!previousTask.history) {
-			previousTask.history = [];
-		}
-		const pivotedEvent: HistoryEvent = {
-			at: now,
-			type: "pivoted",
-			by: resolveOrchestratorBy(previousPath),
-			message: "New task created",
-			next_task: fileName,
-		};
-		previousTask.history.push(pivotedEvent);
-
-		writeFileSync(previousPath, yaml.dump(previousTask, { lineWidth: -1 }));
+	if (opts.accept && opts.accept.length > 0) {
+		newTask.accept = opts.accept.length === 1 ? opts.accept[0] : opts.accept;
 	}
 
+	if (opts.plan) {
+		newTask.plan = opts.plan;
+	}
+
+	if (opts.notes) {
+		newTask.notes = opts.notes;
+	}
+
+	// Validate before writing
+	validateTask(newTask);
+
+	mkdirSync(epicDir, { recursive: true });
 	writeFileSync(filePath, yaml.dump(newTask, { lineWidth: -1 }));
 
-	return filePath;
+	// Save session -> task mapping
+	setSessionTask(filePath);
+
+	const response = buildResponse({
+		status: "ok",
+		message: `タスクを作成しました: ${filePath}`,
+		data: {
+			task_path: filePath,
+			task_id: taskId,
+			goal: opts.goal,
+			status: "pending",
+		},
+		haltrDir,
+		commands_hint:
+			"hal step add --step <step-id> --goal '<goal>' でステップを追加してください",
+	});
+
+	console.log(formatResponse(response));
 }
 
 /**
- * Edit a task.yaml file. For now, supports programmatic field updates
- * via --field and --value, or opens $EDITOR.
+ * hal task edit
  *
- * After editing, adds an 'updated' event to history.
+ * Edit the current task's fields.
  */
-export function editTask(
-	taskPath: string,
-	field?: string,
-	value?: string,
-): void {
-	validateTaskPath(resolve(taskPath));
+export function handleTaskEdit(opts: {
+	goal?: string;
+	accept?: string[];
+	plan?: string;
+	notes?: string;
+	message: string;
+}): void {
+	const taskPath = getCurrentTaskPath();
 
 	if (!existsSync(taskPath)) {
 		throw new Error(`Task file not found: ${taskPath}`);
 	}
 
 	const task = loadAndValidateTask(taskPath);
+	const changes: string[] = [];
 
-	if (field && value !== undefined) {
-		// Whitelist of allowed fields for programmatic update
-		const ALLOWED_FIELDS = new Set(["context", "id"]);
-		const BLOCKED_FIELDS = new Set(["__proto__", "constructor", "prototype"]);
-
-		if (!ALLOWED_FIELDS.has(field)) {
-			throw new Error(
-				`Field "${field}" is not allowed. Allowed fields: ${[...ALLOWED_FIELDS].join(", ")}`,
-			);
-		}
-		// Defense-in-depth: block prototype pollution even if ALLOWED_FIELDS changes
-		if (BLOCKED_FIELDS.has(field)) {
-			throw new Error(`Field "${field}" is not allowed`);
-		}
-
-		// Programmatic update: set a whitelisted top-level field
-		(task as unknown as Record<string, unknown>)[field] = value;
+	if (opts.goal !== undefined) {
+		task.goal = opts.goal;
+		changes.push("goal");
 	}
 
-	// Add updated event
+	if (opts.accept !== undefined && opts.accept.length > 0) {
+		task.accept = opts.accept.length === 1 ? opts.accept[0] : opts.accept;
+		changes.push("accept");
+	}
+
+	if (opts.plan !== undefined) {
+		task.plan = opts.plan;
+		changes.push("plan");
+	}
+
+	if (opts.notes !== undefined) {
+		task.notes = opts.notes;
+		changes.push("notes");
+	}
+
+	if (changes.length === 0) {
+		throw new Error("変更するフィールドが指定されていません");
+	}
+
+	// Add updated event to history
 	const now = new Date().toISOString();
 	if (!task.history) {
 		task.history = [];
 	}
-	task.history.push({
+	const event: HistoryEvent = {
 		at: now,
 		type: "updated",
-		by: resolveOrchestratorBy(taskPath),
-	});
+		message: `${opts.message} (changed: ${changes.join(", ")})`,
+	};
+	task.history.push(event);
 
+	// Validate and save
+	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
-}
 
-/**
- * Write a task.yaml from stdin content.
- * Validates against schema before writing.
- * Preserves existing history and appends an 'updated' event.
- */
-export function writeTask(taskPath: string, content: string): void {
-	validateTaskPath(resolve(taskPath));
+	const haltrDir = findHaltrDir(taskPath);
 
-	// Parse and validate the incoming YAML
-	const data = yaml.load(content);
-	const validated = validateTask(data);
-
-	// Apply config defaults for agents if not specified
-	try {
-		const config = loadConfig(taskPath);
-		const defaults = config.defaults;
-		if (defaults) {
-			if (!validated.agents) {
-				validated.agents = {};
-			}
-			if (!validated.agents.worker) {
-				validated.agents.worker = defaults.worker;
-			}
-			if (!validated.agents.verifier) {
-				validated.agents.verifier = defaults.verifier;
-			}
-		}
-	} catch {}
-
-	const now = new Date().toISOString();
-
-	// If the file already exists, preserve history from the existing task
-	if (existsSync(taskPath)) {
-		const existing = loadAndValidateTask(taskPath);
-		if (existing.history && existing.history.length > 0) {
-			validated.history = existing.history;
-		}
-	}
-
-	// Ensure created event exists
-	if (!validated.history) {
-		validated.history = [];
-	}
-	const hasCreated = validated.history.some((e) => e.type === "created");
-	if (!hasCreated) {
-		const createdEvent: CreatedEvent = {
-			at: now,
-			type: "created",
-			by: resolveOrchestratorBy(taskPath),
-			message: "Task created",
-		};
-		validated.history.unshift(createdEvent);
-	}
-	validated.history.push({
-		at: now,
-		type: "updated",
-		by: resolveOrchestratorBy(taskPath),
+	const response = buildResponse({
+		status: "ok",
+		message: `タスクを更新しました: ${changes.join(", ")}`,
+		data: {
+			task_path: taskPath,
+			updated_fields: changes,
+		},
+		haltrDir,
+		commands_hint:
+			"hal status でタスクの状態を確認できます",
 	});
 
-	writeFileSync(taskPath, yaml.dump(validated, { lineWidth: -1 }));
+	console.log(formatResponse(response));
 }
