@@ -270,6 +270,28 @@ export const stories: Story[] = [
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
+		id: "step-verify-pass",
+		command: "step verify",
+		title: "ステップ検証（PASS）",
+		description: "ステップの作業結果を検証し、受入条件を満たしていることを記録する",
+		category: "step",
+		tags: ["success", "workflow"],
+		input: "hal step verify --step s1 --result PASS --message '全テストが通過、accept条件を満たしている'",
+		setup: "with-steps-active-unverified",
+		env: { HALTR_SESSION_ID: "test-session-001" },
+	},
+	{
+		id: "step-verify-fail",
+		command: "step verify",
+		title: "ステップ検証（FAIL）",
+		description: "ステップの作業結果を検証し、受入条件を満たしていないことを記録する",
+		category: "step",
+		tags: ["success", "workflow"],
+		input: "hal step verify --step s1 --result FAIL --message 'テストが2件失敗している'",
+		setup: "with-steps-active-unverified",
+		env: { HALTR_SESSION_ID: "test-session-001" },
+	},
+	{
 		id: "step-pause",
 		command: "step pause",
 		title: "作業一時停止",
@@ -387,5 +409,30 @@ export const stories: Story[] = [
 		setup: "with-steps",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 		expected_exit: 2,
+	},
+
+	// ============================================================================
+	// Hook
+	// ============================================================================
+	{
+		id: "session-start-new",
+		command: "session-start",
+		title: "セッション開始（タスクなし）",
+		description: "新しいセッションを開始する（タスクがまだない状態）",
+		category: "hook",
+		tags: ["success", "workflow"],
+		input: "echo '{\"session_id\":\"new-session-001\"}' | hal session-start",
+		setup: "minimal",
+	},
+	{
+		id: "session-start-with-task",
+		command: "session-start",
+		title: "セッション開始（タスクあり）",
+		description: "既存タスクがあるセッションを開始する",
+		category: "hook",
+		tags: ["success", "workflow"],
+		input: "echo '{\"session_id\":\"test-session-001\"}' | hal session-start",
+		setup: "with-steps",
+		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 ];
