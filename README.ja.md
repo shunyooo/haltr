@@ -1,10 +1,14 @@
 <p align="center">
   <h1 align="center">haltr</h1>
   <p align="center">
-    コーディングエージェントの自律性を高めるフレームワーク
+    コーディングエージェントの自律性とアウトプットの品質を向上させるハーネスツール
   </p>
   <p align="center">
-    <a href="#インストール">インストール</a> · <a href="#使い方">使い方</a> · <a href="#仕組み">仕組み</a> · <a href="#コマンド一覧">コマンド一覧</a>
+    <a href="https://www.npmjs.com/package/haltr"><img src="https://img.shields.io/npm/v/haltr.svg" alt="npm version"></a>
+    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  </p>
+  <p align="center">
+    <a href="#インストール">インストール</a> · <a href="#クイックスタート">クイックスタート</a> · <a href="#コマンド一覧">コマンド</a>
   </p>
   <p align="center">
     <a href="./README.md">English</a> | 日本語
@@ -13,282 +17,165 @@
 
 ---
 
-## 解決する問題
-
-コーディングエージェントは、人間が張り付いて対話・方向修正・レビューを行わないとまともなアウトプットが出せません。エージェントは「道具」であり、人間が操縦し続ける必要があります。
-
-haltr は**エージェントが自律的に長時間作業し、高品質なアウトプットを出せる状態**を目指します。
-
-```
-1度やることを決めたら、あとはエージェントが数時間、
-自律的に作業し、高品質なアウトプットを出す。
-```
-
-人間は最初の意思決定と最終確認だけ。途中の品質担保は haltr が行います。
-
-## 特徴
-
-- **hal コマンドが唯一のインターフェース** — エージェントは `hal` コマンドで品質ゲート・状態管理・知識管理を行います。CLI 非依存（Claude Code / Codex / Gemini CLI 等どこからでも使える）
-- **エージェントの自律性を支援** — 管理するのではなく、エージェントが自律的に動ける仕組みを提供します
-- **外部記憶によるコンテキスト劣化対策** — task.yaml + プランファイル + notes.md で長時間作業でも方向を見失わない
-- **品質ゲート** — ステップ完了時に accept 条件をチェック。Stop hook で早期離脱を防止
-- **知識のライフサイクル管理** — skills（方法論）と knowledge（ドメイン知識）を蓄積・参照・陳腐化検知
-- **コマンドヒントによるリマインド** — hal コマンドの返り値で次の動線を常にガイド
-
 ## インストール
 
 ```bash
 npm install -g haltr
 ```
 
-### 必要なもの
-
-- Node.js >= 20
-- コーディングエージェントの CLI（`claude` 等）
-
-## 使い方
-
-### セットアップ（初回のみ）
+## クイックスタート
 
 ```bash
+# 1. 初期化（作業ディレクトリ + hooks 自動設定）
 hal init
+
+# 2. Claude Code を起動 — あとはエージェントが hal を使って作業
+claude
 ```
 
-以下が自動設定されます：
-- `work/` ディレクトリ（タスク・コンテキスト管理用）
-- `.haltr.json` 設定ファイル
-- Claude Code の hooks（SessionStart, Stop）
-- `CLAUDE.md` に haltr/README.md への参照を追加する指示
+エージェントは自動的に `hal` コマンドを使いながらタスクを進めます。
+
+## なぜ haltr？
+
+現在のコーディングエージェントは、そのままでは長時間働けません。
+
+### 忘却
+
+- **課題**: コンテキストが長くなると、当初のゴールやルールを忘れます。モックのまま完了にする、品質基準を無視する、自分で書いたコードを自分で壊すことがあります。
+- **解決策**: タスクをステップに分解し、task.yaml + plan.md + notes.md でゴール・方針・進捗を永続化。エージェントに記録と参照を強制します。
+
+### 手抜き
+
+- **課題**: 検証せずに「完了」と報告することがあります。テストを書かない、動作確認をスキップする、エラーを握りつぶしてしまいます。
+- **解決策**: 各ステップに accept 条件を設定し、Sub Agent による独立検証で手抜きを防止します。
+
+### 早期離脱
+
+- **課題**: 途中で止まります。確認を求めて待機する、エラーで諦める、次のステップがわからず放置することがあります。
+- **解決策**: Stop hook でタスク完了までブロック。pause/resume で対話モードを明示化します。
+
+## 主な機能
+
+- **外部記憶** — task.yaml + plan.md + notes.md でコンテキスト劣化を防止
+- **品質ゲート** — accept 条件 → verify → done の流れで検証を強制
+- **Stop hook** — 未完了のまま止まろうとするとブロック
+- **知識管理** — skills/knowledge を蓄積・参照・陳腐化検知
+
+## 仕組み
 
 ### ワークフロー
 
-ユーザーは普通に Claude Code を起動するだけ。haltr/README.md が自動ロードされ、エージェントが hal コマンドを使いながら作業します。
-
+```mermaid
+flowchart LR
+    subgraph 対話["🗣️ 対話"]
+        direction LR
+        U1[依頼] --> U2[プラン合意] --> A1[タスク作成]
+    end
+    subgraph 自律["🤖 haltrが完了まで強制"]
+        direction LR
+        S1 --> S2
+        S2 --> SN
+        SN --> END[完了]
+        subgraph S1[Step 1]
+            W1[作業] --> V1[検証 - Sub Agent]
+        end
+        subgraph S2[Step 2]
+            W2[作業] --> V2[検証 - Sub Agent]
+        end
+        subgraph SN[Step N]
+            WN[作業] --> VN[検証 - Sub Agent]
+        end
+    end
+    subgraph 確認["✅ 最終確認"]
+        U3[レビュー]
+    end
+    対話 --> 自律 --> 確認
 ```
-ユーザー: 「ログイン機能を実装して」
-  ↓
-エージェント: プランファイル（plan.md）を作成
-ユーザー: フィードバック → ブラッシュアップ → 「OK」
-  ↓
-エージェント: hal task create → hal step add → hal step start
-  ↓ 自律実行（ユーザーは放置）
-エージェント: 実装 → notes.md に記録 → hal step done --result PASS
-  ↓ ステップを繰り返す
-全ステップ完了 → CCR（クロスコンテキスト検証）→ 完了報告
-```
 
-途中で確認したい場合は `hal step pause` で copilot モードに切り替え、エージェントと直接対話できます。`hal step resume` で自律実行に戻ります。
-
-## 仕組み
+途中で確認が必要な場合は対話モードに切り替え可能。
 
 ### アーキテクチャ
 
 ```
-メインワーカー（1セッション、全てやる）
+エージェント（1セッション）
   │
-  ├─ hal コマンド（データ管理のみ。LLM は呼ばない）
-  │   ├─ hal task create/edit    — タスク管理
-  │   ├─ hal step add/start/done — ステップ管理 + 品質ゲート
-  │   ├─ hal step pause/resume   — copilot/autopilot 切替
-  │   ├─ hal context *           — 知識管理（CRUD + イベント記録）
-  │   ├─ hal check               — Stop hook 用（早期離脱防止）
-  │   └─ hal status              — 進捗確認
+  ├─ hal コマンド ← データ管理のみ、LLM は呼ばない
   │
-  ├─ task.yaml（外部記憶 — 状態管理）
-  ├─ plan.md（外部記憶 — 方法論）
-  ├─ notes.md（外部記憶 — 作業メモ）
+  ├─ task.yaml   ← 状態管理（goal, steps, history）
+  ├─ plan.md     ← 方法論（人間と合意した内容）
+  ├─ notes.md    ← 作業メモ（中間結果、発見）
   │
-  ├─ haltr/context/（知識管理 — skills + knowledge）
-  │
-  └─ サブエージェント（必要時のみ、Worker 自身がスポーン）
-      └─ verifier（CCR 用）
+  └─ context/    ← 知識（skills + knowledge）
 ```
 
-hal はデータ管理に徹します。LLM 呼び出しやエージェントスポーンは行いません。判断と実行はエージェントの責務です。
-
-### task.yaml
-
-タスクの状態を管理するファイル。人間が意識する必要はありません。
-
-```yaml
-id: implement-auth
-goal: "Google OAuth でログイン機能を実装する"
-accept:
-  - "npm test -- --grep 'auth' が exit 0"
-  - "playwright で /login のフローを確認"
-plan: 001_plan.md
-status: in_progress
-
-steps:  # エージェントが自律管理
-  - id: setup
-    goal: "OAuth クライアントのセットアップ"
-    status: done
-  - id: implement
-    goal: "認証フローの実装"
-    accept:
-      - "npm test passes"
-    status: in_progress
-
-history:
-  - at: "2026-03-23T10:00:00Z"
-    type: created
-    message: "タスク作成"
-```
-
-### 外部記憶の分離
-
-| ファイル | 役割 | 誰が書くか |
-|----------|------|-----------|
-| **plan.md** | 方法論の記述（何をどの順序でやるか） | 人間とエージェントが対話で詰める |
-| **task.yaml** | 状態管理（goal, accept, steps, history） | エージェントが hal コマンド経由で更新 |
-| **notes.md** | 作業メモ（中間結果、発見事項） | エージェントがファイルを直接編集 |
-
-### 品質ゲート
-
-```
-Layer 1: 決定的検証 + 軌道修正（step 完了時）
-  accept 条件あり → hal step verify で検証 → hal step done で完了
-  accept 条件なし → hal step done で直接完了
-
-Layer 2: クロスコンテキスト検証（タスク完了時）
-  異なる LLM のサブエージェントで独立検証（CCR）
-
-Layer 3: 人間レビュー（最終確認）
-  必要な時だけ介入
-```
-
-### 知識管理
-
-```
-haltr/context/
-  index.yaml        — 統合インデックス（description リスト）
-  history.yaml      — 使用履歴（イベントログ）
-  skills/           — 方法論（SKILL.md フォーマット）
-  knowledge/        — ドメイン知識
-```
+hal は判断しません。判断はエージェント、記録は hal。
 
 ## コマンド一覧
 
-### タスク管理
+### ユーザーコマンド
 
-| コマンド | 説明 |
-|---------|------|
-| `hal task create --goal "..." --accept "..."` | タスクを作成 |
-| `hal task edit --goal "..." --message "理由"` | タスクを編集 |
+| コマンド       | 説明       |
+| -------------- | ---------- |
+| `hal init`     | 初期化     |
 
-### ステップ管理
+### エージェントコマンド
 
-| コマンド | 説明 |
-|---------|------|
-| `hal step add --step <id> --goal "..."` | ステップを追加 |
-| `hal step add --stdin` | YAML で複数ステップを一括追加 |
-| `hal step start --step <id>` | ステップを開始 |
-| `hal step verify --step <id> --result PASS` | accept 条件の検証結果を記録 |
-| `hal step done --step <id> --result PASS` | ステップ完了を報告 |
-| `hal step pause --message "..."` | copilot モードに切替 |
-| `hal step resume` | autopilot モードに復帰 |
+| コマンド                                          | 説明         |
+| ------------------------------------------------- | ------------ |
+| `hal status`                                      | 状態確認     |
+| `hal task create --goal "..." [--accept "..."]`   | タスク作成   |
+| `hal step add --step <id> --goal "..."`           | ステップ追加 |
+| `hal step start --step <id>`                      | 開始         |
+| `hal step verify --step <id> --result PASS\|FAIL` | 検証         |
+| `hal step done --step <id> --result PASS\|FAIL`   | 完了         |
+| `hal step pause --message "..."`                  | 対話モードへ |
+| `hal step resume`                                 | 自律モードへ |
+| `hal epic create <name>`                          | エピック作成 |
+| `hal context list`                                | 知識一覧     |
+| `hal context show --id <id>`                      | 知識表示     |
+| `hal context create --type skill\|knowledge`      | 知識作成     |
+| `hal context log --id <id> --type updated`        | 知識更新記録 |
 
-### 知識管理
+### 自動（hooks）
 
-| コマンド | 説明 |
-|---------|------|
-| `hal context list` | skills + knowledge の一覧 |
-| `hal context show --id <id>` | 内容表示 + used 記録 |
-| `hal context create --type skill --id <id> --description "..."` | 新規作成 |
-| `hal context delete --id <id> --reason "..."` | 削除 |
-| `hal context log --id <id> --type updated --message "..."` | イベント記録 |
+| コマンド            | 説明                |
+| ------------------- | ------------------- |
+| `hal session-start` | SessionStart hook   |
+| `hal check`         | Stop hook ゲート    |
 
-### その他
+## 設計について
 
-| コマンド | 説明 |
-|---------|------|
-| `hal init` | haltr/ ディレクトリを初期化 |
-| `hal status` | 現在の状態を表示 |
-| `hal check` | Stop hook 用ゲートチェック |
-| `hal epic create <name>` | エピックを作成 |
-| `hal epic list` | エピック一覧 |
+### なぜマルチエージェントにしなかったのか？
 
-## 設計原則
-
-1. **自律性のための構造** — エージェントを管理するのではなく、自律的に動けるよう支援する
-2. **削除を前提に設計する（Bitter Lesson）** — モデルが進化すれば不要になる構造は最小限に
-3. **検証可能なゴール > 冗長な仕様** — accept 条件を具体的かつ検証可能に
-4. **コンテキストの質 > エージェントの数** — 1つのエージェントに適切なコンテキストを提供
-5. **hal はデータ管理に徹する** — LLM 呼び出し・エージェントスポーンはしない
-
-## 設計の経緯
-
-### なぜマルチエージェント構成にしなかったのか？
-
-haltr v1 はオーケストレーター + ワーカー + ベリファイアーのマルチエージェント構成でした。しかし実運用で以下の問題が発生しました。
+haltr v1 はオーケストレーター + ワーカー + 検証エージェントのマルチエージェント構成でした。しかし実運用で以下の問題が発生しました。
 
 - **伝言ゲーム** — orchestrator がユーザーの意図を worker に伝える過程で情報が劣化する。修正のたびに orchestrator を経由するため、修正サイクルが遅い
 - **コンテキスト損失** — step ごとに worker を kill → re-spawn すると、前の step で得た暗黙知が失われる。step を細かく切るほど品質が下がるという矛盾
 - **オーバーヘッド** — 簡単な修正でもフルフローが走る。ユーザーが「普通に Claude Code でやった方が早い」と感じる
 
-これは haltr だけの問題ではありません。[Google/MIT の研究（2025年12月）](https://arxiv.org/html/2512.08296v1)では、逐次的なタスクでマルチエージェントを使うと **-39〜70% の性能低下** が確認されています。[Microsoft Azure SRE チーム](https://techcommunity.microsoft.com/blog/appsonazureblog/context-engineering-lessons-from-building-azure-sre-agent/4481200/)は 50+ のエージェントを数個の汎用エージェントに統合しました。4回以上のハンドオフでほぼ必ず失敗するとも報告しています。
-
-> "most coding tasks involve fewer truly parallelizable tasks than research, and LLM agents are not yet great at coordinating and delegating to other agents in real time."
->
-> （「ほとんどのコーディングタスクはリサーチより並列化可能なタスクが少なく、LLM エージェントはまだリアルタイムでの他エージェントへの調整・委譲が得意ではない」）
->
-> — Anthropic
-
 v2 ではメインワーカー1つに統合し、haltr はデータ管理（task.yaml + 品質ゲート + 知識管理）に徹する設計にしました。
 
-### なぜ hal はLLM を呼ばないのか？
+### Spec-driven との関係性
 
-hal コマンドの中で LLM を呼ぶ設計も検討しましたが、やめました。
+haltr は Spec-driven development（コードを書かせる前に仕様を定義し、合意してから実装に進むアプローチ）を踏襲しつつも、よりシンプルかつ柔軟な構成を重視しました。
 
-- **責務の分離** — 判断はエージェント、記録は hal。境界が明確になる
-- **実装のシンプルさ** — hal に LLM クライアントを持たせると、API キー管理・モデル選択・エラーハンドリングが必要になる
-- **CLI 非依存** — hal が特定の LLM API に依存すると、CLI 非依存の原則が崩れる
-- **テスタビリティ** — データ管理だけなら決定的にテストできる
+- **タスクの柔軟性** — 探索的な作業（EDA、プロトタイプ、検証コード）では方向が定まっていない。重い仕様では対応できない
+- **方法はエージェントに委ねる** — 詳細なステップを人間が事前定義するより、ゴールと accept 条件だけ渡してエージェントに委ねた方が自律性が高まる
+- **詳細な仕様は矛盾を生む** — 細かく書きすぎると矛盾の火種になる。要所を押さえた仕様の方がうまくいく
 
-### なぜ Spec-driven にしなかったのか？
-
-Spec-driven development（事前に詳細な仕様を書いてからエージェントに実装させる）も検討しましたが、採用しませんでした。
-
-[Birgitta Boeckeler（Thoughtworks）](https://martinfowler.com/)は3つの SDD ツールを評価し、「同じ時間でプレーンな AI コーディングで実装できた」と報告しています。[Colin Eberhardt（Scott Logic）](https://blog.scottlogic.com/)は定量比較で **SDD なしの方が約10倍速い** という結果を出しています。
-
-> "A spec detailed enough to fully describe a program is more or less the program, just written in a non-executable language."
->
-> （「プログラムを完全に記述するほど詳細な仕様は、実行不能な言語で書かれたプログラムそのものだ」）
->
-> — Addy Osmani（Google）
-
-haltr では、重い仕様ではなく**軽量なプランファイル**（対話で詰めた合意内容）と**検証可能な accept 条件**の組み合わせを選びました。
+haltr では**軽量なプランファイル**（対話で詰めた合意内容）と**検証可能な accept 条件**の組み合わせを採用しています。
 
 ### Bitter Lesson: 構造は最小限に
 
-> "Design for deletion."
->
-> （「削除を前提に設計せよ」）
->
-> — Microsoft Azure SRE
-
 モデルは急速に進化しています。GPT-3.5 用の複雑なオーケストレーションは GPT-4 で不要になりました。Claude 2 用のマルチステップ推論チェーンは Claude 3 で単一プロンプトに置き換わりました。
 
-haltr が足す構造はすべて「今のモデルでは必要だが、将来のモデルでは不要になるかもしれない」という前提で設計しています。各機能について「この構造を削除したら、エージェントは自律的に動けなくなるか？」を問い、Yes のものだけを残しています。
+haltr が足す構造はすべて「今のモデルでは必要だが、将来のモデルでは不要になるかもしれない」という前提で設計しています。削除を前提に設計する。各機能について「この構造を削除したら、エージェントは自律的に動けなくなるか？」を問い、Yes のものだけを残しています。
 
 ### クロスコンテキスト検証（CCR）の根拠
 
-[Song（2026）の研究](https://arxiv.org/html/2603.12123)で、独立コンテキストでのレビューが同一セッション自己レビューより有効であることが実証されています（F1: 28.6% vs 24.6%）。同一セッションで2回レビューしても改善しない（21.7%）ことから、繰り返しではなく**文脈分離**が重要であることがわかっています。
+同一セッションで自己レビューを繰り返しても、エージェントは自分のバイアスから抜け出せません。独立したコンテキストでレビューすることで、先入観のない視点から検証できます。
 
 ただし効果は控えめであり、「銀の弾丸」ではありません。haltr では品質スタックの一層として位置づけ、タスク完了時にエージェント自身がサブエージェントとして実行する形を取っています。
-
-## 開発
-
-```bash
-npm install          # 依存インストール
-npm run build        # ビルド
-npm run lint         # Biome によるリント
-npm run test         # 全テスト実行
-npm run test:schema  # スキーマバリデーションテスト
-npm run test:commands # コマンドテスト
-npm run test:e2e     # E2E テスト
-npm run catalog      # コマンドカタログ生成
-```
 
 ## ライセンス
 
