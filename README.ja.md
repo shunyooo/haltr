@@ -54,10 +54,11 @@ npm install -g haltr
 hal init
 ```
 
-`haltr/` ディレクトリが作成されます。以下も設定してください：
-
-1. `CLAUDE.md` に `@haltr/README.md` を追加（Claude Code の場合）
-2. SessionStart hook に `haltr/` 内の `session-start-hook.sh` を設定
+以下が自動設定されます：
+- `work/` ディレクトリ（タスク・コンテキスト管理用）
+- `.haltr.json` 設定ファイル
+- Claude Code の hooks（SessionStart, Stop）
+- `CLAUDE.md` に haltr/README.md への参照を追加する指示
 
 ### ワークフロー
 
@@ -116,7 +117,6 @@ accept:
   - "npm test -- --grep 'auth' が exit 0"
   - "playwright で /login のフローを確認"
 plan: 001_plan.md
-notes: 001_notes.md
 status: in_progress
 
 steps:  # エージェントが自律管理
@@ -141,13 +141,14 @@ history:
 |----------|------|-----------|
 | **plan.md** | 方法論の記述（何をどの順序でやるか） | 人間とエージェントが対話で詰める |
 | **task.yaml** | 状態管理（goal, accept, steps, history） | エージェントが hal コマンド経由で更新 |
-| **notes.md** | 作業メモ（中間結果、発見事項） | エージェントが直接編集 |
+| **notes.md** | 作業メモ（中間結果、発見事項） | エージェントがファイルを直接編集 |
 
 ### 品質ゲート
 
 ```
 Layer 1: 決定的検証 + 軌道修正（step 完了時）
-  エージェントが accept 条件を検証 → hal step done で報告
+  accept 条件あり → hal step verify で検証 → hal step done で完了
+  accept 条件なし → hal step done で直接完了
 
 Layer 2: クロスコンテキスト検証（タスク完了時）
   異なる LLM のサブエージェントで独立検証（CCR）
@@ -180,9 +181,11 @@ haltr/context/
 | コマンド | 説明 |
 |---------|------|
 | `hal step add --step <id> --goal "..."` | ステップを追加 |
+| `hal step add --stdin` | YAML で複数ステップを一括追加 |
 | `hal step start --step <id>` | ステップを開始 |
+| `hal step verify --step <id> --result PASS` | accept 条件の検証結果を記録 |
 | `hal step done --step <id> --result PASS` | ステップ完了を報告 |
-| `hal step pause` | copilot モードに切替 |
+| `hal step pause --message "..."` | copilot モードに切替 |
 | `hal step resume` | autopilot モードに復帰 |
 
 ### 知識管理
@@ -284,6 +287,7 @@ npm run test         # 全テスト実行
 npm run test:schema  # スキーマバリデーションテスト
 npm run test:commands # コマンドテスト
 npm run test:e2e     # E2E テスト
+npm run catalog      # コマンドカタログ生成
 ```
 
 ## ライセンス
