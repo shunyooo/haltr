@@ -1,41 +1,39 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "haltr task",
+  "title": "haltr task v2",
   "type": "object",
   "required": [
     "id",
-    "steps"
+    "goal"
   ],
   "additionalProperties": false,
   "properties": {
     "id": {
       "type": "string"
     },
+    "goal": {
+      "type": "string"
+    },
     "status": {
       "$ref": "#/$defs/taskStatus"
     },
-    "previous": {
+    "accept": {
+      "$ref": "#/$defs/accept"
+    },
+    "plan": {
       "type": "string"
     },
-    "agents": {
-      "$ref": "#/$defs/taskAgents"
+    "notes": {
+      "type": "string"
+    },
+    "context": {
+      "type": "string"
     },
     "steps": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/step"
       }
-    },
-    "worker_session": {
-      "type": "string",
-      "enum": [
-        "shared",
-        "per-step"
-      ],
-      "default": "per-step"
-    },
-    "context": {
-      "type": "string"
     },
     "history": {
       "type": "array",
@@ -51,8 +49,7 @@
         "pending",
         "in_progress",
         "done",
-        "failed",
-        "pivoted"
+        "failed"
       ]
     },
     "stepStatus": {
@@ -61,64 +58,8 @@
         "pending",
         "in_progress",
         "done",
-        "failed",
-        "blocked",
-        "skipped"
+        "failed"
       ]
-    },
-    "taskAgents": {
-      "type": "object",
-      "required": [
-        "worker",
-        "verifier"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "worker": {
-          "type": "string"
-        },
-        "verifier": {
-          "type": "string"
-        }
-      }
-    },
-    "stepAgents": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "worker": {
-          "type": "string"
-        },
-        "verifier": {
-          "type": "string"
-        }
-      }
-    },
-    "acceptObject": {
-      "type": "object",
-      "required": [
-        "id",
-        "check"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "check": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string",
-          "enum": [
-            "agent",
-            "human"
-          ]
-        },
-        "verifier": {
-          "type": "string"
-        }
-      }
     },
     "accept": {
       "oneOf": [
@@ -128,7 +69,7 @@
         {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/acceptObject"
+            "type": "string"
           },
           "minItems": 1
         }
@@ -138,14 +79,14 @@
       "type": "object",
       "required": [
         "id",
-        "instructions"
+        "goal"
       ],
       "additionalProperties": false,
       "properties": {
         "id": {
           "type": "string"
         },
-        "instructions": {
+        "goal": {
           "type": "string"
         },
         "status": {
@@ -153,20 +94,6 @@
         },
         "accept": {
           "$ref": "#/$defs/accept"
-        },
-        "agents": {
-          "$ref": "#/$defs/stepAgents"
-        },
-        "max_retries": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "steps": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/step"
-          },
-          "minItems": 1
         }
       }
     },
@@ -174,425 +101,111 @@
       "type": "object",
       "required": [
         "at",
-        "type",
-        "by"
+        "type"
       ],
-      "discriminator": {
-        "propertyName": "type"
-      },
       "oneOf": [
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by"
-          ],
+          "required": ["at", "type"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "created"
-            },
-            "by": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "created" },
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by"
-          ],
+          "required": ["at", "type"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "updated"
-            },
-            "by": {
-              "type": "string"
-            },
-            "diff": {
-              "type": "string"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "updated" },
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by",
-            "step",
-            "attempt"
-          ],
+          "required": ["at", "type", "step"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "step_started"
-            },
-            "by": {
-              "type": "string"
-            },
-            "step": {
-              "type": "string"
-            },
-            "attempt": {
-              "type": "integer"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "step_added" },
+            "step": { "type": "string" },
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by",
-            "step",
-            "attempt"
-          ],
+          "required": ["at", "type", "step"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "work_done"
-            },
-            "by": {
-              "type": "string"
-            },
-            "step": {
-              "type": "string"
-            },
-            "attempt": {
-              "type": "integer"
-            },
-            "message": {
-              "type": "string"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "step_started" },
+            "step": { "type": "string" },
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by",
-            "step",
-            "attempt",
-            "accept_id"
-          ],
+          "required": ["at", "type", "step"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "verifier_started"
-            },
-            "by": {
-              "type": "string"
-            },
-            "step": {
-              "type": "string"
-            },
-            "attempt": {
-              "type": "integer"
-            },
-            "accept_id": {
-              "type": "string"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "step_done" },
+            "step": { "type": "string" },
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by",
-            "step",
-            "attempt",
-            "accept_id"
-          ],
+          "required": ["at", "type", "step"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "verification_passed"
-            },
-            "by": {
-              "type": "string"
-            },
-            "step": {
-              "type": "string"
-            },
-            "attempt": {
-              "type": "integer"
-            },
-            "accept_id": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "step_failed" },
+            "step": { "type": "string" },
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by",
-            "step",
-            "attempt",
-            "accept_id"
-          ],
+          "required": ["at", "type"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "verification_failed"
-            },
-            "by": {
-              "type": "string"
-            },
-            "step": {
-              "type": "string"
-            },
-            "attempt": {
-              "type": "integer"
-            },
-            "accept_id": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "paused" },
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by",
-            "step",
-            "attempt"
-          ],
+          "required": ["at", "type"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "escalation"
-            },
-            "by": {
-              "type": "string"
-            },
-            "step": {
-              "type": "string"
-            },
-            "attempt": {
-              "type": "integer"
-            },
-            "message": {
-              "type": "string"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "resumed" },
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by",
-            "step",
-            "attempt"
-          ],
+          "required": ["at", "type"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "blocked_resolved"
-            },
-            "by": {
-              "type": "string"
-            },
-            "step": {
-              "type": "string"
-            },
-            "attempt": {
-              "type": "integer"
-            },
-            "message": {
-              "type": "string"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "completed" },
+            "message": { "type": "string" }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by",
-            "step"
-          ],
+          "required": ["at", "type"],
           "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "step_skipped"
-            },
-            "by": {
-              "type": "string"
-            },
-            "step": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by"
-          ],
-          "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "spec_reviewed"
-            },
-            "by": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by"
-          ],
-          "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "execution_approved"
-            },
-            "by": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by"
-          ],
-          "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "completed"
-            },
-            "by": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by"
-          ],
-          "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "pivoted"
-            },
-            "by": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            },
-            "next_task": {
-              "type": "string"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "at",
-            "type",
-            "by"
-          ],
-          "properties": {
-            "at": {
-              "type": "string"
-            },
-            "type": {
-              "const": "user_feedback"
-            },
-            "by": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
+            "at": { "type": "string" },
+            "type": { "const": "user_feedback" },
+            "message": { "type": "string" }
           }
         }
       ]

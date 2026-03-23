@@ -6,7 +6,7 @@ import configSchemaJson from "../schemas/config.schema.json" with {
 };
 
 import taskSchemaJson from "../schemas/task.schema.json" with { type: "json" };
-import type { ConfigYaml, Step, TaskYaml } from "../types.js";
+import type { ConfigYaml, TaskYaml } from "../types.js";
 
 // Handle both ESM default and CJS interop
 // biome-ignore lint/suspicious/noExplicitAny: ESM/CJS interop requires any
@@ -15,22 +15,6 @@ const ajv = new Ajv({ allErrors: true, discriminator: true });
 
 const taskValidator: ValidateFunction = ajv.compile(taskSchemaJson);
 const configValidator: ValidateFunction = ajv.compile(configSchemaJson);
-
-/**
- * Expand accept string shorthand to array format.
- * When accept is a plain string, expand to [{id: "default", check: "..."}].
- * Operates recursively on nested steps.
- */
-function expandAcceptShorthand(steps: Step[]): void {
-	for (const step of steps) {
-		if (typeof step.accept === "string") {
-			step.accept = [{ id: "default", check: step.accept }];
-		}
-		if (step.steps) {
-			expandAcceptShorthand(step.steps);
-		}
-	}
-}
 
 /**
  * Validate parsed task data against the task schema.
@@ -47,14 +31,7 @@ export function validateTask(data: unknown): TaskYaml {
 		throw new Error(`Task validation failed:\n${messages.join("\n")}`);
 	}
 
-	const task = data as TaskYaml;
-
-	// Expand accept string shorthand after validation
-	if (task.steps) {
-		expandAcceptShorthand(task.steps);
-	}
-
-	return task;
+	return data as TaskYaml;
 }
 
 /**
