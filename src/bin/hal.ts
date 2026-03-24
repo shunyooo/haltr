@@ -49,6 +49,36 @@ program
 	.description("haltr — Quality assurance tool for coding agent outputs")
 	.version(pkg.version)
 	.addHelpText("after", `
+What is haltr?
+  コーディングエージェントが長時間の作業を品質を保って完遂するためのツール。
+  task.yaml にゴール・ステップ・履歴を永続化し、品質ゲートと Stop hook で
+  「忘却」「手抜き」「早期離脱」を防止する。
+
+When to use:
+  複数ステップにわたる作業（実装 + テスト + ドキュメント等）で使用する。
+  単発の質問や小さな修正には不要。
+  ユーザーとの対話で「これは長くなるな」と判断した時点で hal task create する。
+
+How task.yaml works:
+  task.yaml はタスクの状態管理ファイル。以下を永続化する:
+  - goal: タスクのゴール（何を達成するか）
+  - steps: ステップの一覧と状態（pending → in_progress → done/failed）
+  - history: 全イベントの履歴（created, step_started, step_done, paused 等）
+  コンテキストが長くなっても hal status で現在の状態を正確に把握できる。
+
+Accept criteria & verification:
+  accept はステップの完了条件。設定すると手抜きを防止する品質ゲートが有効になる:
+  1. hal step add --step impl --goal '実装' --accept 'テストが通る'
+  2. 作業を実施
+  3. Agent ツールでサブエージェントを spawn し、accept 条件の独立検証を依頼
+  4. サブエージェントが hal step verify --step impl --result PASS|FAIL を実行
+  5. verify PASS 後に hal step done --step impl --result PASS で完了
+  accept なしのステップは verify 不要で直接 done できる。
+
+Stop hook:
+  hal step start 以降、タスクが完了するまでエージェントの停止をブロックする。
+  ユーザーとの対話が必要な場合は hal step pause で一時解除できる。
+
 Workflow:
   1. hal setup                                          初回のみ。hooks を登録
   2. hal task create --file <name> --goal '<goal>'       タスク作成
@@ -66,13 +96,7 @@ Step lifecycle:
 
 Task file resolution (--file 省略時):
   1. セッションマッピング（task create / step start 時に自動登録）
-  2. カレントディレクトリの task.yaml or *.task.yaml を検出
-
-Notes:
-  - accept 条件があるステップは verify 済みでないと done (PASS) できない
-  - 全ステップ done でタスクが自動的に done になる
-  - Stop hook はタスクが in_progress かつ未完了の間、エージェントの停止をブロックする
-  - hal step pause で Stop hook を一時解除し、ユーザーとの対話に切替可能`);
+  2. カレントディレクトリの task.yaml or *.task.yaml を検出`);
 
 // ---- setup ----
 

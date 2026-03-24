@@ -168,7 +168,7 @@ export function runStory(story: Story, halBinPath: string): StoryResult {
 			runSetup(story.setup, tmpDir, sessionId);
 		}
 
-		const cmd = story.input.replace(/^hal\s/, `node ${halBinPath} `);
+		const cmd = story.input.replace(/\bhal\s/g, `node ${halBinPath} `);
 
 		const env: Record<string, string> = {
 			...process.env as Record<string, string>,
