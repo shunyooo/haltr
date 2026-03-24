@@ -1,16 +1,15 @@
 /**
- * Story definitions for catalog
+ * Story definitions for catalog (v3)
  */
 
 export type StoryCategory =
-	| "init"
-	| "epic"
+	| "setup"
 	| "task"
 	| "step"
-	| "context"
 	| "status"
 	| "check"
-	| "hook";
+	| "hook"
+	| "help";
 
 export type StoryTag =
 	| "success"
@@ -36,90 +35,42 @@ export interface Story {
 	input: string;
 	/** Environment variables to set */
 	env?: Record<string, string>;
-	/** Setup function (runs before command) */
-	setup?: "minimal" | "with-epic" | "with-task" | "with-steps" | "with-steps-active" | "with-steps-active-no-accept" | "with-steps-active-unverified" | "with-context";
+	/** Setup function */
+	setup?: "none" | "with-task" | "with-steps" | "with-steps-active" | "with-steps-active-no-accept" | "with-steps-active-unverified";
 	/** Expected exit code (default: 0) */
 	expected_exit?: number;
 }
 
-/**
- * All stories
- */
 export const stories: Story[] = [
 	// ============================================================================
-	// Init
+	// Help
 	// ============================================================================
 	{
-		id: "init-basic",
-		command: "init",
-		title: "基本的な初期化",
-		description: "デフォルト設定でhaltrを初期化する",
-		category: "init",
+		id: "help-root",
+		command: "setup",
+		title: "ヘルプ表示",
+		description: "hal のヘルプを表示する",
+		category: "help",
 		tags: ["success"],
-		input: "hal init --dir work",
+		input: "hal --help",
 	},
 	{
-		id: "init-custom-dir",
-		command: "init",
-		title: "カスタムディレクトリ名で初期化",
-		description: "指定したディレクトリ名でhaltrを初期化する",
-		category: "init",
+		id: "help-task",
+		command: "task create",
+		title: "task サブコマンドのヘルプ",
+		description: "hal task のヘルプを表示する",
+		category: "help",
 		tags: ["success"],
-		input: "hal init --dir my-tasks",
+		input: "hal task --help",
 	},
 	{
-		id: "init-already-exists",
-		command: "init",
-		title: "既に初期化済みの場合",
-		description: ".haltr.jsonが既に存在する場合のエラー",
-		category: "init",
-		tags: ["error", "validation"],
-		input: "hal init --dir work",
-		setup: "minimal",
-	},
-
-	// ============================================================================
-	// Epic
-	// ============================================================================
-	{
-		id: "epic-create-basic",
-		command: "epic create",
-		title: "エピック作成",
-		description: "新しいエピックを作成する",
-		category: "epic",
+		id: "help-step",
+		command: "step add",
+		title: "step サブコマンドのヘルプ",
+		description: "hal step のヘルプを表示する",
+		category: "help",
 		tags: ["success"],
-		input: "hal epic create 20260323-001_user-auth",
-		setup: "minimal",
-	},
-	{
-		id: "epic-list-empty",
-		command: "epic list",
-		title: "エピック一覧（空）",
-		description: "エピックがない場合の表示",
-		category: "epic",
-		tags: ["success", "edge-case"],
-		input: "hal epic list",
-		setup: "minimal",
-	},
-	{
-		id: "epic-list-with-epics",
-		command: "epic list",
-		title: "エピック一覧",
-		description: "エピックがある場合の表示",
-		category: "epic",
-		tags: ["success"],
-		input: "hal epic list",
-		setup: "with-epic",
-	},
-	{
-		id: "epic-current",
-		command: "epic current",
-		title: "現在のエピック表示",
-		description: "最新のエピックを表示する",
-		category: "epic",
-		tags: ["success"],
-		input: "hal epic current",
-		setup: "with-epic",
+		input: "hal step --help",
 	},
 
 	// ============================================================================
@@ -132,8 +83,7 @@ export const stories: Story[] = [
 		description: "ゴールのみでタスクを作成する",
 		category: "task",
 		tags: ["success"],
-		input: "hal task create --goal 'ユーザー認証機能を実装する'",
-		setup: "with-epic",
+		input: "hal task create --file task.yaml --goal 'ユーザー認証機能を実装する'",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
@@ -143,8 +93,7 @@ export const stories: Story[] = [
 		description: "ゴールと受入条件でタスクを作成する",
 		category: "task",
 		tags: ["success"],
-		input: "hal task create --goal 'ログイン機能を実装' --accept 'メールとパスワードでログインできる' --accept 'エラー時にメッセージが表示される'",
-		setup: "with-epic",
+		input: "hal task create --file login.task.yaml --goal 'ログイン機能を実装' --accept 'メールとパスワードでログインできる' --accept 'エラー時にメッセージが表示される'",
 		env: { HALTR_SESSION_ID: "test-session-002" },
 	},
 	{
@@ -154,8 +103,7 @@ export const stories: Story[] = [
 		description: "必須オプション--goalがない場合のエラー",
 		category: "task",
 		tags: ["error", "validation"],
-		input: "hal task create",
-		setup: "with-epic",
+		input: "hal task create --file task.yaml",
 	},
 	{
 		id: "task-edit-goal",
@@ -164,7 +112,7 @@ export const stories: Story[] = [
 		description: "タスクのゴールを変更する",
 		category: "task",
 		tags: ["success"],
-		input: "hal task edit --goal 'OAuth2を使用してユーザー認証を実装する' --message 'OAuth2採用に伴いゴール更新'",
+		input: "hal task edit --file task.yaml --goal 'OAuth2を使用してユーザー認証を実装する' --message 'OAuth2採用に伴いゴール更新'",
 		setup: "with-task",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -179,7 +127,7 @@ export const stories: Story[] = [
 		description: "タスクにステップを追加する",
 		category: "step",
 		tags: ["success"],
-		input: "hal step add --step s1 --goal 'データベーススキーマを設計する'",
+		input: "hal step add --file task.yaml --step s1 --goal 'データベーススキーマを設計する'",
 		setup: "with-task",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -190,7 +138,7 @@ export const stories: Story[] = [
 		description: "受入条件を指定してステップを追加する",
 		category: "step",
 		tags: ["success"],
-		input: "hal step add --step s2 --goal 'APIエンドポイントを実装' --accept 'POST /login が動作する' --accept '認証トークンを返す'",
+		input: "hal step add --file task.yaml --step s2 --goal 'APIエンドポイントを実装' --accept 'POST /login が動作する' --accept '認証トークンを返す'",
 		setup: "with-task",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -210,7 +158,7 @@ export const stories: Story[] = [
     - POST /login が動作する
     - 認証トークンを返す
 - id: s3
-  goal: テスト作成' | hal step add --stdin`,
+  goal: テスト作成' | hal step add --file task.yaml --stdin`,
 		setup: "with-task",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -221,7 +169,7 @@ export const stories: Story[] = [
 		description: "ステップの作業を開始する",
 		category: "step",
 		tags: ["success"],
-		input: "hal step start --step s1",
+		input: "hal step start --file task.yaml --step s1",
 		setup: "with-steps",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -232,7 +180,7 @@ export const stories: Story[] = [
 		description: "accept 条件があり、検証済みのステップを成功で完了する",
 		category: "step",
 		tags: ["success"],
-		input: "hal step done --step s1 --result PASS --message 'スキーマ設計完了、migrations/001_users.sqlを作成'",
+		input: "hal step done --file task.yaml --step s1 --result PASS --message 'スキーマ設計完了、migrations/001_users.sqlを作成'",
 		setup: "with-steps-active",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -243,7 +191,7 @@ export const stories: Story[] = [
 		description: "accept 条件がないステップは検証なしで完了できる",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step done --step s1 --result PASS --message '作業完了'",
+		input: "hal step done --file task.yaml --step s1 --result PASS --message '作業完了'",
 		setup: "with-steps-active-no-accept",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -254,7 +202,7 @@ export const stories: Story[] = [
 		description: "accept 条件があるが未検証のステップは完了できない",
 		category: "step",
 		tags: ["error", "validation"],
-		input: "hal step done --step s1 --result PASS --message '作業完了'",
+		input: "hal step done --file task.yaml --step s1 --result PASS --message '作業完了'",
 		setup: "with-steps-active-unverified",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -265,7 +213,7 @@ export const stories: Story[] = [
 		description: "ステップを失敗で完了する（検証不要）",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step done --step s1 --result FAIL --message '外部APIの仕様が不明、確認が必要'",
+		input: "hal step done --file task.yaml --step s1 --result FAIL --message '外部APIの仕様が不明、確認が必要'",
 		setup: "with-steps-active-no-accept",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -276,7 +224,7 @@ export const stories: Story[] = [
 		description: "ステップの作業結果を検証し、受入条件を満たしていることを記録する",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step verify --step s1 --result PASS --message '全テストが通過、accept条件を満たしている'",
+		input: "hal step verify --file task.yaml --step s1 --result PASS --message '全テストが通過、accept条件を満たしている'",
 		setup: "with-steps-active-unverified",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -287,7 +235,7 @@ export const stories: Story[] = [
 		description: "ステップの作業結果を検証し、受入条件を満たしていないことを記録する",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step verify --step s1 --result FAIL --message 'テストが2件失敗している'",
+		input: "hal step verify --file task.yaml --step s1 --result FAIL --message 'テストが2件失敗している'",
 		setup: "with-steps-active-unverified",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -298,7 +246,7 @@ export const stories: Story[] = [
 		description: "ユーザーとの対話のため作業を一時停止する",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step pause --message '認証方式について確認が必要'",
+		input: "hal step pause --file task.yaml --message '認証方式について確認が必要'",
 		setup: "with-steps",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -309,7 +257,7 @@ export const stories: Story[] = [
 		description: "一時停止した作業を再開する",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step resume",
+		input: "hal step resume --file task.yaml",
 		setup: "with-steps",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -325,8 +273,7 @@ export const stories: Story[] = [
 		category: "status",
 		tags: ["error", "edge-case"],
 		input: "hal status",
-		setup: "minimal",
-		env: { HALTR_SESSION_ID: "test-session-001" },
+		setup: "none",
 	},
 	{
 		id: "status-with-task",
@@ -335,53 +282,9 @@ export const stories: Story[] = [
 		description: "タスクがある場合のステータス表示",
 		category: "status",
 		tags: ["success"],
-		input: "hal status",
+		input: "hal status --file task.yaml",
 		setup: "with-steps",
 		env: { HALTR_SESSION_ID: "test-session-001" },
-	},
-
-	// ============================================================================
-	// Context
-	// ============================================================================
-	{
-		id: "context-create-skill",
-		command: "context create",
-		title: "スキル作成",
-		description: "新しいスキルエントリを作成する",
-		category: "context",
-		tags: ["success"],
-		input: "hal context create --type skill --id typescript-patterns --description 'TypeScriptのコーディングパターン'",
-		setup: "minimal",
-	},
-	{
-		id: "context-create-knowledge",
-		command: "context create",
-		title: "ナレッジ作成",
-		description: "新しいナレッジエントリを作成する",
-		category: "context",
-		tags: ["success"],
-		input: "hal context create --type knowledge --id project-architecture --description 'プロジェクトのアーキテクチャ概要'",
-		setup: "minimal",
-	},
-	{
-		id: "context-list",
-		command: "context list",
-		title: "コンテキスト一覧",
-		description: "全てのコンテキストエントリを表示する",
-		category: "context",
-		tags: ["success"],
-		input: "hal context list",
-		setup: "with-context",
-	},
-	{
-		id: "context-show",
-		command: "context show",
-		title: "コンテキスト内容表示",
-		description: "コンテキストエントリの内容を表示する",
-		category: "context",
-		tags: ["success"],
-		input: "hal context show --id typescript-patterns",
-		setup: "with-context",
 	},
 
 	// ============================================================================
@@ -422,7 +325,7 @@ export const stories: Story[] = [
 		category: "hook",
 		tags: ["success", "workflow"],
 		input: "echo '{\"session_id\":\"new-session-001\"}' | hal session-start",
-		setup: "minimal",
+		setup: "none",
 	},
 	{
 		id: "session-start-with-task",

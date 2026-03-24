@@ -16,40 +16,37 @@ const __dirname = dirname(__filename);
  * Category display names
  */
 const categoryNames: Record<StoryCategory, string> = {
-	init: "🔧 Init",
-	epic: "📦 Epic",
+	setup: "🔧 Setup",
 	task: "🎯 Task",
 	step: "👣 Step",
-	context: "📚 Context",
 	status: "📊 Status",
 	check: "🚦 Check",
 	hook: "🪝 Hook",
+	help: "❓ Help",
 };
 
 /**
  * Category descriptions
  */
 const categoryDescriptions: Record<StoryCategory, string> = {
-	init: "haltr の初期化。プロジェクトルートに `.haltr.json` 設定ファイルと作業ディレクトリを作成する。Claude Code hooks も自動設定される。",
-	epic: "エピック（大きな作業単位）の管理。エピックはタスクをグループ化するコンテナ。`YYYYMMDD-NNN_name` 形式で命名する。",
-	task: "タスクの作成・編集。タスクはゴール、受入条件、ステップで構成される。セッションごとに 1 タスクがアクティブになる。",
+	setup: "haltr の初期セットアップ。`~/.claude/settings.json` に hooks を登録する。",
+	task: "タスクの作成・編集。任意の場所にタスクファイルを作成できる。",
 	step: "ステップの管理。タスクを小さな作業単位に分解し、進捗を追跡する。各ステップは pending → in_progress → done/failed の状態遷移を持つ。",
-	context: "コンテキスト（スキル・ナレッジ）の管理。再利用可能な知識やパターンを蓄積し、エージェント間で共有する。",
 	status: "現在のタスク状態を表示。ゴール、ステップの進捗、次のアクションを確認できる。",
 	check: "Stop hook ゲートチェック。エージェントが停止する前に、タスクが完了しているか確認する。未完了なら停止をブロックする。",
-	hook: "Claude Code hooks のハンドラ。セッション開始時やエージェント停止時に自動実行される。",
+	hook: "Claude Code hooks のハンドラ。セッション開始時に自動実行される。",
+	help: "ヘルプコマンド。利用可能なコマンドとオプションを確認する。",
 };
 
 /**
  * Category order
  */
 const categoryOrder: StoryCategory[] = [
-	"init",
-	"epic",
+	"help",
+	"setup",
 	"task",
 	"step",
 	"status",
-	"context",
 	"check",
 	"hook",
 ];
