@@ -7,9 +7,6 @@ import { findStep, resolveTaskFile } from "../lib/task-utils.js";
 import { loadAndValidateTask, validateTask } from "../lib/validator.js";
 import type { HistoryEvent, Step, TaskYaml } from "../types.js";
 
-/**
- * Read stdin synchronously (for YAML input).
- */
 function readStdin(): string {
 	try {
 		return readFileSync(0, "utf-8");
@@ -18,9 +15,6 @@ function readStdin(): string {
 	}
 }
 
-/**
- * Format steps list for output.
- */
 function formatStepsList(steps: Step[]): Array<{
 	id: string;
 	goal: string;
@@ -64,7 +58,7 @@ export function handleStepAdd(opts: {
 
 	const existing = findStep(task.steps, opts.step);
 	if (existing) {
-		throw new Error(`ステップ ID "${opts.step}" は既に存在します`);
+		throw new Error(`Step ID "${opts.step}" already exists`);
 	}
 
 	const newStep: Step = {
@@ -80,7 +74,7 @@ export function handleStepAdd(opts: {
 	if (opts.after) {
 		const afterIndex = task.steps.findIndex((s) => s.id === opts.after);
 		if (afterIndex === -1) {
-			throw new Error(`--after で指定されたステップ "${opts.after}" が見つかりません`);
+			throw new Error(`Step "${opts.after}" specified in --after not found`);
 		}
 		task.steps.splice(afterIndex + 1, 0, newStep);
 	} else {
@@ -104,7 +98,7 @@ export function handleStepAdd(opts: {
 
 	const response = buildResponse({
 		status: "ok",
-		message: `ステップを追加しました: ${opts.step}`,
+		message: `Step added: ${opts.step}`,
 		data: {
 			step_id: opts.step,
 			goal: opts.goal,
@@ -116,9 +110,6 @@ export function handleStepAdd(opts: {
 	console.log(formatResponse(response));
 }
 
-/**
- * Input format for batch step add.
- */
 interface StepInput {
 	id: string;
 	goal: string;
@@ -131,12 +122,12 @@ interface StepInput {
 export function handleStepAddBatch(opts: { file?: string }): void {
 	const input = readStdin().trim();
 	if (!input) {
-		throw new Error("stdin からステップデータを読み取れませんでした");
+		throw new Error("Failed to read step data from stdin");
 	}
 
 	const stepsInput = yaml.load(input) as StepInput[];
 	if (!Array.isArray(stepsInput) || stepsInput.length === 0) {
-		throw new Error("stdin は YAML 配列形式で指定してください");
+		throw new Error("stdin must be a YAML array");
 	}
 
 	const taskPath = resolveTaskFile(opts.file);
@@ -154,15 +145,15 @@ export function handleStepAddBatch(opts: { file?: string }): void {
 	const inputIds = new Set<string>();
 	for (const stepInput of stepsInput) {
 		if (!stepInput.id || !stepInput.goal) {
-			throw new Error(`ステップには id と goal が必要です: ${JSON.stringify(stepInput)}`);
+			throw new Error(`Step requires id and goal: ${JSON.stringify(stepInput)}`);
 		}
 		if (inputIds.has(stepInput.id)) {
-			throw new Error(`入力内でステップ ID "${stepInput.id}" が重複しています`);
+			throw new Error(`Duplicate step ID in input: "${stepInput.id}"`);
 		}
 		inputIds.add(stepInput.id);
 		const existing = findStep(task.steps, stepInput.id);
 		if (existing) {
-			throw new Error(`ステップ ID "${stepInput.id}" は既に存在します`);
+			throw new Error(`Step ID "${stepInput.id}" already exists`);
 		}
 	}
 
@@ -196,7 +187,7 @@ export function handleStepAddBatch(opts: { file?: string }): void {
 
 	const response = buildResponse({
 		status: "ok",
-		message: `${addedSteps.length} ステップを追加しました`,
+		message: `${addedSteps.length} steps added`,
 		data: {
 			added: addedSteps,
 			steps: formatStepsList(task.steps),
@@ -209,8 +200,6 @@ export function handleStepAddBatch(opts: { file?: string }): void {
 
 /**
  * hal step start
- *
- * Start working on a step. Updates session mapping.
  */
 export function handleStepStart(opts: { file?: string; step: string }): void {
 	const taskPath = resolveTaskFile(opts.file);
@@ -222,13 +211,13 @@ export function handleStepStart(opts: { file?: string; step: string }): void {
 
 	const step = findStep(task.steps, opts.step);
 	if (!step) {
-		throw new Error(`ステップ "${opts.step}" が見つかりません`);
+		throw new Error(`Step "${opts.step}" not found`);
 	}
 
 	const currentStatus = step.status ?? "pending";
 	if (currentStatus !== "pending" && currentStatus !== "failed") {
 		throw new Error(
-			`ステップ "${opts.step}" は現在 ${currentStatus} です。pending または failed のステップのみ start できます`,
+			`Step "${opts.step}" is currently ${currentStatus}. Only pending or failed steps can be started`,
 		);
 	}
 
@@ -252,7 +241,6 @@ export function handleStepStart(opts: { file?: string; step: string }): void {
 	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
 
-	// Update session mapping (supports cross-session handoff)
 	try {
 		const sessionId = getSessionId();
 		setSessionTask(sessionId, taskPath);
@@ -274,7 +262,7 @@ export function handleStepStart(opts: { file?: string; step: string }): void {
 
 	const response = buildResponse({
 		status: "ok",
-		message: `ステップを開始しました: ${opts.step}`,
+		message: `Step started: ${opts.step}`,
 		data: responseData,
 		commands_hint: HINTS.STEP_STARTED,
 	});
@@ -293,7 +281,7 @@ export function handleStepDone(opts: {
 }): void {
 	const result = opts.result.toUpperCase();
 	if (result !== "PASS" && result !== "FAIL") {
-		throw new Error("--result は PASS または FAIL を指定してください");
+		throw new Error("--result must be PASS or FAIL");
 	}
 
 	const taskPath = resolveTaskFile(opts.file);
@@ -305,19 +293,19 @@ export function handleStepDone(opts: {
 
 	const step = findStep(task.steps, opts.step);
 	if (!step) {
-		throw new Error(`ステップ "${opts.step}" が見つかりません`);
+		throw new Error(`Step "${opts.step}" not found`);
 	}
 
 	const currentStatus = step.status ?? "pending";
 	if (currentStatus !== "in_progress") {
 		throw new Error(
-			`ステップ "${opts.step}" は現在 ${currentStatus} です。in_progress のステップのみ done にできます`,
+			`Step "${opts.step}" is currently ${currentStatus}. Only in_progress steps can be marked done`,
 		);
 	}
 
 	if (result === "PASS" && step.accept && !step.verified) {
 		throw new Error(
-			`ステップ "${opts.step}" は未検証です。先にサブエージェントで hal step verify --step ${opts.step} --result PASS|FAIL を実行してください`,
+			`Step "${opts.step}" is unverified. Run hal step verify --step ${opts.step} --result PASS|FAIL via sub-agent first`,
 		);
 	}
 
@@ -391,8 +379,8 @@ export function handleStepDone(opts: {
 		status: "ok",
 		message:
 			result === "PASS"
-				? `ステップ完了: ${opts.step}`
-				: `ステップ失敗: ${opts.step}`,
+				? `Step completed: ${opts.step}`
+				: `Step failed: ${opts.step}`,
 		data: responseData,
 		commands_hint: commandsHint,
 	});
@@ -437,7 +425,7 @@ export function handleStepPause(opts: { file?: string; message: string }): void 
 
 	const response = buildResponse({
 		status: "ok",
-		message: `作業を一時停止しました: ${opts.message}`,
+		message: `Work paused: ${opts.message}`,
 		data: responseData,
 		commands_hint: HINTS.STEP_PAUSED,
 	});
@@ -489,7 +477,7 @@ export function handleStepResume(opts: { file?: string }): void {
 
 	const response = buildResponse({
 		status: "ok",
-		message: "作業を再開しました",
+		message: "Work resumed",
 		data,
 		commands_hint: HINTS.STEP_RESUMED,
 	});
@@ -510,17 +498,17 @@ export function handleStepVerify(opts: {
 	const task = loadAndValidateTask(taskPath);
 
 	if (!task.steps || task.steps.length === 0) {
-		throw new Error("タスクにステップがありません");
+		throw new Error("Task has no steps");
 	}
 
 	const step = findStep(task.steps, opts.step);
 	if (!step) {
-		throw new Error(`ステップ "${opts.step}" が見つかりません`);
+		throw new Error(`Step "${opts.step}" not found`);
 	}
 
 	const result = opts.result.toUpperCase();
 	if (result !== "PASS" && result !== "FAIL") {
-		throw new Error('result は PASS または FAIL を指定してください');
+		throw new Error("--result must be PASS or FAIL");
 	}
 
 	step.verified = result === "PASS";
@@ -544,8 +532,8 @@ export function handleStepVerify(opts: {
 	const response = buildResponse({
 		status: "ok",
 		message: result === "PASS"
-			? `検証完了: ステップ ${opts.step} は PASS`
-			: `検証失敗: ステップ ${opts.step} は FAIL`,
+			? `Verification passed: step ${opts.step}`
+			: `Verification failed: step ${opts.step}`,
 		data: {
 			step_id: opts.step,
 			result,

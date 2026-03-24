@@ -1,6 +1,6 @@
 {
   "name": "haltr",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Quality assurance tool for coding agent outputs",
   "type": "module",
   "main": "./dist/bin/hal.js",
@@ -12,8 +12,7 @@
     "test": "node --import tsx src/test/schema-validation.ts && node --import tsx src/test/commands-test.ts",
     "test:schema": "node --import tsx src/test/schema-validation.ts",
     "test:commands": "node --import tsx src/test/commands-test.ts",
-    "test:e2e": "node --import tsx src/test/e2e-test.ts",
-    "catalog": "node --import tsx .catalog/sync-check.ts && node --import tsx .catalog/generator.ts",
+"catalog": "node --import tsx .catalog/sync-check.ts && node --import tsx .catalog/generator.ts",
     "lint": "biome lint src/",
     "lint:fix": "biome lint --write src/"
   },

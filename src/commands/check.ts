@@ -79,7 +79,7 @@ export function handleCheck(): void {
 
 	const response = buildResponse({
 		status: "blocked",
-		message: "未完了のステップがあります",
+		message: "Incomplete steps remain",
 		data: {
 			task_goal: task.goal,
 			task_status: task.status ?? "pending",

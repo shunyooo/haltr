@@ -50,53 +50,53 @@ program
 	.version(pkg.version)
 	.addHelpText("after", `
 What is haltr?
-  コーディングエージェントが長時間の作業を品質を保って完遂するためのツール。
-  task.yaml にゴール・ステップ・履歴を永続化し、品質ゲートと Stop hook で
-  「忘却」「手抜き」「早期離脱」を防止する。
+  A tool that helps coding agents complete long-running tasks with quality.
+  Persists goals, steps, and history in task.yaml. Uses quality gates and
+  Stop hook to prevent forgetting, cutting corners, and premature exit.
 
 When to use:
-  複数ステップにわたる作業（実装 + テスト + ドキュメント等）で使用する。
-  単発の質問や小さな修正には不要。
-  ユーザーとの対話で「これは長くなるな」と判断した時点で hal task create する。
+  Use for multi-step work (implementation + tests + docs, etc.).
+  Not needed for simple questions or small fixes.
+  Create a task with hal task create when you judge "this will take a while".
 
 How task.yaml works:
-  task.yaml はタスクの状態管理ファイル。以下を永続化する:
-  - goal: タスクのゴール（何を達成するか）
-  - steps: ステップの一覧と状態（pending → in_progress → done/failed）
-  - history: 全イベントの履歴（created, step_started, step_done, paused 等）
-  コンテキストが長くなっても hal status で現在の状態を正確に把握できる。
+  task.yaml is the state management file. It persists:
+  - goal: what to achieve
+  - steps: list of steps and their status (pending -> in_progress -> done/failed)
+  - history: full event log (created, step_started, step_done, paused, etc.)
+  Even as context grows long, hal status gives an accurate view of current state.
 
 Accept criteria & verification:
-  accept はステップの完了条件。設定すると手抜きを防止する品質ゲートが有効になる:
-  1. hal step add --step impl --goal '実装' --accept 'テストが通る'
-  2. 作業を実施
-  3. Agent ツールでサブエージェントを spawn し、accept 条件の独立検証を依頼
-  4. サブエージェントが hal step verify --step impl --result PASS|FAIL を実行
-  5. verify PASS 後に hal step done --step impl --result PASS で完了
-  accept なしのステップは verify 不要で直接 done できる。
+  accept defines step completion criteria. When set, a quality gate is enforced:
+  1. hal step add --step impl --goal 'Implement' --accept 'Tests pass'
+  2. Do the work
+  3. Spawn a sub-agent with the Agent tool to independently verify accept criteria
+  4. Sub-agent runs hal step verify --step impl --result PASS|FAIL
+  5. After verify PASS, run hal step done --step impl --result PASS
+  Steps without accept can be marked done directly (no verify needed).
 
 Stop hook:
-  hal step start 以降、タスクが完了するまでエージェントの停止をブロックする。
-  ユーザーとの対話が必要な場合は hal step pause で一時解除できる。
+  After hal step start, the agent is blocked from stopping until the task completes.
+  Use hal step pause to temporarily unblock for user dialogue.
 
 Workflow:
-  1. hal setup                                          初回のみ。hooks を登録
-  2. hal task create --file <name> --goal '<goal>'       タスク作成
-  3. hal step add --step <id> --goal '<goal>'            ステップ分解
-  4. hal step start --step <id>                          作業開始（Stop hook 有効化）
-  5. 作業 → 検証 → hal step done --step <id> --result PASS|FAIL
-  6. 全ステップ完了 → タスク自動完了 → Stop hook 解除
+  1. hal setup                                          One-time. Register hooks
+  2. hal task create --file <name> --goal '<goal>'       Create task
+  3. hal step add --step <id> --goal '<goal>'            Break into steps
+  4. hal step start --step <id>                          Start work (Stop hook active)
+  5. Work -> verify -> hal step done --step <id> --result PASS|FAIL
+  6. All steps done -> task auto-completes -> Stop hook deactivated
 
 Step lifecycle:
-  hal step start   ステップを in_progress にする。Stop hook が有効化される
-  hal step verify  accept 条件がある場合、サブエージェントで検証結果を記録
-  hal step done    ステップを完了（PASS）または失敗記録（FAIL）
-  hal step pause   対話モードへ切替（Stop hook を一時解除）
-  hal step resume  自律モードに復帰（Stop hook を再有効化）
+  hal step start   Set step to in_progress. Stop hook activated
+  hal step verify  Record verification result via sub-agent (when accept exists)
+  hal step done    Mark step complete (PASS) or record failure (FAIL)
+  hal step pause   Switch to dialogue mode (Stop hook temporarily deactivated)
+  hal step resume  Return to autonomous mode (Stop hook reactivated)
 
-Task file resolution (--file 省略時):
-  1. セッションマッピング（task create / step start 時に自動登録）
-  2. カレントディレクトリの task.yaml or *.task.yaml を検出`);
+Task file resolution (when --file omitted):
+  1. Session mapping (auto-registered on task create / step start)
+  2. Auto-detect task.yaml or *.task.yaml in current directory`);
 
 // ---- setup ----
 
@@ -104,8 +104,8 @@ program
 	.command("setup")
 	.description("Register haltr hooks in ~/.claude/settings.json")
 	.addHelpText("after", `
-  SessionStart hook と Stop hook を登録する。初回のみ実行。
-  既存の hooks がある場合はマージされる。`)
+  Registers SessionStart and Stop hooks. Run once.
+  Existing hooks are preserved (merged).`)
 	.action(withErrorHandler(() => handleSetup()));
 
 // ---- task ----
@@ -120,8 +120,8 @@ taskCmd
 	.option("--accept <accept...>", "Accept criteria (repeatable)")
 	.option("--plan <plan>", "Task plan")
 	.addHelpText("after", `
-  指定パスにタスクファイルを作成する。セッションマッピングも自動登録。
-  Example: hal task create --file feature-auth.yaml --goal 'OAuth2 認証を実装する'`)
+  Creates a task file at the specified path. Session mapping is auto-registered.
+  Example: hal task create --file feature-auth.yaml --goal 'Implement OAuth2 auth'`)
 	.action(
 		withErrorHandler(
 			(opts: {
@@ -142,8 +142,8 @@ taskCmd
 	.option("--plan <plan>", "New plan")
 	.requiredOption("--message <message>", "Change reason")
 	.addHelpText("after", `
-  タスクのゴール・受入条件を更新する。変更は history に記録される。
-  Example: hal task edit --goal 'OAuth2 に変更' --message 'セキュリティ要件の変更'`)
+  Updates goal or accept criteria. Changes are recorded in history.
+  Example: hal task edit --goal 'Switch to OAuth2' --message 'Security requirements changed'`)
 	.action(
 		withErrorHandler(
 			(opts: {
@@ -174,8 +174,8 @@ stepCmd
 	.option("--after <after>", "Insert after this step ID")
 	.option("--stdin", "Read steps from stdin as YAML array (batch mode)")
 	.addHelpText("after", `
-  単発: hal step add --step impl --goal '認証モジュール実装' --accept 'テストが通る'
-  バッチ: echo '<yaml>' | hal step add --stdin`)
+  Single: hal step add --step impl --goal 'Implement auth' --accept 'Tests pass'
+  Batch:  echo '<yaml>' | hal step add --stdin`)
 	.action(
 		withErrorHandler(
 			(opts: {
@@ -197,7 +197,7 @@ stepCmd
 						after: opts.after,
 					});
 				} else {
-					throw new Error("--step と --goal を指定するか、--stdin でバッチモードを使用してください");
+					throw new Error("Specify --step and --goal, or use --stdin for batch mode");
 				}
 			},
 		),
@@ -209,8 +209,8 @@ stepCmd
 	.requiredOption("--step <step>", "Step ID")
 	.option("--file <file>", "Task file path")
 	.addHelpText("after", `
-  ステップを in_progress にする。セッションマッピングも更新される。
-  別セッションからの引き継ぎ: hal step start --file task.yaml --step impl`)
+  Sets step to in_progress. Session mapping is also updated.
+  Cross-session handoff: hal step start --file task.yaml --step impl`)
 	.action(withErrorHandler((opts: { step: string; file?: string }) => handleStepStart(opts)));
 
 stepCmd
@@ -221,8 +221,8 @@ stepCmd
 	.requiredOption("--message <message>", "Result message")
 	.option("--file <file>", "Task file path")
 	.addHelpText("after", `
-  PASS: ステップを done にする（accept ありなら verify 済みが必要）
-  FAIL: 失敗を記録（ステップは in_progress のまま、修正して再度 done 可能）`)
+  PASS: marks step done (requires verify if accept criteria exist)
+  FAIL: records failure (step stays in_progress, fix and retry)`)
 	.action(
 		withErrorHandler(
 			(opts: { step: string; result: string; message: string; file?: string }) =>
@@ -236,8 +236,8 @@ stepCmd
 	.requiredOption("--message <message>", "Reason for pausing")
 	.option("--file <file>", "Task file path")
 	.addHelpText("after", `
-  Stop hook を一時解除し、ユーザーとの対話に切り替える。
-  hal step resume で自律モードに復帰。`)
+  Temporarily deactivates Stop hook for user dialogue.
+  Resume with hal step resume.`)
 	.action(
 		withErrorHandler((opts: { message: string; file?: string }) => handleStepPause(opts)),
 	);
@@ -247,7 +247,7 @@ stepCmd
 	.description("Resume task work from dialogue mode")
 	.option("--file <file>", "Task file path")
 	.addHelpText("after", `
-  pause 状態を解除し、作業を再開する。Stop hook が再び有効化される。`)
+  Clears pause state and resumes work. Stop hook reactivated.`)
 	.action(withErrorHandler((opts: { file?: string }) => handleStepResume(opts)));
 
 stepCmd
@@ -258,8 +258,8 @@ stepCmd
 	.requiredOption("--message <message>", "Verification message")
 	.option("--file <file>", "Task file path")
 	.addHelpText("after", `
-  サブエージェント（Agent ツール）から呼ばれる。accept 条件の独立検証を行い結果を記録。
-  PASS なら step done (PASS) が可能になる。`)
+  Called by sub-agent (Agent tool). Independently verifies accept criteria.
+  PASS enables step done (PASS).`)
 	.action(
 		withErrorHandler(
 			(opts: { step: string; result: string; message: string; file?: string }) =>
@@ -276,7 +276,7 @@ program
 	.description("Show current task status")
 	.option("--file <file>", "Task file path")
 	.addHelpText("after", `
-  タスクのゴール、ステップ進捗、次のアクション候補を YAML 形式で出力。`)
+  Outputs task goal, step progress, and suggested next actions in YAML.`)
 	.action(withErrorHandler((opts: { file?: string }) => handleStatus(opts)));
 
 // ---- check ----
@@ -285,8 +285,8 @@ program
 	.command("check")
 	.description("Stop hook gate check (reads session_id from stdin)")
 	.addHelpText("after", `
-  Stop hook から自動実行される。手動で呼ぶ必要はない。
-  未完了ステップがあれば exit 2（ブロック）、それ以外は exit 0（通過）。`)
+  Auto-executed by Stop hook. No need to call manually.
+  Exit 2 (block) if incomplete steps remain, exit 0 (allow) otherwise.`)
 	.action(withErrorHandler(() => handleCheck()));
 
 // ---- session-start ----
@@ -295,8 +295,8 @@ program
 	.command("session-start")
 	.description("SessionStart hook handler (reads session_id from stdin)")
 	.addHelpText("after", `
-  SessionStart hook から自動実行される。手動で呼ぶ必要はない。
-  セッション ID を環境変数 HALTR_SESSION_ID にセットする。`)
+  Auto-executed by SessionStart hook. No need to call manually.
+  Sets session ID to HALTR_SESSION_ID environment variable.`)
 	.action(() => handleSessionStart());
 
 program.parse();

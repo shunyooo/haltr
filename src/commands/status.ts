@@ -61,7 +61,7 @@ export function handleStatus(opts: { file?: string }): void {
 
 	const response = buildResponse({
 		status: "ok",
-		message: `タスク状態: ${taskStatus}`,
+		message: `Task status: ${taskStatus}`,
 		data: responseData,
 		commands_hint: commandsHint,
 	});

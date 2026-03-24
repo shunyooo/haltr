@@ -17,7 +17,7 @@ export function getSessionId(): string {
 	const sessionId = process.env.HALTR_SESSION_ID;
 	if (!sessionId) {
 		throw new Error(
-			"HALTR_SESSION_ID が設定されていません。hal setup を実行してください",
+			"HALTR_SESSION_ID is not set. Run hal setup first",
 		);
 	}
 	return sessionId;

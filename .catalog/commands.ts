@@ -12,7 +12,6 @@ export interface CommandOption {
 export interface CommandMeta {
 	name: string;
 	description: string;
-	/** Detailed explanation of the command */
 	detail?: string;
 	options: CommandOption[];
 }
@@ -21,13 +20,13 @@ export const commands: Record<string, CommandMeta> = {
 	setup: {
 		name: "setup",
 		description: "Register haltr hooks in ~/.claude/settings.json",
-		detail: "SessionStart hook と Stop hook を ~/.claude/settings.json に登録。初回のみ実行。",
+		detail: "Registers SessionStart and Stop hooks. Run once.",
 		options: [],
 	},
 	"task create": {
 		name: "task create",
 		description: "Create a new task file",
-		detail: "指定パスに task.yaml を作成。セッションマッピングも自動登録される。",
+		detail: "Creates task.yaml at the specified path. Session mapping is auto-registered.",
 		options: [
 			{ name: "--file", required: true, description: "Task file path (required)" },
 			{ name: "--goal", required: true, description: "Task goal" },
@@ -38,7 +37,7 @@ export const commands: Record<string, CommandMeta> = {
 	"task edit": {
 		name: "task edit",
 		description: "Edit the current task",
-		detail: "タスクのゴール、受入条件を更新。変更は history に updated イベントとして記録。",
+		detail: "Updates goal or accept criteria. Changes recorded in history as updated event.",
 		options: [
 			{ name: "--file", required: false, description: "Task file path" },
 			{ name: "--goal", required: false, description: "New goal" },
@@ -50,7 +49,7 @@ export const commands: Record<string, CommandMeta> = {
 	"step add": {
 		name: "step add",
 		description: "Add a new step to the task",
-		detail: "タスクにステップを追加。単発モード（--step --goal）またはバッチモード（--stdin）で追加可能。",
+		detail: "Add steps in single mode (--step --goal) or batch mode (--stdin).",
 		options: [
 			{ name: "--file", required: false, description: "Task file path" },
 			{ name: "--step", required: false, description: "Step ID (single mode)" },
@@ -63,7 +62,7 @@ export const commands: Record<string, CommandMeta> = {
 	"step start": {
 		name: "step start",
 		description: "Start working on a step",
-		detail: "ステップを in_progress に遷移。セッションマッピングも更新（別セッション引き継ぎ対応）。",
+		detail: "Sets step to in_progress. Session mapping is also updated (cross-session handoff).",
 		options: [
 			{ name: "--step", required: true, description: "Step ID" },
 			{ name: "--file", required: false, description: "Task file path" },
@@ -72,7 +71,7 @@ export const commands: Record<string, CommandMeta> = {
 	"step done": {
 		name: "step done",
 		description: "Mark a step as done (PASS/FAIL)",
-		detail: "ステップを完了マーク。PASS なら done、FAIL なら in_progress のまま。accept 条件があれば verify 済みが必要。",
+		detail: "PASS marks step done (requires verify if accept exists). FAIL records failure (step stays in_progress).",
 		options: [
 			{ name: "--step", required: true, description: "Step ID" },
 			{ name: "--result", required: true, description: "Result: PASS or FAIL", choices: ["PASS", "FAIL"] },
@@ -83,7 +82,7 @@ export const commands: Record<string, CommandMeta> = {
 	"step pause": {
 		name: "step pause",
 		description: "Pause task work and switch to dialogue mode",
-		detail: "作業を一時停止して対話モードに切り替え。Stop hook がブロックしなくなる。",
+		detail: "Pauses work for user dialogue. Stop hook is temporarily deactivated.",
 		options: [
 			{ name: "--message", required: true, description: "Reason for pausing" },
 			{ name: "--file", required: false, description: "Task file path" },
@@ -92,7 +91,7 @@ export const commands: Record<string, CommandMeta> = {
 	"step resume": {
 		name: "step resume",
 		description: "Resume task work from dialogue mode",
-		detail: "一時停止を解除して作業を再開。Stop hook が再びブロックするようになる。",
+		detail: "Clears pause state and resumes work. Stop hook reactivated.",
 		options: [
 			{ name: "--file", required: false, description: "Task file path" },
 		],
@@ -100,7 +99,7 @@ export const commands: Record<string, CommandMeta> = {
 	"step verify": {
 		name: "step verify",
 		description: "Record verification result for a step",
-		detail: "検証エージェントが呼び出す。ステップの作業結果を検証し、結果を記録。step done (PASS) の前提条件。",
+		detail: "Called by sub-agent. Independently verifies accept criteria. PASS enables step done (PASS).",
 		options: [
 			{ name: "--step", required: true, description: "Step ID" },
 			{ name: "--result", required: true, description: "Result: PASS or FAIL", choices: ["PASS", "FAIL"] },
@@ -111,7 +110,7 @@ export const commands: Record<string, CommandMeta> = {
 	status: {
 		name: "status",
 		description: "Show current task status",
-		detail: "現在のタスク状態を YAML 形式で出力。ゴール、ステップ進捗、次のアクション候補を表示。",
+		detail: "Outputs task goal, step progress, and suggested next actions in YAML.",
 		options: [
 			{ name: "--file", required: false, description: "Task file path" },
 		],
@@ -119,13 +118,13 @@ export const commands: Record<string, CommandMeta> = {
 	check: {
 		name: "check",
 		description: "Stop hook gate check (reads session_id from stdin)",
-		detail: "Stop hook から呼ばれる。タスクが完了/一時停止なら allow、未完了ステップありなら block。",
+		detail: "Auto-executed by Stop hook. Exit 2 (block) if incomplete, exit 0 (allow) otherwise.",
 		options: [],
 	},
 	"session-start": {
 		name: "session-start",
 		description: "SessionStart hook handler (reads session_id from stdin)",
-		detail: "SessionStart hook から呼ばれる。セッション ID を環境変数に設定。",
+		detail: "Auto-executed by SessionStart hook. Sets session ID to HALTR_SESSION_ID env var.",
 		options: [],
 	},
 };

@@ -189,7 +189,7 @@ test("resolveTaskFile with explicit --file", () => {
 });
 
 test("resolveTaskFile throws for nonexistent file", () => {
-	expectThrows(() => resolveTaskFile(join(tmpDir, "nonexistent.yaml")), "見つかりません");
+	expectThrows(() => resolveTaskFile(join(tmpDir, "nonexistent.yaml")), "not found");
 });
 
 test("resolveTaskFile falls back to session mapping", () => {
@@ -247,7 +247,7 @@ test("handleTaskCreate fails if file exists", () => {
 	writeFileSync(filePath, "existing");
 	expectThrows(
 		() => silenced(() => handleTaskCreate({ file: filePath, goal: "Test" })),
-		"既に存在します",
+		"already exists",
 	);
 });
 
@@ -297,7 +297,7 @@ test("handleStepAdd rejects duplicate step ID", () => {
 	silenced(() => handleStepAdd({ file: filePath, step: "impl", goal: "v1" }));
 	expectThrows(
 		() => silenced(() => handleStepAdd({ file: filePath, step: "impl", goal: "v2" })),
-		"既に存在します",
+		"already exists",
 	);
 });
 
@@ -356,7 +356,7 @@ test("handleStepDone PASS requires verification when accept exists", () => {
 	silenced(() => handleStepStart({ file: filePath, step: "impl" }));
 	expectThrows(
 		() => silenced(() => handleStepDone({ file: filePath, step: "impl", result: "PASS", message: "Done" })),
-		"未検証",
+		"unverified",
 	);
 });
 

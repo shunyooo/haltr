@@ -10,8 +10,6 @@ import type { HistoryEvent, TaskYaml } from "../types.js";
 
 /**
  * hal task create --file <name> --goal '<goal>'
- *
- * Creates a new task file at the specified path.
  */
 export function handleTaskCreate(opts: {
 	file: string;
@@ -22,7 +20,7 @@ export function handleTaskCreate(opts: {
 	const filePath = resolve(opts.file);
 
 	if (existsSync(filePath)) {
-		throw new Error(`ファイルが既に存在します: ${filePath}`);
+		throw new Error(`File already exists: ${filePath}`);
 	}
 
 	const taskId = opts.file.replace(/\.(task\.)?ya?ml$/, "");
@@ -51,21 +49,19 @@ export function handleTaskCreate(opts: {
 		newTask.plan = opts.plan;
 	}
 
-	// Validate before writing
 	validateTask(newTask);
 	writeFileSync(filePath, yaml.dump(newTask, { lineWidth: -1 }));
 
-	// Save session -> task mapping
 	try {
 		const sessionId = getSessionId();
 		setSessionTask(sessionId, filePath);
 	} catch {
-		// No session ID — skip mapping (setup not done)
+		// No session ID — skip mapping
 	}
 
 	const response = buildResponse({
 		status: "ok",
-		message: `タスクを作成しました: ${filePath}`,
+		message: `Task created: ${filePath}`,
 		data: {
 			task_path: filePath,
 			task_id: taskId,
@@ -80,8 +76,6 @@ export function handleTaskCreate(opts: {
 
 /**
  * hal task edit
- *
- * Edit the current task's fields.
  */
 export function handleTaskEdit(opts: {
 	file?: string;
@@ -111,10 +105,9 @@ export function handleTaskEdit(opts: {
 	}
 
 	if (changes.length === 0) {
-		throw new Error("変更するフィールドが指定されていません");
+		throw new Error("No fields specified to update");
 	}
 
-	// Add updated event to history
 	const now = new Date().toISOString();
 	if (!task.history) {
 		task.history = [];
@@ -126,13 +119,12 @@ export function handleTaskEdit(opts: {
 	};
 	task.history.push(event);
 
-	// Validate and save
 	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
 
 	const response = buildResponse({
 		status: "ok",
-		message: `タスクを更新しました: ${changes.join(", ")}`,
+		message: `Task updated: ${changes.join(", ")}`,
 		data: {
 			task_path: taskPath,
 			updated_fields: changes,

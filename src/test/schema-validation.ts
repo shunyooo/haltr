@@ -80,20 +80,20 @@ console.log("\n--- Task Schema Validation ---");
 
 const fullTask = {
 	id: "reference-quality",
-	goal: "リファレンス品質改善",
+	goal: "Improve reference quality",
 	accept: ["Precision > 95%, Recall > 90%"],
 	plan: "001_plan.md",
 	status: "in_progress",
 	steps: [
 		{
 			id: "data-collection",
-			goal: "データ収集",
+			goal: "Data collection",
 			status: "done",
 		},
 		{
 			id: "annotation-ui",
-			goal: "アノテーション UI",
-			accept: ["playwright で横並び表示を確認"],
+			goal: "Annotation UI",
+			accept: ["Verify side-by-side display with playwright"],
 			status: "pending",
 		},
 	],
@@ -101,7 +101,7 @@ const fullTask = {
 		{
 			at: "2026-03-22T10:00:00Z",
 			type: "created",
-			message: "タスク作成",
+			message: "Task created",
 		},
 	],
 };
@@ -109,7 +109,7 @@ const fullTask = {
 test("Full task.yaml validates successfully", () => {
 	const result = validateTask(structuredClone(fullTask));
 	assertEqual(result.id, "reference-quality", "id");
-	assertEqual(result.goal, "リファレンス品質改善", "goal");
+	assertEqual(result.goal, "Improve reference quality", "goal");
 	assertEqual(result.plan, "001_plan.md", "plan");
 });
 
@@ -433,7 +433,7 @@ test("loadAndValidateTask with YAML file", () => {
 	writeFileSync(filePath, taskYaml);
 	const result = loadAndValidateTask(filePath);
 	assertEqual(result.id, "reference-quality");
-	assertEqual(result.goal, "リファレンス品質改善");
+	assertEqual(result.goal, "Improve reference quality");
 });
 
 test("loadAndValidateTask with invalid YAML -> error", () => {

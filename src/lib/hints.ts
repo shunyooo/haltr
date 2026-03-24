@@ -4,38 +4,38 @@
 
 export const HINTS = {
 	// Task hints
-	TASK_CREATED: "hal step add --step <step-id> --goal '<goal>' でステップを追加してください",
-	TASK_UPDATED: "hal status でタスクの状態を確認できます",
+	TASK_CREATED: "Add steps with: hal step add --step <step-id> --goal '<goal>'",
+	TASK_UPDATED: "Check task state with: hal status",
 
 	// Step hints
-	STEP_ADDED: "hal step start --step <step-id> でステップを開始できます",
+	STEP_ADDED: "Start the step with: hal step start --step <step-id>",
 	STEP_STARTED:
-		"作業完了後、Agent ツールでサブエージェントを spawn し、accept 条件の独立検証を依頼してください。検証者が hal step verify --message '<検証結果>' を実行後、hal step done --message '<完了内容>' で完了報告できます。ユーザーとの対話に切り替える場合は hal step pause --message '<理由>'",
+		"After completing work, spawn a sub-agent with the Agent tool to independently verify the accept criteria. The verifier runs hal step verify --message '<result>', then you can run hal step done --message '<summary>'. To switch to dialogue mode: hal step pause --message '<reason>'",
 	STEP_IN_PROGRESS: (stepId: string) =>
-		`現在のステップ: ${stepId}。作業完了後、サブエージェントで検証を実行してください。ユーザーとの対話に切り替える場合は hal step pause --message '<理由>'`,
+		`Current step: ${stepId}. After completing work, run verification via sub-agent. To switch to dialogue mode: hal step pause --message '<reason>'`,
 	STEP_VERIFY_REQUIRED: (stepId: string) =>
-		`ステップ ${stepId} は未検証です。サブエージェントで hal step verify --step ${stepId} --result PASS|FAIL --message '<検証結果>' を実行してください`,
-	STEP_DONE_NEXT: (nextStepId: string) => `次のステップ: hal step start --step ${nextStepId}`,
+		`Step ${stepId} is unverified. Run hal step verify --step ${stepId} --result PASS|FAIL --message '<result>' via sub-agent`,
+	STEP_DONE_NEXT: (nextStepId: string) => `Next step: hal step start --step ${nextStepId}`,
 	STEP_DONE_ALL:
-		"全ステップが完了しました。CCR (Context Carry-over Report) を作成して、次のタスクに引き継ぐ情報をまとめてください",
+		"All steps completed. Create a CCR (Context Carry-over Report) summarizing the changes for the next task",
 	STEP_DONE_FAIL:
-		"失敗した内容を修正して、再度 hal step done --step <step-id> --result PASS --message '<完了内容>' で報告してください",
-	STEP_DONE_CHECK_STATUS: "hal status で残りのステップを確認してください",
-	STEP_PAUSED: "対話モードです。hal step resume でタスク作業を再開できます",
+		"Fix the issues and report again with: hal step done --step <step-id> --result PASS --message '<summary>'",
+	STEP_DONE_CHECK_STATUS: "Check remaining steps with: hal status",
+	STEP_PAUSED: "Dialogue mode. Resume task work with: hal step resume",
 	STEP_RESUMED:
-		"タスク作業を再開しました。hal status で現在の状態を確認できます",
+		"Task work resumed. Check current state with: hal status",
 
 	// Status hints
-	STATUS_DONE: "タスクは完了しています。CCR を作成してください",
-	STATUS_NO_STEPS: "hal step add --step <step-id> --goal '<goal>' でステップを追加してください",
-	STATUS_PENDING: "hal step start --step <step-id> でステップを開始してください",
-	STATUS_ADD_OR_CHECK: "hal step add で新しいステップを追加するか、残りの作業を確認してください",
+	STATUS_DONE: "Task is complete. Create a CCR",
+	STATUS_NO_STEPS: "Add steps with: hal step add --step <step-id> --goal '<goal>'",
+	STATUS_PENDING: "Start a step with: hal step start --step <step-id>",
+	STATUS_ADD_OR_CHECK: "Add new steps with hal step add or check remaining work",
 
 	// Check hints
 	CHECK_BLOCKED:
-		"未完了のステップがあります。タスク作業を続行してください。ユーザーから対話のリクエストがあった場合、またはユーザーに必ず確認を取る必要があると考えられる場合は hal step pause --message '<理由>' で一時停止してください",
+		"Incomplete steps remain. Continue task work. If the user requests dialogue, or if you must confirm something with the user, use hal step pause --message '<reason>' to pause",
 
 	// No task / dialogue mode hints
 	NO_TASK:
-		"対話モードです。複数ステップの作業が必要な場合は hal task create でタスクを作成してください",
+		"Dialogue mode. If multi-step work is needed, create a task with hal task create",
 } as const;

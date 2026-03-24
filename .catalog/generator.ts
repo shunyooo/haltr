@@ -29,13 +29,13 @@ const categoryNames: Record<StoryCategory, string> = {
  * Category descriptions
  */
 const categoryDescriptions: Record<StoryCategory, string> = {
-	setup: "haltr の初期セットアップ。`~/.claude/settings.json` に hooks を登録する。",
-	task: "タスクの作成・編集。任意の場所にタスクファイルを作成できる。",
-	step: "ステップの管理。タスクを小さな作業単位に分解し、進捗を追跡する。各ステップは pending → in_progress → done/failed の状態遷移を持つ。",
-	status: "現在のタスク状態を表示。ゴール、ステップの進捗、次のアクションを確認できる。",
-	check: "Stop hook ゲートチェック。エージェントが停止する前に、タスクが完了しているか確認する。未完了なら停止をブロックする。",
-	hook: "Claude Code hooks のハンドラ。セッション開始時に自動実行される。",
-	help: "ヘルプコマンド。利用可能なコマンドとオプションを確認する。",
+	setup: "Initial setup. Registers hooks in ~/.claude/settings.json.",
+	task: "Task creation and editing. Task files can be created anywhere.",
+	step: "Step management. Break tasks into small work units and track progress. Each step transitions: pending -> in_progress -> done/failed.",
+	status: "Show current task status. View goal, step progress, and suggested next actions.",
+	check: "Stop hook gate check. Verifies task completion before agent stops. Blocks if incomplete.",
+	hook: "Claude Code hook handlers. Auto-executed on session start.",
+	help: "Help commands. View available commands and options.",
 };
 
 /**

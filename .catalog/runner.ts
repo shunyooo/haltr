@@ -18,13 +18,10 @@ export interface StoryResult {
 
 type SetupType = NonNullable<Story["setup"]>;
 
-/**
- * Setup with a basic task file
- */
 function setupWithTask(baseDir: string, sessionId?: string): void {
 	const task = {
 		id: "task-001",
-		goal: "テスト用タスク",
+		goal: "Test task",
 		status: "pending",
 		steps: [],
 		history: [{ at: new Date().toISOString(), type: "created" }],
@@ -38,17 +35,14 @@ function setupWithTask(baseDir: string, sessionId?: string): void {
 	}
 }
 
-/**
- * Setup with steps (all pending)
- */
 function setupWithSteps(baseDir: string, sessionId?: string): void {
 	const task = {
 		id: "task-001",
-		goal: "テスト用タスク",
+		goal: "Test task",
 		status: "in_progress",
 		steps: [
-			{ id: "s1", goal: "ステップ1", status: "pending" },
-			{ id: "s2", goal: "ステップ2", status: "pending" },
+			{ id: "s1", goal: "Step 1", status: "pending" },
+			{ id: "s2", goal: "Step 2", status: "pending" },
 		],
 		history: [{ at: new Date().toISOString(), type: "created" }],
 	};
@@ -61,17 +55,14 @@ function setupWithSteps(baseDir: string, sessionId?: string): void {
 	}
 }
 
-/**
- * Setup with steps (s1 in_progress, accept + verified)
- */
 function setupWithStepsActive(baseDir: string, sessionId?: string): void {
 	const task = {
 		id: "task-001",
-		goal: "テスト用タスク",
+		goal: "Test task",
 		status: "in_progress",
 		steps: [
-			{ id: "s1", goal: "ステップ1", accept: "受入条件を満たしている", status: "in_progress", verified: true },
-			{ id: "s2", goal: "ステップ2", status: "pending" },
+			{ id: "s1", goal: "Step 1", accept: "Accept criteria met", status: "in_progress", verified: true },
+			{ id: "s2", goal: "Step 2", status: "pending" },
 		],
 		history: [{ at: new Date().toISOString(), type: "created" }],
 	};
@@ -84,17 +75,14 @@ function setupWithStepsActive(baseDir: string, sessionId?: string): void {
 	}
 }
 
-/**
- * Setup with steps (s1 in_progress, no accept)
- */
 function setupWithStepsActiveNoAccept(baseDir: string, sessionId?: string): void {
 	const task = {
 		id: "task-001",
-		goal: "テスト用タスク",
+		goal: "Test task",
 		status: "in_progress",
 		steps: [
-			{ id: "s1", goal: "ステップ1", status: "in_progress" },
-			{ id: "s2", goal: "ステップ2", status: "pending" },
+			{ id: "s1", goal: "Step 1", status: "in_progress" },
+			{ id: "s2", goal: "Step 2", status: "pending" },
 		],
 		history: [{ at: new Date().toISOString(), type: "created" }],
 	};
@@ -107,17 +95,14 @@ function setupWithStepsActiveNoAccept(baseDir: string, sessionId?: string): void
 	}
 }
 
-/**
- * Setup with steps (s1 in_progress, accept but NOT verified)
- */
 function setupWithStepsActiveUnverified(baseDir: string, sessionId?: string): void {
 	const task = {
 		id: "task-001",
-		goal: "テスト用タスク",
+		goal: "Test task",
 		status: "in_progress",
 		steps: [
-			{ id: "s1", goal: "ステップ1", accept: "受入条件を満たしている", status: "in_progress" },
-			{ id: "s2", goal: "ステップ2", status: "pending" },
+			{ id: "s1", goal: "Step 1", accept: "Accept criteria met", status: "in_progress" },
+			{ id: "s2", goal: "Step 2", status: "pending" },
 		],
 		history: [{ at: new Date().toISOString(), type: "created" }],
 	};
@@ -130,9 +115,6 @@ function setupWithStepsActiveUnverified(baseDir: string, sessionId?: string): vo
 	}
 }
 
-/**
- * Run setup for a story
- */
 function runSetup(setupType: SetupType, baseDir: string, sessionId?: string): void {
 	switch (setupType) {
 		case "none":
@@ -155,9 +137,6 @@ function runSetup(setupType: SetupType, baseDir: string, sessionId?: string): vo
 	}
 }
 
-/**
- * Execute a single story and capture output
- */
 export function runStory(story: Story, halBinPath: string): StoryResult {
 	const tmpDir = join(tmpdir(), `haltr-catalog-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 	mkdirSync(tmpDir, { recursive: true });
@@ -197,9 +176,6 @@ export function runStory(story: Story, halBinPath: string): StoryResult {
 	}
 }
 
-/**
- * Run all stories
- */
 export function runAllStories(stories: Story[], halBinPath: string): StoryResult[] {
 	return stories.map((story) => runStory(story, halBinPath));
 }

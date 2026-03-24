@@ -1,7 +1,5 @@
 /**
  * Message Catalog Scenarios
- *
- * Defines all command + state combinations for documentation.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -32,35 +30,24 @@ export interface ScenarioContext {
 	taskPath: string;
 }
 
-/**
- * Create a fresh scenario context with temp directories.
- */
 export function createContext(): ScenarioContext {
 	const tmpDir = join("/tmp", `hal-catalog-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 	const taskPath = join(tmpDir, "task.yaml");
-
 	mkdirSync(tmpDir, { recursive: true });
-
 	return { tmpDir, taskPath };
 }
 
-/**
- * Clean up scenario context.
- */
 export function cleanupContext(ctx: ScenarioContext): void {
 	rmSync(ctx.tmpDir, { recursive: true, force: true });
 }
 
-/**
- * Create a basic task file.
- */
 export function createTask(
 	ctx: ScenarioContext,
 	overrides: Record<string, unknown> = {},
 ): void {
 	const task = {
 		id: "test-001",
-		goal: "テスト用タスク",
+		goal: "Test task",
 		status: "pending",
 		history: [{ at: new Date().toISOString(), type: "created" }],
 		...overrides,
@@ -68,32 +55,28 @@ export function createTask(
 	writeFileSync(ctx.taskPath, yaml.dump(task, { lineWidth: -1 }));
 }
 
-// ============================================================
-// Scenario Definitions
-// ============================================================
-
 export const scenarios: Scenario[] = [
 	// ---- Task Commands ----
 	{
 		id: "task-create",
 		name: "hal task create",
-		description: "新規タスク作成",
+		description: "Create new task",
 		category: "task",
 		setup: () => {},
 		run: (ctx) => {
-			handleTaskCreate({ file: join(ctx.tmpDir, "new-task.yaml"), goal: "新機能を実装する", accept: ["テストが通る", "ドキュメント更新"] });
+			handleTaskCreate({ file: join(ctx.tmpDir, "new-task.yaml"), goal: "Implement new feature", accept: ["Tests pass", "Docs updated"] });
 		},
 	},
 	{
 		id: "task-edit",
 		name: "hal task edit",
-		description: "タスクのゴール更新",
+		description: "Update task goal",
 		category: "task",
 		setup: (ctx) => {
 			createTask(ctx);
 		},
 		run: (ctx) => {
-			handleTaskEdit({ file: ctx.taskPath, goal: "OAuth2を使用してユーザー認証を実装する", message: "OAuth2採用に伴いゴール更新" });
+			handleTaskEdit({ file: ctx.taskPath, goal: "Implement OAuth2 user authentication", message: "Switched to OAuth2" });
 		},
 	},
 
@@ -101,23 +84,23 @@ export const scenarios: Scenario[] = [
 	{
 		id: "step-add",
 		name: "hal step add",
-		description: "ステップ追加",
+		description: "Add step",
 		category: "step",
 		setup: (ctx) => {
 			createTask(ctx);
 		},
 		run: (ctx) => {
-			handleStepAdd({ file: ctx.taskPath, step: "impl", goal: "機能を実装する", accept: ["コンパイル通る"] });
+			handleStepAdd({ file: ctx.taskPath, step: "impl", goal: "Implement feature", accept: ["Compiles"] });
 		},
 	},
 	{
 		id: "step-start",
 		name: "hal step start",
-		description: "ステップ開始",
+		description: "Start step",
 		category: "step",
 		setup: (ctx) => {
 			createTask(ctx, {
-				steps: [{ id: "impl", goal: "機能を実装する", status: "pending" }],
+				steps: [{ id: "impl", goal: "Implement feature", status: "pending" }],
 			});
 		},
 		run: (ctx) => {
@@ -127,93 +110,93 @@ export const scenarios: Scenario[] = [
 	{
 		id: "step-verify-pass",
 		name: "hal step verify (PASS)",
-		description: "検証成功",
+		description: "Verification passed",
 		category: "step",
 		setup: (ctx) => {
 			createTask(ctx, {
 				status: "in_progress",
-				steps: [{ id: "impl", goal: "機能を実装する", status: "in_progress" }],
+				steps: [{ id: "impl", goal: "Implement feature", status: "in_progress" }],
 			});
 		},
 		run: (ctx) => {
-			handleStepVerify({ file: ctx.taskPath, step: "impl", result: "PASS", message: "全テストが通過、accept条件を満たしている" });
+			handleStepVerify({ file: ctx.taskPath, step: "impl", result: "PASS", message: "All tests pass, accept criteria met" });
 		},
 	},
 	{
 		id: "step-verify-fail",
 		name: "hal step verify (FAIL)",
-		description: "検証失敗",
+		description: "Verification failed",
 		category: "step",
 		setup: (ctx) => {
 			createTask(ctx, {
 				status: "in_progress",
-				steps: [{ id: "impl", goal: "機能を実装する", status: "in_progress" }],
+				steps: [{ id: "impl", goal: "Implement feature", status: "in_progress" }],
 			});
 		},
 		run: (ctx) => {
-			handleStepVerify({ file: ctx.taskPath, step: "impl", result: "FAIL", message: "テストが2件失敗している" });
+			handleStepVerify({ file: ctx.taskPath, step: "impl", result: "FAIL", message: "2 tests failing" });
 		},
 	},
 	{
 		id: "step-done-pass",
 		name: "hal step done (PASS)",
-		description: "ステップ完了 (次のステップあり)",
+		description: "Step completed (next step exists)",
 		category: "step",
 		setup: (ctx) => {
 			createTask(ctx, {
 				status: "in_progress",
 				steps: [
-					{ id: "impl", goal: "機能を実装する", status: "in_progress", verified: true },
-					{ id: "test", goal: "テスト追加", status: "pending" },
+					{ id: "impl", goal: "Implement feature", status: "in_progress", verified: true },
+					{ id: "test", goal: "Add tests", status: "pending" },
 				],
 			});
 		},
 		run: (ctx) => {
-			handleStepDone({ file: ctx.taskPath, step: "impl", result: "PASS", message: "実装完了、全テスト通過" });
+			handleStepDone({ file: ctx.taskPath, step: "impl", result: "PASS", message: "Implementation complete, all tests pass" });
 		},
 	},
 	{
 		id: "step-done-all-complete",
 		name: "hal step done (all complete)",
-		description: "全ステップ完了時",
+		description: "All steps completed",
 		category: "step",
 		setup: (ctx) => {
 			createTask(ctx, {
 				status: "in_progress",
-				steps: [{ id: "impl", goal: "機能を実装する", status: "in_progress", verified: true }],
+				steps: [{ id: "impl", goal: "Implement feature", status: "in_progress", verified: true }],
 			});
 		},
 		run: (ctx) => {
-			handleStepDone({ file: ctx.taskPath, step: "impl", result: "PASS", message: "実装完了" });
+			handleStepDone({ file: ctx.taskPath, step: "impl", result: "PASS", message: "Implementation complete" });
 		},
 	},
 	{
 		id: "step-pause",
 		name: "hal step pause",
-		description: "対話モードへ切替",
+		description: "Switch to dialogue mode",
 		category: "step",
 		setup: (ctx) => {
 			createTask(ctx, {
 				status: "in_progress",
-				steps: [{ id: "impl", goal: "機能を実装する", status: "in_progress" }],
+				steps: [{ id: "impl", goal: "Implement feature", status: "in_progress" }],
 			});
 		},
 		run: (ctx) => {
-			handleStepPause({ file: ctx.taskPath, message: "ユーザーから設計方針について質問があった" });
+			handleStepPause({ file: ctx.taskPath, message: "User asked about design approach" });
 		},
 	},
 	{
 		id: "step-resume",
 		name: "hal step resume",
-		description: "タスク作業再開",
+		description: "Resume task work",
 		category: "step",
 		setup: (ctx) => {
 			createTask(ctx, {
 				status: "in_progress",
-				steps: [{ id: "impl", goal: "機能を実装する", status: "in_progress" }],
+				steps: [{ id: "impl", goal: "Implement feature", status: "in_progress" }],
 				history: [
 					{ at: new Date().toISOString(), type: "created" },
-					{ at: new Date().toISOString(), type: "paused", message: "ユーザー質問" },
+					{ at: new Date().toISOString(), type: "paused", message: "User question" },
 				],
 			});
 		},
@@ -226,11 +209,11 @@ export const scenarios: Scenario[] = [
 	{
 		id: "status-pending",
 		name: "hal status (pending)",
-		description: "タスク未開始",
+		description: "Task not started",
 		category: "status",
 		setup: (ctx) => {
 			createTask(ctx, {
-				steps: [{ id: "impl", goal: "実装", status: "pending" }],
+				steps: [{ id: "impl", goal: "Implement", status: "pending" }],
 			});
 		},
 		run: (ctx) => {
@@ -240,14 +223,14 @@ export const scenarios: Scenario[] = [
 	{
 		id: "status-in-progress",
 		name: "hal status (in_progress)",
-		description: "タスク実行中",
+		description: "Task in progress",
 		category: "status",
 		setup: (ctx) => {
 			createTask(ctx, {
 				status: "in_progress",
 				steps: [
-					{ id: "impl", goal: "実装", status: "done", verified: true },
-					{ id: "test", goal: "テスト", status: "in_progress" },
+					{ id: "impl", goal: "Implement", status: "done", verified: true },
+					{ id: "test", goal: "Test", status: "in_progress" },
 				],
 			});
 		},
@@ -258,12 +241,12 @@ export const scenarios: Scenario[] = [
 	{
 		id: "status-done",
 		name: "hal status (done)",
-		description: "タスク完了",
+		description: "Task completed",
 		category: "status",
 		setup: (ctx) => {
 			createTask(ctx, {
 				status: "done",
-				steps: [{ id: "impl", goal: "実装", status: "done", verified: true }],
+				steps: [{ id: "impl", goal: "Implement", status: "done", verified: true }],
 			});
 		},
 		run: (ctx) => {
@@ -275,21 +258,21 @@ export const scenarios: Scenario[] = [
 	{
 		id: "check-allow-no-task",
 		name: "hal check (no task)",
-		description: "タスクなし → 通過",
+		description: "No task -> allow",
 		category: "check",
 		setup: () => {},
 		run: () => {
 			console.log(JSON.stringify({
 				status: "allow",
-				message: "対話モードです",
-				commands_hint: "対話モードです。複数ステップの作業が必要な場合は hal task create でタスクを作成してください",
+				message: "Dialogue mode",
+				commands_hint: "Dialogue mode. If multi-step work is needed, create a task with hal task create",
 			}, null, 2));
 		},
 	},
 	{
 		id: "check-allow-pending",
 		name: "hal check (pending)",
-		description: "タスク未開始 → 通過",
+		description: "Task not started -> allow",
 		category: "check",
 		setup: (ctx) => {
 			createTask(ctx);
@@ -297,34 +280,34 @@ export const scenarios: Scenario[] = [
 		run: () => {
 			console.log(JSON.stringify({
 				status: "allow",
-				message: "タスクは未開始です",
+				message: "Task not started",
 			}, null, 2));
 		},
 	},
 	{
 		id: "check-block",
 		name: "hal check (in_progress)",
-		description: "タスク実行中 → ブロック",
+		description: "Task in progress -> block",
 		category: "check",
 		setup: (ctx) => {
 			createTask(ctx, {
 				status: "in_progress",
-				steps: [{ id: "impl", goal: "実装", status: "in_progress" }],
+				steps: [{ id: "impl", goal: "Implement", status: "in_progress" }],
 			});
 		},
 		run: () => {
 			console.log(JSON.stringify({
 				status: "block",
-				message: "未完了のステップがあります",
-				data: { current_step: "impl", step_goal: "実装" },
-				commands_hint: "未完了のステップがあります。タスク作業を続行してください。ユーザーから対話のリクエストがあった場合は hal step pause --message '<理由>' で一時停止してください",
+				message: "Incomplete steps remain",
+				data: { current_step: "impl", step_goal: "Implement" },
+				commands_hint: "Incomplete steps remain. Continue task work. If the user requests dialogue, use hal step pause --message '<reason>'",
 			}, null, 2));
 		},
 	},
 	{
 		id: "check-allow-done",
 		name: "hal check (done)",
-		description: "タスク完了 → 通過",
+		description: "Task completed -> allow",
 		category: "check",
 		setup: (ctx) => {
 			createTask(ctx, { status: "done" });
@@ -332,7 +315,7 @@ export const scenarios: Scenario[] = [
 		run: () => {
 			console.log(JSON.stringify({
 				status: "allow",
-				message: "タスクは完了しています",
+				message: "Task is complete",
 			}, null, 2));
 		},
 	},

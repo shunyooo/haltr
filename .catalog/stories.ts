@@ -19,25 +19,15 @@ export type StoryTag =
 	| "workflow";
 
 export interface Story {
-	/** Unique story ID */
 	id: string;
-	/** Command name (key in commands.ts) */
 	command: string;
-	/** Story title */
 	title: string;
-	/** Detailed description */
 	description?: string;
-	/** Category for grouping */
 	category: StoryCategory;
-	/** Tags for filtering */
 	tags: StoryTag[];
-	/** Full command line input */
 	input: string;
-	/** Environment variables to set */
 	env?: Record<string, string>;
-	/** Setup function */
 	setup?: "none" | "with-task" | "with-steps" | "with-steps-active" | "with-steps-active-no-accept" | "with-steps-active-unverified";
-	/** Expected exit code (default: 0) */
 	expected_exit?: number;
 }
 
@@ -48,8 +38,8 @@ export const stories: Story[] = [
 	{
 		id: "help-root",
 		command: "setup",
-		title: "ヘルプ表示",
-		description: "hal のヘルプを表示する",
+		title: "Show help",
+		description: "Display hal help",
 		category: "help",
 		tags: ["success"],
 		input: "hal --help",
@@ -57,8 +47,8 @@ export const stories: Story[] = [
 	{
 		id: "help-task",
 		command: "task create",
-		title: "task サブコマンドのヘルプ",
-		description: "hal task のヘルプを表示する",
+		title: "Task subcommand help",
+		description: "Display hal task help",
 		category: "help",
 		tags: ["success"],
 		input: "hal task --help",
@@ -66,8 +56,8 @@ export const stories: Story[] = [
 	{
 		id: "help-step",
 		command: "step add",
-		title: "step サブコマンドのヘルプ",
-		description: "hal step のヘルプを表示する",
+		title: "Step subcommand help",
+		description: "Display hal step help",
 		category: "help",
 		tags: ["success"],
 		input: "hal step --help",
@@ -79,28 +69,28 @@ export const stories: Story[] = [
 	{
 		id: "task-create-basic",
 		command: "task create",
-		title: "基本的なタスク作成",
-		description: "ゴールのみでタスクを作成する",
+		title: "Basic task creation",
+		description: "Create a task with goal only",
 		category: "task",
 		tags: ["success"],
-		input: "hal task create --file task.yaml --goal 'ユーザー認証機能を実装する'",
+		input: "hal task create --file task.yaml --goal 'Implement user authentication'",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "task-create-with-accept",
 		command: "task create",
-		title: "受入条件付きタスク作成",
-		description: "ゴールと受入条件でタスクを作成する",
+		title: "Task creation with accept criteria",
+		description: "Create a task with goal and accept criteria",
 		category: "task",
 		tags: ["success"],
-		input: "hal task create --file login.task.yaml --goal 'ログイン機能を実装' --accept 'メールとパスワードでログインできる' --accept 'エラー時にメッセージが表示される'",
+		input: "hal task create --file login.task.yaml --goal 'Implement login' --accept 'Can login with email and password' --accept 'Error message displayed on failure'",
 		env: { HALTR_SESSION_ID: "test-session-002" },
 	},
 	{
 		id: "task-create-no-goal",
 		command: "task create",
-		title: "ゴールなしでタスク作成（エラー）",
-		description: "必須オプション--goalがない場合のエラー",
+		title: "Task creation without goal (error)",
+		description: "Error when required --goal is missing",
 		category: "task",
 		tags: ["error", "validation"],
 		input: "hal task create --file task.yaml",
@@ -108,11 +98,11 @@ export const stories: Story[] = [
 	{
 		id: "task-edit-goal",
 		command: "task edit",
-		title: "タスクのゴール更新",
-		description: "タスクのゴールを変更する",
+		title: "Update task goal",
+		description: "Change the task goal",
 		category: "task",
 		tags: ["success"],
-		input: "hal task edit --file task.yaml --goal 'OAuth2を使用してユーザー認証を実装する' --message 'OAuth2採用に伴いゴール更新'",
+		input: "hal task edit --file task.yaml --goal 'Implement OAuth2 user authentication' --message 'Switched to OAuth2'",
 		setup: "with-task",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
@@ -123,50 +113,50 @@ export const stories: Story[] = [
 	{
 		id: "step-add-basic",
 		command: "step add",
-		title: "ステップ追加",
-		description: "タスクにステップを追加する",
+		title: "Add step",
+		description: "Add a step to the task",
 		category: "step",
 		tags: ["success"],
-		input: "hal step add --file task.yaml --step s1 --goal 'データベーススキーマを設計する'",
+		input: "hal step add --file task.yaml --step s1 --goal 'Design database schema'",
 		setup: "with-task",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-add-with-accept",
 		command: "step add",
-		title: "受入条件付きステップ追加",
-		description: "受入条件を指定してステップを追加する",
+		title: "Add step with accept criteria",
+		description: "Add a step with accept criteria",
 		category: "step",
 		tags: ["success"],
-		input: "hal step add --file task.yaml --step s2 --goal 'APIエンドポイントを実装' --accept 'POST /login が動作する' --accept '認証トークンを返す'",
+		input: "hal step add --file task.yaml --step s2 --goal 'Implement API endpoints' --accept 'POST /login works' --accept 'Returns auth token'",
 		setup: "with-task",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-add-batch",
 		command: "step add",
-		title: "複数ステップをバッチ追加",
-		description: "stdin から YAML で複数ステップを一括追加する",
+		title: "Batch add steps",
+		description: "Add multiple steps from stdin YAML",
 		category: "step",
 		tags: ["success", "workflow"],
 		input: `echo '- id: s1
-  goal: データベース設計
-  accept: ERD が作成されている
+  goal: Database design
+  accept: ERD created
 - id: s2
-  goal: API実装
+  goal: API implementation
   accept:
-    - POST /login が動作する
-    - 認証トークンを返す
+    - POST /login works
+    - Returns auth token
 - id: s3
-  goal: テスト作成' | hal step add --file task.yaml --stdin`,
+  goal: Write tests' | hal step add --file task.yaml --stdin`,
 		setup: "with-task",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-start",
 		command: "step start",
-		title: "ステップ開始",
-		description: "ステップの作業を開始する",
+		title: "Start step",
+		description: "Start working on a step",
 		category: "step",
 		tags: ["success"],
 		input: "hal step start --file task.yaml --step s1",
@@ -176,85 +166,85 @@ export const stories: Story[] = [
 	{
 		id: "step-done-pass-verified",
 		command: "step done",
-		title: "ステップ完了（accept あり・検証済み）",
-		description: "accept 条件があり、検証済みのステップを成功で完了する",
+		title: "Step done (accept + verified)",
+		description: "Complete a verified step with accept criteria",
 		category: "step",
 		tags: ["success"],
-		input: "hal step done --file task.yaml --step s1 --result PASS --message 'スキーマ設計完了、migrations/001_users.sqlを作成'",
+		input: "hal step done --file task.yaml --step s1 --result PASS --message 'Schema design complete, created migrations/001_users.sql'",
 		setup: "with-steps-active",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-done-pass-no-accept",
 		command: "step done",
-		title: "ステップ完了（accept なし・検証不要）",
-		description: "accept 条件がないステップは検証なしで完了できる",
+		title: "Step done (no accept, no verify needed)",
+		description: "Steps without accept criteria can be completed without verification",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step done --file task.yaml --step s1 --result PASS --message '作業完了'",
+		input: "hal step done --file task.yaml --step s1 --result PASS --message 'Work complete'",
 		setup: "with-steps-active-no-accept",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-done-pass-unverified",
 		command: "step done",
-		title: "ステップ完了エラー（accept あり・未検証）",
-		description: "accept 条件があるが未検証のステップは完了できない",
+		title: "Step done error (accept + unverified)",
+		description: "Steps with accept criteria cannot be completed without verification",
 		category: "step",
 		tags: ["error", "validation"],
-		input: "hal step done --file task.yaml --step s1 --result PASS --message '作業完了'",
+		input: "hal step done --file task.yaml --step s1 --result PASS --message 'Work complete'",
 		setup: "with-steps-active-unverified",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-done-fail",
 		command: "step done",
-		title: "ステップ完了（FAIL）",
-		description: "ステップを失敗で完了する（検証不要）",
+		title: "Step done (FAIL)",
+		description: "Record step failure (no verify needed)",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step done --file task.yaml --step s1 --result FAIL --message '外部APIの仕様が不明、確認が必要'",
+		input: "hal step done --file task.yaml --step s1 --result FAIL --message 'External API spec unclear, need confirmation'",
 		setup: "with-steps-active-no-accept",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-verify-pass",
 		command: "step verify",
-		title: "ステップ検証（PASS）",
-		description: "ステップの作業結果を検証し、受入条件を満たしていることを記録する",
+		title: "Step verify (PASS)",
+		description: "Verify step meets accept criteria",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step verify --file task.yaml --step s1 --result PASS --message '全テストが通過、accept条件を満たしている'",
+		input: "hal step verify --file task.yaml --step s1 --result PASS --message 'All tests pass, accept criteria met'",
 		setup: "with-steps-active-unverified",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-verify-fail",
 		command: "step verify",
-		title: "ステップ検証（FAIL）",
-		description: "ステップの作業結果を検証し、受入条件を満たしていないことを記録する",
+		title: "Step verify (FAIL)",
+		description: "Verify step does not meet accept criteria",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step verify --file task.yaml --step s1 --result FAIL --message 'テストが2件失敗している'",
+		input: "hal step verify --file task.yaml --step s1 --result FAIL --message '2 tests failing'",
 		setup: "with-steps-active-unverified",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-pause",
 		command: "step pause",
-		title: "作業一時停止",
-		description: "ユーザーとの対話のため作業を一時停止する",
+		title: "Pause work",
+		description: "Pause for user dialogue",
 		category: "step",
 		tags: ["success", "workflow"],
-		input: "hal step pause --file task.yaml --message '認証方式について確認が必要'",
+		input: "hal step pause --file task.yaml --message 'Need to confirm auth approach'",
 		setup: "with-steps",
 		env: { HALTR_SESSION_ID: "test-session-001" },
 	},
 	{
 		id: "step-resume",
 		command: "step resume",
-		title: "作業再開",
-		description: "一時停止した作業を再開する",
+		title: "Resume work",
+		description: "Resume paused work",
 		category: "step",
 		tags: ["success", "workflow"],
 		input: "hal step resume --file task.yaml",
@@ -268,8 +258,8 @@ export const stories: Story[] = [
 	{
 		id: "status-no-task",
 		command: "status",
-		title: "ステータス表示（タスクなし）",
-		description: "タスクがない場合のエラー表示",
+		title: "Status (no task)",
+		description: "Error when no task exists",
 		category: "status",
 		tags: ["error", "edge-case"],
 		input: "hal status",
@@ -278,8 +268,8 @@ export const stories: Story[] = [
 	{
 		id: "status-with-task",
 		command: "status",
-		title: "ステータス表示（タスクあり）",
-		description: "タスクがある場合のステータス表示",
+		title: "Status (with task)",
+		description: "Show status when task exists",
 		category: "status",
 		tags: ["success"],
 		input: "hal status --file task.yaml",
@@ -293,8 +283,8 @@ export const stories: Story[] = [
 	{
 		id: "check-allow-done",
 		command: "check",
-		title: "チェック通過（タスク完了）",
-		description: "タスクが完了している場合、停止を許可する",
+		title: "Check allow (task done)",
+		description: "Allow stop when task is complete",
 		category: "check",
 		tags: ["success", "workflow"],
 		input: "echo '{\"session_id\":\"test-session-001\"}' | hal check",
@@ -304,8 +294,8 @@ export const stories: Story[] = [
 	{
 		id: "check-block-incomplete",
 		command: "check",
-		title: "チェックブロック（未完了ステップあり）",
-		description: "未完了のステップがある場合、停止をブロックする",
+		title: "Check block (incomplete steps)",
+		description: "Block stop when incomplete steps remain",
 		category: "check",
 		tags: ["workflow"],
 		input: "echo '{\"session_id\":\"test-session-001\"}' | hal check",
@@ -320,8 +310,8 @@ export const stories: Story[] = [
 	{
 		id: "session-start-new",
 		command: "session-start",
-		title: "セッション開始（タスクなし）",
-		description: "新しいセッションを開始する（タスクがまだない状態）",
+		title: "Session start (no task)",
+		description: "Start a new session without existing task",
 		category: "hook",
 		tags: ["success", "workflow"],
 		input: "echo '{\"session_id\":\"new-session-001\"}' | hal session-start",
@@ -330,8 +320,8 @@ export const stories: Story[] = [
 	{
 		id: "session-start-with-task",
 		command: "session-start",
-		title: "セッション開始（タスクあり）",
-		description: "既存タスクがあるセッションを開始する",
+		title: "Session start (with task)",
+		description: "Start a session with existing task",
 		category: "hook",
 		tags: ["success", "workflow"],
 		input: "echo '{\"session_id\":\"test-session-001\"}' | hal session-start",

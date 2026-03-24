@@ -14,7 +14,7 @@ export function resolveTaskFile(file?: string): string {
 	if (file) {
 		const resolved = resolve(file);
 		if (!existsSync(resolved)) {
-			throw new Error(`タスクファイルが見つかりません: ${resolved}`);
+			throw new Error(`Task file not found: ${resolved}`);
 		}
 		return resolved;
 	}
@@ -35,7 +35,7 @@ export function resolveTaskFile(file?: string): string {
 	}
 
 	throw new Error(
-		"タスクファイルが見つかりません。--file で指定してください",
+		"Task file not found. Specify with --file",
 	);
 }
 
@@ -60,11 +60,11 @@ function detectTaskFile(dir: string): string | null {
 		}
 		if (taskFiles.length > 1) {
 			throw new Error(
-				`複数のタスクファイルが見つかりました: ${taskFiles.join(", ")}。--file で指定してください`,
+				`Multiple task files found: ${taskFiles.join(", ")}. Specify with --file`,
 			);
 		}
 	} catch (e) {
-		if (e instanceof Error && e.message.includes("複数のタスクファイル")) {
+		if (e instanceof Error && e.message.includes("Multiple task files")) {
 			throw e;
 		}
 	}
