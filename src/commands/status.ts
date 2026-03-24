@@ -1,24 +1,16 @@
-import { existsSync } from "node:fs";
 import { HINTS } from "../lib/hints.js";
 import { buildResponse, formatResponse } from "../lib/response-builder.js";
-import { getCurrentTaskPath } from "../lib/session-manager.js";
-import { findHaltrDir } from "../lib/task-utils.js";
+import { resolveTaskFile } from "../lib/task-utils.js";
 import { loadAndValidateTask } from "../lib/validator.js";
 
 /**
  * hal status
  *
- * Show the current task status, all steps, knowledge list, and hints.
+ * Show the current task status and all steps.
  */
-export function handleStatus(): void {
-	const taskPath = getCurrentTaskPath();
-
-	if (!existsSync(taskPath)) {
-		throw new Error(`Task file not found: ${taskPath}`);
-	}
-
+export function handleStatus(opts: { file?: string }): void {
+	const taskPath = resolveTaskFile(opts.file);
 	const task = loadAndValidateTask(taskPath);
-	const haltrDir = findHaltrDir(taskPath);
 
 	const steps = (task.steps ?? []).map((s) => ({
 		id: s.id,
@@ -43,7 +35,6 @@ export function handleStatus(): void {
 		responseData.plan = task.plan;
 	}
 
-	// Determine commands_hint based on state
 	let commandsHint: string;
 	const taskStatus = task.status ?? "pending";
 
@@ -56,7 +47,6 @@ export function handleStatus(): void {
 			commandsHint = HINTS.STATUS_PENDING;
 		}
 	} else {
-		// in_progress or failed
 		const currentStep = steps.find((s) => s.status === "in_progress");
 		const nextPending = steps.find((s) => s.status === "pending");
 
@@ -73,8 +63,6 @@ export function handleStatus(): void {
 		status: "ok",
 		message: `タスク状態: ${taskStatus}`,
 		data: responseData,
-		haltrDir,
-		notes_prompt: HINTS.STATUS_NOTES,
 		commands_hint: commandsHint,
 	});
 

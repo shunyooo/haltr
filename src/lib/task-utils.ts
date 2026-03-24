@@ -1,97 +1,79 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import type { HaltrConfig, Step } from "../types.js";
-
-/** Config file name */
-const CONFIG_FILE = ".haltr.json";
-
-/** Default directory name */
-const DEFAULT_DIR = "work";
+import { existsSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
+import type { Step } from "../types.js";
+import { getTaskPathForSession } from "./session-manager.js";
 
 /**
- * Find .haltr.json by searching upward from the given directory.
- * Returns the parsed config and the directory containing the config file.
+ * Resolve the task file path using a 3-level fallback:
+ * 1. Explicit --file option
+ * 2. Session mapping (HALTR_SESSION_ID -> ~/.haltr/sessions/)
+ * 3. Auto-detect from current directory (task.yaml or *.task.yaml)
  */
-export function findHaltrConfig(startPath: string): { config: HaltrConfig; projectDir: string } {
-	const resolved = resolve(startPath);
-	let dir: string;
-	try {
-		const stats = statSync(resolved);
-		dir = stats.isDirectory() ? resolved : dirname(resolved);
-	} catch {
-		dir = dirname(resolved);
+export function resolveTaskFile(file?: string): string {
+	// 1. Explicit --file
+	if (file) {
+		const resolved = resolve(file);
+		if (!existsSync(resolved)) {
+			throw new Error(`タスクファイルが見つかりません: ${resolved}`);
+		}
+		return resolved;
 	}
 
-	while (true) {
-		const configPath = join(dir, CONFIG_FILE);
-		if (existsSync(configPath)) {
-			try {
-				const content = readFileSync(configPath, "utf-8");
-				const config = JSON.parse(content) as HaltrConfig;
-				return { config, projectDir: dir };
-			} catch {
-				throw new Error(`Invalid ${CONFIG_FILE} at ${configPath}`);
-			}
+	// 2. Session mapping
+	const sessionId = process.env.HALTR_SESSION_ID;
+	if (sessionId) {
+		const mapped = getTaskPathForSession(sessionId);
+		if (mapped && existsSync(mapped)) {
+			return mapped;
 		}
+	}
 
-		const parent = dirname(dir);
-		if (parent === dir) {
+	// 3. Auto-detect from current directory
+	const detected = detectTaskFile(process.cwd());
+	if (detected) {
+		return detected;
+	}
+
+	throw new Error(
+		"タスクファイルが見つかりません。--file で指定してください",
+	);
+}
+
+/**
+ * Detect a task file in the given directory.
+ * Looks for task.yaml first, then *.task.yaml.
+ * Returns null if no task file is found.
+ */
+function detectTaskFile(dir: string): string | null {
+	// Check for task.yaml
+	const taskYaml = resolve(dir, "task.yaml");
+	if (existsSync(taskYaml)) {
+		return taskYaml;
+	}
+
+	// Check for *.task.yaml
+	try {
+		const entries = readdirSync(dir);
+		const taskFiles = entries.filter((e) => e.endsWith(".task.yaml"));
+		if (taskFiles.length === 1) {
+			return resolve(dir, taskFiles[0]);
+		}
+		if (taskFiles.length > 1) {
 			throw new Error(
-				`Could not find ${CONFIG_FILE}. Run 'hal init' first.`,
+				`複数のタスクファイルが見つかりました: ${taskFiles.join(", ")}。--file で指定してください`,
 			);
 		}
-		dir = parent;
-	}
-}
-
-/**
- * Find the haltr directory by searching up for .haltr.json.
- * Returns the path to the haltr directory.
- *
- * @param path - A file path (e.g., task.yaml) or directory path
- * @param searchUpward - If true, search upward from the path. If false, only check the path itself.
- * @throws Error if haltr directory cannot be found
- */
-export function findHaltrDir(path: string, searchUpward = true): string {
-	const { config, projectDir } = findHaltrConfig(path);
-	const haltrDir = join(projectDir, config.directory);
-
-	if (!existsSync(haltrDir)) {
-		throw new Error(
-			`Haltr directory "${config.directory}" not found. Run 'hal init' first.`,
-		);
+	} catch (e) {
+		if (e instanceof Error && e.message.includes("複数のタスクファイル")) {
+			throw e;
+		}
 	}
 
-	return haltrDir;
-}
-
-/**
- * Load config from .haltr.json.
- */
-export function loadConfig(path: string): HaltrConfig {
-	const { config } = findHaltrConfig(path);
-	return config;
-}
-
-/**
- * Validate that a resolved task path is within a haltr directory tree.
- * Checks that findHaltrDir can find the haltr directory from this path.
- * Throws an error if the path is not within a valid haltr tree.
- */
-export function validateTaskPath(resolvedPath: string): void {
-	const normalized = resolve(resolvedPath);
-	try {
-		findHaltrDir(normalized);
-	} catch {
-		throw new Error(
-			`Invalid task path: "${resolvedPath}" is not within a haltr directory tree`,
-		);
-	}
+	return null;
 }
 
 /**
  * Find a step by id in a flat step array.
- * Returns the step or undefined if not found.
  */
 export function findStep(steps: Step[], stepId: string): Step | undefined {
 	return steps.find((s) => s.id === stepId);
@@ -114,7 +96,6 @@ const STATUS_TRANSITIONS: Record<string, Set<string>> = {
 
 /**
  * Validate a status transition.
- * Used for both task and step status changes.
  */
 export function validateStatusTransition(
 	currentStatus: string,
@@ -130,34 +111,4 @@ export function validateStatusTransition(
 	if (!allowed || !allowed.has(newStatus)) {
 		throw new Error(`Invalid status transition: ${current} -> ${newStatus}`);
 	}
-}
-
-/** @deprecated Use validateStatusTransition instead */
-export const validateStepTransition = (
-	currentStatus: string,
-	newStatus: string,
-): void => validateStatusTransition(currentStatus, newStatus, "step status");
-
-/** @deprecated Use validateStatusTransition instead */
-export const validateTaskTransition = (
-	currentStatus: string,
-	newStatus: string,
-): void => validateStatusTransition(currentStatus, newStatus, "task status");
-
-/**
- * Resolve task.yaml path from a session ID.
- * Session ID is expected to be set via HALTR_SESSION_ID env var.
- * The task path is: <haltr_dir>/tasks/<sessionId>/task.yaml
- *
- * @param sessionId - The session ID (from HALTR_SESSION_ID)
- * @param haltrDir - Path to the haltr directory
- * @returns Resolved absolute path to task.yaml
- */
-export function resolveTaskPath(sessionId: string, haltrDir: string): string {
-	if (!sessionId) {
-		throw new Error(
-			"Session ID is required. Set HALTR_SESSION_ID environment variable.",
-		);
-	}
-	return resolve(haltrDir, "tasks", sessionId, "task.yaml");
 }

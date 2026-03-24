@@ -8,6 +8,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 import {
 	type Scenario,
 	type ScenarioContext,
@@ -26,8 +27,7 @@ interface CapturedResult {
  * Normalize paths in output (replace temp paths with placeholders).
  */
 function normalizePaths(output: string): string {
-	// Replace /tmp/hal-catalog-xxx/haltr paths with placeholder
-	return output.replace(/\/tmp\/hal-catalog-[^/\s'"\n]+\/haltr/g, "<haltr>");
+	return output.replace(/\/tmp\/hal-catalog-[^/\s'"\n]+/g, "<tmpdir>");
 }
 
 /**
@@ -62,12 +62,11 @@ function captureOutput(fn: () => void): { output: string; error?: string } {
  * Set up session for catalog test.
  */
 function setupSession(ctx: ScenarioContext, scenarioId: string): void {
-	// Use unique session ID per scenario
 	const sessionId = `catalog-${scenarioId}-${Date.now()}`;
 	process.env.HALTR_SESSION_ID = sessionId;
 
-	// Create session file
-	const sessionsDir = join(ctx.haltrDir, ".sessions");
+	// Create session file in global sessions dir
+	const sessionsDir = join(homedir(), ".haltr", "sessions");
 	mkdirSync(sessionsDir, { recursive: true });
 	writeFileSync(join(sessionsDir, sessionId), ctx.taskPath);
 }
@@ -80,21 +79,14 @@ function runScenario(scenario: Scenario): CapturedResult {
 	const originalCwd = process.cwd();
 
 	try {
-		// Change to temp directory so findHaltrDir works
 		process.chdir(ctx.tmpDir);
-
-		// Set up session to point to the test task
 		setupSession(ctx, scenario.id);
-
-		// Setup scenario
 		scenario.setup(ctx);
 
-		// Run and capture
 		const { output, error } = captureOutput(() => scenario.run(ctx));
 
 		return { scenario, output, error };
 	} finally {
-		// Restore original working directory
 		process.chdir(originalCwd);
 		cleanupContext(ctx);
 	}
@@ -113,7 +105,6 @@ function generateMarkdown(results: CapturedResult[]): string {
 		"",
 	];
 
-	// Group by category
 	const categories: Record<string, CapturedResult[]> = {};
 	for (const result of results) {
 		const cat = result.scenario.category;
@@ -123,13 +114,12 @@ function generateMarkdown(results: CapturedResult[]): string {
 		categories[cat].push(result);
 	}
 
-	const categoryOrder = ["task", "step", "status", "check", "context"];
+	const categoryOrder = ["task", "step", "status", "check"];
 	const categoryNames: Record<string, string> = {
 		task: "Task Commands",
 		step: "Step Commands",
 		status: "Status Command",
 		check: "Check Command (Hook)",
-		context: "Context Commands",
 	};
 
 	for (const cat of categoryOrder) {
@@ -150,14 +140,12 @@ function generateMarkdown(results: CapturedResult[]): string {
 				lines.push(`Error: ${result.error}`);
 				lines.push("```");
 			} else {
-				// Try to parse and pretty-print JSON
 				try {
 					const json = JSON.parse(result.output);
 					lines.push("```json");
 					lines.push(JSON.stringify(json, null, 2));
 					lines.push("```");
 				} catch {
-					// Not JSON, output as-is
 					lines.push("```");
 					lines.push(result.output);
 					lines.push("```");
@@ -196,19 +184,16 @@ export function runCatalog(): void {
 
 	console.log("");
 
-	// Generate markdown
 	const markdown = generateMarkdown(results);
 	const docsDir = join(process.cwd(), "docs");
 	const outputPath = join(docsDir, "message-catalog.md");
 
-	// Ensure docs directory exists
 	mkdirSync(docsDir, { recursive: true });
 
 	writeFileSync(outputPath, markdown);
 	console.log(`Generated: ${outputPath}`);
 }
 
-// Run if executed directly
 const isMain = process.argv[1]?.includes("runner");
 if (isMain) {
 	runCatalog();

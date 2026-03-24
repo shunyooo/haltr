@@ -5,21 +5,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { handleCheck } from "../commands/check.js";
-import {
-	handleContextCreate,
-	handleContextDelete,
-	handleContextList,
-	handleContextLog,
-	handleContextShow,
-} from "../commands/context.js";
 import { handleSessionStart } from "../commands/session.js";
-import {
-	archiveEpic,
-	createEpic,
-	currentEpic,
-	listEpics,
-} from "../commands/epic.js";
-import { initHaltr } from "../commands/init.js";
+import { handleSetup } from "../commands/setup.js";
 import {
 	handleStepAdd,
 	handleStepAddBatch,
@@ -35,14 +22,11 @@ import { handleTaskCreate, handleTaskEdit } from "../commands/task.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Resolve package.json from project root (two levels up from dist/bin/)
 const pkgPath = resolve(__dirname, "..", "..", "package.json");
 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
 
 /**
  * Wrap a command handler with common error handling.
- * Catches errors, prints message, and exits with code 1.
- * Supports both sync and async handlers.
  */
 function withErrorHandler<T extends unknown[]>(
 	fn: (...args: T) => void | Promise<void>,
@@ -65,78 +49,12 @@ program
 	.description("haltr — Quality assurance tool for coding agent outputs")
 	.version(pkg.version);
 
-// ---- init ----
+// ---- setup ----
 
 program
-	.command("init")
-	.description("Initialize haltr directory structure")
-	.option("--dir <dir>", "Directory name (default: work, interactive if not specified)")
-	.action(
-		withErrorHandler((opts: { dir?: string }) =>
-			initHaltr(process.cwd(), opts.dir),
-		),
-	);
-
-// ---- epic ----
-
-const epicCmd = new Command("epic").description(
-	"Manage epics (create, list, current, archive)",
-);
-
-epicCmd
-	.command("create <name>")
-	.description("Create a new epic")
-	.action(
-		withErrorHandler((name: string) => {
-			const epicPath = createEpic(process.cwd(), name);
-			console.log(`Created epic: ${epicPath}`);
-		}),
-	);
-
-epicCmd
-	.command("list")
-	.description("List all epics with status")
-	.action(
-		withErrorHandler(() => {
-			const epics = listEpics(process.cwd());
-			if (epics.length === 0) {
-				console.log("No epics found.");
-				return;
-			}
-			for (const epic of epics) {
-				console.log(`${epic.name}  status: ${epic.status}`);
-			}
-		}),
-	);
-
-epicCmd
-	.command("current")
-	.description("Show the most recent epic")
-	.action(
-		withErrorHandler(() => {
-			const epic = currentEpic(process.cwd());
-			if (!epic) {
-				console.log("No epics found.");
-				return;
-			}
-			console.log(`Epic: ${epic.name}`);
-			if (epic.taskPath) {
-				console.log(`Task: ${epic.taskPath}`);
-			}
-		}),
-	);
-
-epicCmd
-	.command("archive <name>")
-	.description("Archive an epic")
-	.action(
-		withErrorHandler((name: string) => {
-			archiveEpic(process.cwd(), name);
-			console.log(`Archived epic: ${name}`);
-		}),
-	);
-
-program.addCommand(epicCmd);
+	.command("setup")
+	.description("Register haltr hooks in ~/.claude/settings.json")
+	.action(withErrorHandler(() => handleSetup()));
 
 // ---- task ----
 
@@ -144,13 +62,15 @@ const taskCmd = new Command("task").description("Manage tasks (create, edit)");
 
 taskCmd
 	.command("create")
-	.description("Create a new task in the current epic")
+	.description("Create a new task file")
+	.requiredOption("--file <file>", "Task file path (required)")
 	.requiredOption("--goal <goal>", "Task goal")
 	.option("--accept <accept...>", "Accept criteria (repeatable)")
 	.option("--plan <plan>", "Task plan")
 	.action(
 		withErrorHandler(
 			(opts: {
+				file: string;
 				goal: string;
 				accept?: string[];
 				plan?: string;
@@ -161,6 +81,7 @@ taskCmd
 taskCmd
 	.command("edit")
 	.description("Edit the current task")
+	.option("--file <file>", "Task file path")
 	.option("--goal <goal>", "New goal")
 	.option("--accept <accept...>", "New accept criteria (repeatable)")
 	.option("--plan <plan>", "New plan")
@@ -168,6 +89,7 @@ taskCmd
 	.action(
 		withErrorHandler(
 			(opts: {
+				file?: string;
 				goal?: string;
 				accept?: string[];
 				plan?: string;
@@ -186,7 +108,8 @@ const stepCmd = new Command("step").description(
 
 stepCmd
 	.command("add")
-	.description("Add a new step to the current task")
+	.description("Add a new step to the task")
+	.option("--file <file>", "Task file path")
 	.option("--step <step>", "Step ID (single mode)")
 	.option("--goal <goal>", "Step goal (single mode)")
 	.option("--accept <accept...>", "Accept criteria (repeatable)")
@@ -195,6 +118,7 @@ stepCmd
 	.action(
 		withErrorHandler(
 			(opts: {
+				file?: string;
 				step?: string;
 				goal?: string;
 				accept?: string[];
@@ -202,9 +126,10 @@ stepCmd
 				stdin?: boolean;
 			}) => {
 				if (opts.stdin) {
-					handleStepAddBatch();
+					handleStepAddBatch({ file: opts.file });
 				} else if (opts.step && opts.goal) {
 					handleStepAdd({
+						file: opts.file,
 						step: opts.step,
 						goal: opts.goal,
 						accept: opts.accept,
@@ -221,17 +146,19 @@ stepCmd
 	.command("start")
 	.description("Start working on a step")
 	.requiredOption("--step <step>", "Step ID")
-	.action(withErrorHandler((opts: { step: string }) => handleStepStart(opts)));
+	.option("--file <file>", "Task file path")
+	.action(withErrorHandler((opts: { step: string; file?: string }) => handleStepStart(opts)));
 
 stepCmd
 	.command("done")
 	.description("Mark a step as done (PASS/FAIL)")
 	.requiredOption("--step <step>", "Step ID")
 	.requiredOption("--result <result>", "Result: PASS or FAIL")
-	.requiredOption("--message <message>", "Result message (what was done or why it failed)")
+	.requiredOption("--message <message>", "Result message")
+	.option("--file <file>", "Task file path")
 	.action(
 		withErrorHandler(
-			(opts: { step: string; result: string; message: string }) =>
+			(opts: { step: string; result: string; message: string; file?: string }) =>
 				handleStepDone(opts),
 		),
 	);
@@ -240,24 +167,27 @@ stepCmd
 	.command("pause")
 	.description("Pause task work and switch to dialogue mode")
 	.requiredOption("--message <message>", "Reason for pausing")
+	.option("--file <file>", "Task file path")
 	.action(
-		withErrorHandler((opts: { message: string }) => handleStepPause(opts)),
+		withErrorHandler((opts: { message: string; file?: string }) => handleStepPause(opts)),
 	);
 
 stepCmd
 	.command("resume")
 	.description("Resume task work from dialogue mode")
-	.action(withErrorHandler(() => handleStepResume()));
+	.option("--file <file>", "Task file path")
+	.action(withErrorHandler((opts: { file?: string }) => handleStepResume(opts)));
 
 stepCmd
 	.command("verify")
-	.description("Record verification result for a step (called by verify agent)")
+	.description("Record verification result for a step")
 	.requiredOption("--step <step>", "Step ID")
 	.requiredOption("--result <result>", "Result: PASS or FAIL")
-	.requiredOption("--message <message>", "Verification message (why it passed or failed)")
+	.requiredOption("--message <message>", "Verification message")
+	.option("--file <file>", "Task file path")
 	.action(
 		withErrorHandler(
-			(opts: { step: string; result: string; message: string }) =>
+			(opts: { step: string; result: string; message: string; file?: string }) =>
 				handleStepVerify(opts),
 		),
 	);
@@ -269,7 +199,8 @@ program.addCommand(stepCmd);
 program
 	.command("status")
 	.description("Show current task status")
-	.action(withErrorHandler(() => handleStatus()));
+	.option("--file <file>", "Task file path")
+	.action(withErrorHandler((opts: { file?: string }) => handleStatus(opts)));
 
 // ---- check ----
 
@@ -284,63 +215,5 @@ program
 	.command("session-start")
 	.description("SessionStart hook handler (reads session_id from stdin)")
 	.action(() => handleSessionStart());
-
-// ---- context ----
-
-const contextCmd = new Command("context").description(
-	"Manage context (skills and knowledge)",
-);
-
-contextCmd
-	.command("list")
-	.description("List all context entries")
-	.action(withErrorHandler(() => handleContextList()));
-
-contextCmd
-	.command("show")
-	.description("Show content of a context entry")
-	.requiredOption("--id <id>", "Context entry ID")
-	.action(withErrorHandler((opts: { id: string }) => handleContextShow(opts)));
-
-contextCmd
-	.command("create")
-	.description("Create a new context entry")
-	.requiredOption("--type <type>", "Entry type: skill or knowledge")
-	.requiredOption("--id <id>", "Entry ID")
-	.requiredOption("--description <description>", "Entry description")
-	.action(
-		withErrorHandler(
-			(opts: { type: string; id: string; description: string }) =>
-				handleContextCreate(opts),
-		),
-	);
-
-contextCmd
-	.command("delete")
-	.description("Delete a context entry")
-	.requiredOption("--id <id>", "Context entry ID")
-	.requiredOption("--reason <reason>", "Deletion reason")
-	.action(
-		withErrorHandler((opts: { id: string; reason: string }) =>
-			handleContextDelete(opts),
-		),
-	);
-
-contextCmd
-	.command("log")
-	.description("Record a history event for a context entry")
-	.requiredOption("--id <id>", "Context entry ID")
-	.requiredOption(
-		"--type <type>",
-		"Event type: updated, confirmed, deprecated, promoted",
-	)
-	.option("--message <message>", "Event message")
-	.action(
-		withErrorHandler((opts: { id: string; type: string; message?: string }) =>
-			handleContextLog(opts),
-		),
-	);
-
-program.addCommand(contextCmd);
 
 program.parse();

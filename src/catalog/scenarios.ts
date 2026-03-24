@@ -22,15 +22,13 @@ export interface Scenario {
 	id: string;
 	name: string;
 	description: string;
-	category: "task" | "step" | "status" | "check" | "context";
+	category: "task" | "step" | "status" | "check";
 	setup: (ctx: ScenarioContext) => void;
 	run: (ctx: ScenarioContext) => void;
 }
 
 export interface ScenarioContext {
 	tmpDir: string;
-	haltrDir: string;
-	epicDir: string;
 	taskPath: string;
 }
 
@@ -39,20 +37,11 @@ export interface ScenarioContext {
  */
 export function createContext(): ScenarioContext {
 	const tmpDir = join("/tmp", `hal-catalog-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-	const haltrDir = join(tmpDir, "haltr");
-	const epicDir = join(haltrDir, "epics", "test-epic");
-	const taskPath = join(epicDir, "001_task.yaml");
+	const taskPath = join(tmpDir, "task.yaml");
 
-	mkdirSync(join(haltrDir, "epics", "test-epic"), { recursive: true });
-	mkdirSync(join(haltrDir, "context"), { recursive: true });
+	mkdirSync(tmpDir, { recursive: true });
 
-	// Create minimal config
-	writeFileSync(join(haltrDir, "config.yaml"), yaml.dump({ timezone: "Asia/Tokyo" }));
-
-	// Create context index
-	writeFileSync(join(haltrDir, "context", "index.yaml"), yaml.dump([]));
-
-	return { tmpDir, haltrDir, epicDir, taskPath };
+	return { tmpDir, taskPath };
 }
 
 /**
@@ -90,11 +79,9 @@ export const scenarios: Scenario[] = [
 		name: "hal task create",
 		description: "新規タスク作成",
 		category: "task",
-		setup: () => {
-			// No task exists yet - but we need an epic dir
-		},
-		run: () => {
-			handleTaskCreate({ goal: "新機能を実装する", accept: ["テストが通る", "ドキュメント更新"] });
+		setup: () => {},
+		run: (ctx) => {
+			handleTaskCreate({ file: join(ctx.tmpDir, "new-task.yaml"), goal: "新機能を実装する", accept: ["テストが通る", "ドキュメント更新"] });
 		},
 	},
 	{
@@ -105,8 +92,8 @@ export const scenarios: Scenario[] = [
 		setup: (ctx) => {
 			createTask(ctx);
 		},
-		run: () => {
-			handleTaskEdit({ goal: "OAuth2を使用してユーザー認証を実装する", message: "OAuth2採用に伴いゴール更新" });
+		run: (ctx) => {
+			handleTaskEdit({ file: ctx.taskPath, goal: "OAuth2を使用してユーザー認証を実装する", message: "OAuth2採用に伴いゴール更新" });
 		},
 	},
 
@@ -119,8 +106,8 @@ export const scenarios: Scenario[] = [
 		setup: (ctx) => {
 			createTask(ctx);
 		},
-		run: () => {
-			handleStepAdd({ step: "impl", goal: "機能を実装する", accept: ["コンパイル通る"] });
+		run: (ctx) => {
+			handleStepAdd({ file: ctx.taskPath, step: "impl", goal: "機能を実装する", accept: ["コンパイル通る"] });
 		},
 	},
 	{
@@ -133,8 +120,8 @@ export const scenarios: Scenario[] = [
 				steps: [{ id: "impl", goal: "機能を実装する", status: "pending" }],
 			});
 		},
-		run: () => {
-			handleStepStart({ step: "impl" });
+		run: (ctx) => {
+			handleStepStart({ file: ctx.taskPath, step: "impl" });
 		},
 	},
 	{
@@ -148,8 +135,8 @@ export const scenarios: Scenario[] = [
 				steps: [{ id: "impl", goal: "機能を実装する", status: "in_progress" }],
 			});
 		},
-		run: () => {
-			handleStepVerify({ step: "impl", result: "PASS", message: "全テストが通過、accept条件を満たしている" });
+		run: (ctx) => {
+			handleStepVerify({ file: ctx.taskPath, step: "impl", result: "PASS", message: "全テストが通過、accept条件を満たしている" });
 		},
 	},
 	{
@@ -163,8 +150,8 @@ export const scenarios: Scenario[] = [
 				steps: [{ id: "impl", goal: "機能を実装する", status: "in_progress" }],
 			});
 		},
-		run: () => {
-			handleStepVerify({ step: "impl", result: "FAIL", message: "テストが2件失敗している" });
+		run: (ctx) => {
+			handleStepVerify({ file: ctx.taskPath, step: "impl", result: "FAIL", message: "テストが2件失敗している" });
 		},
 	},
 	{
@@ -181,8 +168,8 @@ export const scenarios: Scenario[] = [
 				],
 			});
 		},
-		run: () => {
-			handleStepDone({ step: "impl", result: "PASS", message: "実装完了、全テスト通過" });
+		run: (ctx) => {
+			handleStepDone({ file: ctx.taskPath, step: "impl", result: "PASS", message: "実装完了、全テスト通過" });
 		},
 	},
 	{
@@ -196,8 +183,8 @@ export const scenarios: Scenario[] = [
 				steps: [{ id: "impl", goal: "機能を実装する", status: "in_progress", verified: true }],
 			});
 		},
-		run: () => {
-			handleStepDone({ step: "impl", result: "PASS", message: "実装完了" });
+		run: (ctx) => {
+			handleStepDone({ file: ctx.taskPath, step: "impl", result: "PASS", message: "実装完了" });
 		},
 	},
 	{
@@ -211,8 +198,8 @@ export const scenarios: Scenario[] = [
 				steps: [{ id: "impl", goal: "機能を実装する", status: "in_progress" }],
 			});
 		},
-		run: () => {
-			handleStepPause({ message: "ユーザーから設計方針について質問があった" });
+		run: (ctx) => {
+			handleStepPause({ file: ctx.taskPath, message: "ユーザーから設計方針について質問があった" });
 		},
 	},
 	{
@@ -230,8 +217,8 @@ export const scenarios: Scenario[] = [
 				],
 			});
 		},
-		run: () => {
-			handleStepResume();
+		run: (ctx) => {
+			handleStepResume({ file: ctx.taskPath });
 		},
 	},
 
@@ -246,8 +233,8 @@ export const scenarios: Scenario[] = [
 				steps: [{ id: "impl", goal: "実装", status: "pending" }],
 			});
 		},
-		run: () => {
-			handleStatus();
+		run: (ctx) => {
+			handleStatus({ file: ctx.taskPath });
 		},
 	},
 	{
@@ -264,8 +251,8 @@ export const scenarios: Scenario[] = [
 				],
 			});
 		},
-		run: () => {
-			handleStatus();
+		run: (ctx) => {
+			handleStatus({ file: ctx.taskPath });
 		},
 	},
 	{
@@ -279,8 +266,8 @@ export const scenarios: Scenario[] = [
 				steps: [{ id: "impl", goal: "実装", status: "done", verified: true }],
 			});
 		},
-		run: () => {
-			handleStatus();
+		run: (ctx) => {
+			handleStatus({ file: ctx.taskPath });
 		},
 	},
 
@@ -290,9 +277,7 @@ export const scenarios: Scenario[] = [
 		name: "hal check (no task)",
 		description: "タスクなし → 通過",
 		category: "check",
-		setup: () => {
-			// No task
-		},
+		setup: () => {},
 		run: () => {
 			console.log(JSON.stringify({
 				status: "allow",

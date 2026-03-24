@@ -2,8 +2,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import * as yaml from "js-yaml";
 import { HINTS } from "../lib/hints.js";
 import { buildResponse, formatResponse } from "../lib/response-builder.js";
-import { getCurrentTaskPath } from "../lib/session-manager.js";
-import { findHaltrDir, findStep } from "../lib/task-utils.js";
+import { getSessionId, setSessionTask } from "../lib/session-manager.js";
+import { findStep, resolveTaskFile } from "../lib/task-utils.js";
 import { loadAndValidateTask, validateTask } from "../lib/validator.js";
 import type { HistoryEvent, Step, TaskYaml } from "../types.js";
 
@@ -47,23 +47,21 @@ function formatStepsList(steps: Step[]): Array<{
 
 /**
  * hal step add (single step mode)
- *
- * Add a new step to the current task.
  */
 export function handleStepAdd(opts: {
+	file?: string;
 	step: string;
 	goal: string;
 	accept?: string[];
 	after?: string;
 }): void {
-	const taskPath = getCurrentTaskPath();
+	const taskPath = resolveTaskFile(opts.file);
 	const task = loadAndValidateTask(taskPath);
 
 	if (!task.steps) {
 		task.steps = [];
 	}
 
-	// Check for duplicate step ID
 	const existing = findStep(task.steps, opts.step);
 	if (existing) {
 		throw new Error(`ステップ ID "${opts.step}" は既に存在します`);
@@ -79,7 +77,6 @@ export function handleStepAdd(opts: {
 		newStep.accept = opts.accept.length === 1 ? opts.accept[0] : opts.accept;
 	}
 
-	// Insert step at the right position
 	if (opts.after) {
 		const afterIndex = task.steps.findIndex((s) => s.id === opts.after);
 		if (afterIndex === -1) {
@@ -90,7 +87,6 @@ export function handleStepAdd(opts: {
 		task.steps.push(newStep);
 	}
 
-	// Add history event
 	const now = new Date().toISOString();
 	if (!task.history) {
 		task.history = [];
@@ -103,11 +99,8 @@ export function handleStepAdd(opts: {
 	};
 	task.history.push(event);
 
-	// Validate and save
 	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
-
-	const haltrDir = findHaltrDir(taskPath);
 
 	const response = buildResponse({
 		status: "ok",
@@ -117,7 +110,6 @@ export function handleStepAdd(opts: {
 			goal: opts.goal,
 			status: "pending",
 		},
-		haltrDir,
 		commands_hint: HINTS.STEP_ADDED,
 	});
 
@@ -135,10 +127,8 @@ interface StepInput {
 
 /**
  * hal step add --stdin (batch mode)
- *
- * Add multiple steps from stdin YAML.
  */
-export function handleStepAddBatch(): void {
+export function handleStepAddBatch(opts: { file?: string }): void {
 	const input = readStdin().trim();
 	if (!input) {
 		throw new Error("stdin からステップデータを読み取れませんでした");
@@ -149,7 +139,7 @@ export function handleStepAddBatch(): void {
 		throw new Error("stdin は YAML 配列形式で指定してください");
 	}
 
-	const taskPath = getCurrentTaskPath();
+	const taskPath = resolveTaskFile(opts.file);
 	const task = loadAndValidateTask(taskPath);
 
 	if (!task.steps) {
@@ -161,18 +151,15 @@ export function handleStepAddBatch(): void {
 		task.history = [];
 	}
 
-	// Pre-validate: check for duplicates in input and existing steps
 	const inputIds = new Set<string>();
 	for (const stepInput of stepsInput) {
 		if (!stepInput.id || !stepInput.goal) {
 			throw new Error(`ステップには id と goal が必要です: ${JSON.stringify(stepInput)}`);
 		}
-		// Check duplicate within input
 		if (inputIds.has(stepInput.id)) {
 			throw new Error(`入力内でステップ ID "${stepInput.id}" が重複しています`);
 		}
 		inputIds.add(stepInput.id);
-		// Check duplicate with existing steps
 		const existing = findStep(task.steps, stepInput.id);
 		if (existing) {
 			throw new Error(`ステップ ID "${stepInput.id}" は既に存在します`);
@@ -182,7 +169,6 @@ export function handleStepAddBatch(): void {
 	const addedSteps: string[] = [];
 
 	for (const stepInput of stepsInput) {
-
 		const newStep: Step = {
 			id: stepInput.id,
 			goal: stepInput.goal,
@@ -196,7 +182,6 @@ export function handleStepAddBatch(): void {
 		task.steps.push(newStep);
 		addedSteps.push(stepInput.id);
 
-		// Add history event
 		const event: HistoryEvent = {
 			at: now,
 			type: "step_added",
@@ -206,11 +191,8 @@ export function handleStepAddBatch(): void {
 		task.history.push(event);
 	}
 
-	// Validate and save
 	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
-
-	const haltrDir = findHaltrDir(taskPath);
 
 	const response = buildResponse({
 		status: "ok",
@@ -219,7 +201,6 @@ export function handleStepAddBatch(): void {
 			added: addedSteps,
 			steps: formatStepsList(task.steps),
 		},
-		haltrDir,
 		commands_hint: HINTS.STEP_ADDED,
 	});
 
@@ -229,10 +210,10 @@ export function handleStepAddBatch(): void {
 /**
  * hal step start
  *
- * Start working on a step.
+ * Start working on a step. Updates session mapping.
  */
-export function handleStepStart(opts: { step: string }): void {
-	const taskPath = getCurrentTaskPath();
+export function handleStepStart(opts: { file?: string; step: string }): void {
+	const taskPath = resolveTaskFile(opts.file);
 	const task = loadAndValidateTask(taskPath);
 
 	if (!task.steps) {
@@ -253,12 +234,10 @@ export function handleStepStart(opts: { step: string }): void {
 
 	step.status = "in_progress";
 
-	// Also set task to in_progress if still pending
 	if (task.status === "pending" || !task.status) {
 		task.status = "in_progress";
 	}
 
-	// Add history event
 	const now = new Date().toISOString();
 	if (!task.history) {
 		task.history = [];
@@ -270,11 +249,16 @@ export function handleStepStart(opts: { step: string }): void {
 	};
 	task.history.push(event);
 
-	// Validate and save
 	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
 
-	const haltrDir = findHaltrDir(taskPath);
+	// Update session mapping (supports cross-session handoff)
+	try {
+		const sessionId = getSessionId();
+		setSessionTask(sessionId, taskPath);
+	} catch {
+		// No session ID — skip mapping
+	}
 
 	const responseData: Record<string, unknown> = {
 		step_id: opts.step,
@@ -292,8 +276,6 @@ export function handleStepStart(opts: { step: string }): void {
 		status: "ok",
 		message: `ステップを開始しました: ${opts.step}`,
 		data: responseData,
-		haltrDir,
-		notes_prompt: HINTS.STATUS_NOTES_IN_PROGRESS,
 		commands_hint: HINTS.STEP_STARTED,
 	});
 
@@ -302,10 +284,9 @@ export function handleStepStart(opts: { step: string }): void {
 
 /**
  * hal step done
- *
- * Mark a step as done (PASS) or record failure (FAIL).
  */
 export function handleStepDone(opts: {
+	file?: string;
 	step: string;
 	result: string;
 	message: string;
@@ -315,7 +296,7 @@ export function handleStepDone(opts: {
 		throw new Error("--result は PASS または FAIL を指定してください");
 	}
 
-	const taskPath = getCurrentTaskPath();
+	const taskPath = resolveTaskFile(opts.file);
 	const task = loadAndValidateTask(taskPath);
 
 	if (!task.steps) {
@@ -334,7 +315,6 @@ export function handleStepDone(opts: {
 		);
 	}
 
-	// Check verification status (only required if accept criteria exist)
 	if (result === "PASS" && step.accept && !step.verified) {
 		throw new Error(
 			`ステップ "${opts.step}" は未検証です。先にサブエージェントで hal step verify --step ${opts.step} --result PASS|FAIL を実行してください`,
@@ -356,7 +336,6 @@ export function handleStepDone(opts: {
 		};
 		task.history.push(event);
 	} else {
-		// FAIL: keep as in_progress for retry
 		const event: HistoryEvent = {
 			at: now,
 			type: "step_failed",
@@ -366,7 +345,6 @@ export function handleStepDone(opts: {
 		task.history.push(event);
 	}
 
-	// Check if all steps are done
 	const allDone =
 		task.steps.length > 0 &&
 		task.steps.every((s) => s.status === "done");
@@ -381,11 +359,8 @@ export function handleStepDone(opts: {
 		task.history.push(completedEvent);
 	}
 
-	// Validate and save
 	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
-
-	const haltrDir = findHaltrDir(taskPath);
 
 	const responseData: Record<string, unknown> = {
 		step_id: opts.step,
@@ -404,7 +379,6 @@ export function handleStepDone(opts: {
 	} else if (result === "FAIL") {
 		commandsHint = HINTS.STEP_DONE_FAIL;
 	} else {
-		// Find next pending step
 		const nextStep = task.steps.find((s) => (s.status ?? "pending") === "pending");
 		if (nextStep) {
 			commandsHint = HINTS.STEP_DONE_NEXT(nextStep.id);
@@ -420,8 +394,6 @@ export function handleStepDone(opts: {
 				? `ステップ完了: ${opts.step}`
 				: `ステップ失敗: ${opts.step}`,
 		data: responseData,
-		haltrDir,
-		notes_prompt: HINTS.STATUS_NOTES_DONE,
 		commands_hint: commandsHint,
 	});
 
@@ -430,11 +402,9 @@ export function handleStepDone(opts: {
 
 /**
  * hal step pause
- *
- * Pause the current work (copilot mode).
  */
-export function handleStepPause({ message }: { message: string }): void {
-	const taskPath = getCurrentTaskPath();
+export function handleStepPause(opts: { file?: string; message: string }): void {
+	const taskPath = resolveTaskFile(opts.file);
 	const task = loadAndValidateTask(taskPath);
 
 	const now = new Date().toISOString();
@@ -444,17 +414,13 @@ export function handleStepPause({ message }: { message: string }): void {
 	const event: HistoryEvent = {
 		at: now,
 		type: "paused",
-		message,
+		message: opts.message,
 	};
 	task.history.push(event);
 
-	// Validate and save
 	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
 
-	const haltrDir = findHaltrDir(taskPath);
-
-	// Find current in_progress step
 	const currentStep = task.steps?.find((s) => s.status === "in_progress");
 
 	const responseData: Record<string, unknown> = {
@@ -467,13 +433,12 @@ export function handleStepPause({ message }: { message: string }): void {
 		responseData.step_goal = currentStep.goal;
 	}
 
-	responseData.pause_reason = message;
+	responseData.pause_reason = opts.message;
 
 	const response = buildResponse({
 		status: "ok",
-		message: `作業を一時停止しました: ${message}`,
+		message: `作業を一時停止しました: ${opts.message}`,
 		data: responseData,
-		haltrDir,
 		commands_hint: HINTS.STEP_PAUSED,
 	});
 
@@ -482,11 +447,9 @@ export function handleStepPause({ message }: { message: string }): void {
 
 /**
  * hal step resume
- *
- * Resume paused work.
  */
-export function handleStepResume(): void {
-	const taskPath = getCurrentTaskPath();
+export function handleStepResume(opts: { file?: string }): void {
+	const taskPath = resolveTaskFile(opts.file);
 	const task = loadAndValidateTask(taskPath);
 
 	const now = new Date().toISOString();
@@ -500,13 +463,9 @@ export function handleStepResume(): void {
 	};
 	task.history.push(event);
 
-	// Validate and save
 	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
 
-	const haltrDir = findHaltrDir(taskPath);
-
-	// Find current in_progress step(s)
 	const inProgressSteps = (task.steps ?? []).filter((s) => s.status === "in_progress");
 	const pendingSteps = (task.steps ?? []).filter((s) => s.status === "pending" || !s.status);
 
@@ -532,7 +491,6 @@ export function handleStepResume(): void {
 		status: "ok",
 		message: "作業を再開しました",
 		data,
-		haltrDir,
 		commands_hint: HINTS.STEP_RESUMED,
 	});
 
@@ -541,16 +499,14 @@ export function handleStepResume(): void {
 
 /**
  * hal step verify
- *
- * Record verification result for a step.
- * Called by a verify agent (not the executor).
  */
 export function handleStepVerify(opts: {
+	file?: string;
 	step: string;
 	result: string;
 	message: string;
 }): void {
-	const taskPath = getCurrentTaskPath();
+	const taskPath = resolveTaskFile(opts.file);
 	const task = loadAndValidateTask(taskPath);
 
 	if (!task.steps || task.steps.length === 0) {
@@ -567,10 +523,8 @@ export function handleStepVerify(opts: {
 		throw new Error('result は PASS または FAIL を指定してください');
 	}
 
-	// Update verified flag
 	step.verified = result === "PASS";
 
-	// Add history event
 	const now = new Date().toISOString();
 	if (!task.history) {
 		task.history = [];
@@ -584,11 +538,8 @@ export function handleStepVerify(opts: {
 	};
 	task.history.push(event);
 
-	// Validate and save
 	validateTask(task);
 	writeFileSync(taskPath, yaml.dump(task, { lineWidth: -1 }));
-
-	const haltrDir = findHaltrDir(taskPath);
 
 	const response = buildResponse({
 		status: "ok",
@@ -600,7 +551,6 @@ export function handleStepVerify(opts: {
 			result,
 			verified: step.verified,
 		},
-		haltrDir,
 		commands_hint: result === "PASS"
 			? HINTS.STEP_DONE_NEXT(opts.step)
 			: HINTS.STEP_DONE_FAIL,

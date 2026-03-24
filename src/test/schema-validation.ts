@@ -11,14 +11,10 @@ import { join } from "node:path";
 import * as yaml from "js-yaml";
 import {
 	findStep,
-	resolveTaskPath,
-	validateStepTransition,
-	validateTaskTransition,
+	validateStatusTransition,
 } from "../lib/task-utils.js";
 import {
-	loadAndValidateConfig,
 	loadAndValidateTask,
-	validateConfig,
 	validateTask,
 } from "../lib/validator.js";
 
@@ -75,7 +71,6 @@ function assertEqual(actual: unknown, expected: unknown, label?: string): void {
 	}
 }
 
-// Helper: create a temp dir for test files
 const tmpDir = mkdtempSync(join(tmpdir(), "haltr-test-"));
 
 // ============================================================================
@@ -348,7 +343,6 @@ for (const eventType of eventTypes) {
 			at: "2026-03-22T10:00:00Z",
 			type: eventType,
 		};
-		// Step events require step field
 		if (
 			["step_added", "step_started", "step_done", "step_failed"].includes(
 				eventType,
@@ -356,7 +350,6 @@ for (const eventType of eventTypes) {
 		) {
 			event.step = "s1";
 		}
-		// All events can have optional message
 		event.message = `Test ${eventType}`;
 
 		const data = {
@@ -376,7 +369,6 @@ test("History: step event without step field -> error", () => {
 			{
 				at: "2026-03-22T10:00:00Z",
 				type: "step_started",
-				// missing step field
 			},
 		],
 	};
@@ -431,59 +423,7 @@ test("History: 'by' field is optional", () => {
 });
 
 // ============================================================================
-// Section 4: Config Schema Validation
-// ============================================================================
-console.log("\n--- Config Schema Validation ---");
-
-test("Empty config -> error (directory required)", () => {
-	expectThrows(() => validateConfig({}));
-});
-
-test("Config with timezone only -> error (directory required)", () => {
-	expectThrows(() => validateConfig({ timezone: "Asia/Tokyo" }));
-});
-
-test("Config with directory only", () => {
-	const result = validateConfig({ directory: "my-work" });
-	assertEqual(result.directory, "my-work");
-});
-
-test("Config with both directory and timezone", () => {
-	const result = validateConfig({
-		directory: "work",
-		timezone: "UTC",
-	});
-	assertEqual(result.directory, "work");
-	assertEqual(result.timezone, "UTC");
-});
-
-test("Config: orchestrator_cli -> error (not supported)", () => {
-	expectThrows(() => validateConfig({ orchestrator_cli: "claude" }));
-});
-
-test("Config: watcher -> error (not supported)", () => {
-	expectThrows(
-		() =>
-			validateConfig({
-				watcher: { poll_interval: 30, inactivity_threshold: 300 },
-			}),
-	);
-});
-
-test("Config: panes -> error (not supported)", () => {
-	expectThrows(() => validateConfig({ panes: { max_concurrent: 10 } }));
-});
-
-test("Config: retry -> error (not supported)", () => {
-	expectThrows(() => validateConfig({ retry: { max_attempts: 3 } }));
-});
-
-test("Config: unknown field -> error", () => {
-	expectThrows(() => validateConfig({ unknown_field: "value" }));
-});
-
-// ============================================================================
-// Section 5: File I/O (loadAndValidate*)
+// Section 4: File I/O
 // ============================================================================
 console.log("\n--- File I/O Tests ---");
 
@@ -502,98 +442,49 @@ test("loadAndValidateTask with invalid YAML -> error", () => {
 	expectThrows(() => loadAndValidateTask(filePath));
 });
 
-test("loadAndValidateConfig with JSON file", () => {
-	const configJson = JSON.stringify({ directory: "work", timezone: "Asia/Tokyo" });
-	const filePath = join(tmpDir, "test-config.json");
-	writeFileSync(filePath, configJson);
-	const result = loadAndValidateConfig(filePath);
-	assertEqual(result.directory, "work");
-	assertEqual(result.timezone, "Asia/Tokyo");
+// ============================================================================
+// Section 5: Status Transitions
+// ============================================================================
+console.log("\n--- Status Transitions ---");
+
+test("pending -> in_progress (valid)", () => {
+	validateStatusTransition("pending", "in_progress");
 });
 
-test("loadAndValidateConfig with minimal JSON (directory only)", () => {
-	const filePath = join(tmpDir, "minimal-config.json");
-	writeFileSync(filePath, JSON.stringify({ directory: "work" }));
-	const result = loadAndValidateConfig(filePath);
-	assertEqual(result.directory, "work");
+test("in_progress -> done (valid)", () => {
+	validateStatusTransition("in_progress", "done");
+});
+
+test("in_progress -> failed (valid)", () => {
+	validateStatusTransition("in_progress", "failed");
+});
+
+test("failed -> in_progress (retry, valid)", () => {
+	validateStatusTransition("failed", "in_progress");
+});
+
+test("pending -> done (invalid)", () => {
+	expectThrows(() => validateStatusTransition("pending", "done"));
+});
+
+test("done -> in_progress (invalid)", () => {
+	expectThrows(() => validateStatusTransition("done", "in_progress"));
+});
+
+test("pending -> failed (invalid)", () => {
+	expectThrows(() => validateStatusTransition("pending", "failed"));
+});
+
+test("invalid status 'blocked' -> error", () => {
+	expectThrows(() => validateStatusTransition("pending", "blocked"));
+});
+
+test("invalid status 'skipped' -> error", () => {
+	expectThrows(() => validateStatusTransition("pending", "skipped"));
 });
 
 // ============================================================================
-// Section 6: Step Status Transitions
-// ============================================================================
-console.log("\n--- Step Status Transitions ---");
-
-test("Step: pending -> in_progress (valid)", () => {
-	validateStepTransition("pending", "in_progress");
-});
-
-test("Step: in_progress -> done (valid)", () => {
-	validateStepTransition("in_progress", "done");
-});
-
-test("Step: in_progress -> failed (valid)", () => {
-	validateStepTransition("in_progress", "failed");
-});
-
-test("Step: failed -> in_progress (retry, valid)", () => {
-	validateStepTransition("failed", "in_progress");
-});
-
-test("Step: pending -> done (invalid)", () => {
-	expectThrows(() => validateStepTransition("pending", "done"));
-});
-
-test("Step: done -> in_progress (invalid)", () => {
-	expectThrows(() => validateStepTransition("done", "in_progress"));
-});
-
-test("Step: pending -> failed (invalid)", () => {
-	expectThrows(() => validateStepTransition("pending", "failed"));
-});
-
-test("Step: invalid status 'blocked' -> error (not supported)", () => {
-	expectThrows(() => validateStepTransition("pending", "blocked"));
-});
-
-test("Step: invalid status 'skipped' -> error (not supported)", () => {
-	expectThrows(() => validateStepTransition("pending", "skipped"));
-});
-
-// ============================================================================
-// Section 7: Task Status Transitions
-// ============================================================================
-console.log("\n--- Task Status Transitions ---");
-
-test("Task: pending -> in_progress (valid)", () => {
-	validateTaskTransition("pending", "in_progress");
-});
-
-test("Task: in_progress -> done (valid)", () => {
-	validateTaskTransition("in_progress", "done");
-});
-
-test("Task: in_progress -> failed (valid)", () => {
-	validateTaskTransition("in_progress", "failed");
-});
-
-test("Task: failed -> in_progress (retry, valid)", () => {
-	validateTaskTransition("failed", "in_progress");
-});
-
-test("Task: pending -> done (invalid)", () => {
-	expectThrows(() => validateTaskTransition("pending", "done"));
-});
-
-test("Task: done -> failed (invalid)", () => {
-	expectThrows(() => validateTaskTransition("done", "failed"));
-});
-
-test("Task: invalid status 'pivoted' -> error (not supported)", () => {
-	expectThrows(() => validateTaskTransition("pending", "pivoted"));
-});
-
-// ============================================================================
-// Section 8: Task Utils
+// Section 6: Task Utils
 // ============================================================================
 console.log("\n--- Task Utils ---");
 
@@ -617,19 +508,8 @@ test("findStep returns undefined for missing step", () => {
 	}
 });
 
-test("resolveTaskPath builds correct path", () => {
-	const result = resolveTaskPath("my-session", "/project/haltr");
-	if (!result.endsWith("/project/haltr/tasks/my-session/task.yaml")) {
-		throw new Error(`Unexpected path: ${result}`);
-	}
-});
-
-test("resolveTaskPath throws on empty session ID", () => {
-	expectThrows(() => resolveTaskPath("", "/project/haltr"), "Session ID");
-});
-
 // ============================================================================
-// Section 9: All valid task statuses
+// Section 7: All valid statuses
 // ============================================================================
 console.log("\n--- Valid Statuses ---");
 

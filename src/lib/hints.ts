@@ -1,6 +1,5 @@
 /**
  * Centralized command hints for agent guidance.
- * All hints are defined here for easy maintenance.
  */
 
 export const HINTS = {
@@ -31,19 +30,6 @@ export const HINTS = {
 	STATUS_NO_STEPS: "hal step add --step <step-id> --goal '<goal>' でステップを追加してください",
 	STATUS_PENDING: "hal step start --step <step-id> でステップを開始してください",
 	STATUS_ADD_OR_CHECK: "hal step add で新しいステップを追加するか、残りの作業を確認してください",
-	STATUS_NOTES:
-		"重要な情報があれば notes.md に記録してください",
-	STATUS_NOTES_IN_PROGRESS:
-		"作業中に重要な発見や決定事項があれば notes.md に記録してください",
-	STATUS_NOTES_DONE:
-		"作業結果や重要な発見を notes.md に記録してください",
-
-	// Context hints
-	CONTEXT_LIST:
-		"hal context show --id <id> で内容を表示、hal context create --type <skill|knowledge> --id <id> --description '<desc>' で新規作成",
-	CONTEXT_CREATED: (id: string) =>
-		`ファイルに内容を直接書き込んでください。書き込み後 hal context log --id ${id} --type updated --message '<変更内容>' で変更履歴を記録してください`,
-	CONTEXT_SHOWN: "hal context log --id <id> --type confirmed で最新であることを確認できます",
 
 	// Check hints
 	CHECK_BLOCKED:

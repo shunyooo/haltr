@@ -1,6 +1,6 @@
 {
   "name": "haltr",
-  "version": "2.0.4",
+  "version": "3.0.0",
   "description": "Quality assurance tool for coding agent outputs",
   "type": "module",
   "main": "./dist/bin/hal.js",
@@ -8,7 +8,7 @@
     "hal": "dist/bin/hal.js"
   },
   "scripts": {
-    "build": "tsc && cp -r src/templates dist/",
+    "build": "tsc",
     "test": "node --import tsx src/test/schema-validation.ts && node --import tsx src/test/commands-test.ts",
     "test:schema": "node --import tsx src/test/schema-validation.ts",
     "test:commands": "node --import tsx src/test/commands-test.ts",

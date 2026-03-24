@@ -3,11 +3,6 @@
 /** Unified status type for both tasks and steps */
 export type Status = "pending" | "in_progress" | "done" | "failed";
 
-/** @deprecated Use Status instead */
-export type StepStatus = Status;
-/** @deprecated Use Status instead */
-export type TaskStatus = Status;
-
 // ---- Step types ----
 
 export interface Step {
@@ -109,12 +104,4 @@ export interface TaskYaml {
 	context?: string;
 	steps?: Step[];
 	history?: HistoryEvent[];
-}
-
-// ---- Config types ----
-
-/** .haltr.json configuration */
-export interface HaltrConfig {
-	directory: string;
-	timezone?: string;
 }
