@@ -1,50 +1,28 @@
 {
   "name": "haltr",
-  "version": "3.0.3",
+  "version": "4.0.0",
   "description": "Quality assurance tool for coding agent outputs",
-  "type": "module",
-  "main": "./dist/bin/hal.js",
   "bin": {
-    "hal": "dist/bin/hal.js"
+    "hal": "dist/bin/hal"
   },
   "scripts": {
-    "build": "tsc",
-    "test": "node --import tsx src/test/schema-validation.ts && node --import tsx src/test/commands-test.ts",
-    "test:schema": "node --import tsx src/test/schema-validation.ts",
-    "test:commands": "node --import tsx src/test/commands-test.ts",
-"catalog": "node --import tsx .catalog/sync-check.ts && node --import tsx .catalog/generator.ts",
-    "lint": "biome lint src/",
-    "lint:fix": "biome lint --write src/"
+    "build:rs": "cd exp/20260325-001_haltr-rust-rewrite/sandbox/haltr-rs && cargo build --release && cp target/release/hal ../../../../dist/bin/hal",
+    "test:rs": "cd exp/20260325-001_haltr-rust-rewrite/sandbox/haltr-rs && cargo test"
   },
   "keywords": [
     "coding-agent",
-    "orchestration",
     "quality-assurance",
-    "tmux",
+    "task-management",
     "cli"
   ],
   "license": "MIT",
   "files": [
-    "dist/",
-    "!dist/test/"
+    "dist/bin/hal"
   ],
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "ajv": "^8.17.1",
-    "commander": "^13.1.0",
-    "ink": "^6.8.0",
-    "js-yaml": "^4.1.0",
-    "react": "^19.2.4"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.4.8",
-    "@types/js-yaml": "^4.0.9",
-    "@types/node": "^25.5.0",
-    "@types/react": "^19.2.14",
-    "react-devtools-core": "^7.0.1",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.3"
-  }
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ]
 }

@@ -7,11 +7,15 @@ interface HookEntry {
 	command: string;
 }
 
+interface HookGroup {
+	hooks: HookEntry[];
+}
+
 interface HooksConfig {
 	hooks?: {
-		SessionStart?: HookEntry[];
-		Stop?: HookEntry[];
-		[key: string]: HookEntry[] | undefined;
+		SessionStart?: HookGroup[];
+		Stop?: HookGroup[];
+		[key: string]: HookGroup[] | undefined;
 	};
 	[key: string]: unknown;
 }
@@ -38,34 +42,30 @@ export function handleSetup(): void {
 		settings.hooks = {};
 	}
 
-	const sessionStartHook: HookEntry = {
-		type: "command",
-		command: "hal session-start",
-	};
-
-	const stopHook: HookEntry = {
-		type: "command",
-		command: "hal check",
-	};
-
+	// SessionStart hook
 	if (!settings.hooks.SessionStart) {
 		settings.hooks.SessionStart = [];
 	}
 	const hasSessionStart = settings.hooks.SessionStart.some(
-		(h) => h.command === "hal session-start",
+		(group) => group.hooks?.some((h) => h.command === "hal session-start"),
 	);
 	if (!hasSessionStart) {
-		settings.hooks.SessionStart.push(sessionStartHook);
+		settings.hooks.SessionStart.push({
+			hooks: [{ type: "command", command: "hal session-start" }],
+		});
 	}
 
+	// Stop hook
 	if (!settings.hooks.Stop) {
 		settings.hooks.Stop = [];
 	}
 	const hasStop = settings.hooks.Stop.some(
-		(h) => h.command === "hal check",
+		(group) => group.hooks?.some((h) => h.command === "hal check"),
 	);
 	if (!hasStop) {
-		settings.hooks.Stop.push(stopHook);
+		settings.hooks.Stop.push({
+			hooks: [{ type: "command", command: "hal check" }],
+		});
 	}
 
 	const settingsDir = dirname(settingsPath);
