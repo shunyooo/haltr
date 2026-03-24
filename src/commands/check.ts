@@ -111,6 +111,6 @@ export function handleCheck(): void {
 		commands_hint: HINTS.CHECK_BLOCKED,
 	});
 
-	console.log(formatResponse(response));
+	console.error(formatResponse(response));
 	process.exit(2);
 }
