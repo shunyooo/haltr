@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+
+const { execFileSync } = require("child_process");
+const path = require("path");
+
+const isWindows = process.platform === "win32";
+const binName = isWindows ? "hal.exe" : "hal";
+const binPath = path.join(__dirname, binName);
+
+try {
+  execFileSync(binPath, process.argv.slice(2), { stdio: "inherit" });
+} catch (e) {
+  if (e.status !== undefined) {
+    process.exit(e.status);
+  }
+  console.error("hal binary not found. Try reinstalling: npm install -g @newdefs/haltr");
+  process.exit(1);
+}

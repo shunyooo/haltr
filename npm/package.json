@@ -1,0 +1,22 @@
+{
+  "name": "@newdefs/haltr",
+  "version": "4.0.1",
+  "description": "Quality assurance tool for coding agent outputs",
+  "bin": {
+    "hal": "bin/hal"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "license": "MIT",
+  "files": [
+    "bin/",
+    "install.js"
+  ],
+  "keywords": [
+    "coding-agent",
+    "quality-assurance",
+    "task-management",
+    "cli"
+  ]
+}

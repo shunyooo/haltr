@@ -1,24 +1,8 @@
 {
-  "name": "haltr",
-  "version": "4.0.0",
-  "description": "Quality assurance tool for coding agent outputs",
-  "bin": {
-    "hal": "dist/bin/hal"
-  },
-  "keywords": [
-    "coding-agent",
-    "quality-assurance",
-    "task-management",
-    "cli"
-  ],
-  "license": "MIT",
-  "files": [
-    "dist/bin/hal"
-  ],
-  "os": [
-    "linux"
-  ],
-  "cpu": [
-    "x64"
-  ]
+  "private": true,
+  "description": "haltr monorepo — Rust source + npm package",
+  "scripts": {
+    "build": "cd exp/20260325-001_haltr-rust-rewrite/sandbox/haltr-rs 2>/dev/null && cargo build --release || cargo build --release",
+    "test": "cargo test"
+  }
 }

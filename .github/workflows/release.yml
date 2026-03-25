@@ -88,7 +88,7 @@ jobs:
           generate_release_notes: true
 
   npm-publish:
-    needs: build
+    needs: release
     runs-on: ubuntu-latest
 
     steps:
@@ -99,131 +99,15 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Prepare platform packages
-        run: |
-          # Create platform-specific npm packages
-          for pkg in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win-x64; do
-            dir="npm/@haltr/cli-${pkg}"
-            mkdir -p "${dir}"
-
-            # Determine binary name and os/cpu
-            case $pkg in
-              linux-x64)   os=linux;  cpu=x64;  bin=hal-linux-x64 ;;
-              linux-arm64) os=linux;  cpu=arm64; bin=hal-linux-arm64 ;;
-              darwin-x64)  os=darwin; cpu=x64;  bin=hal-darwin-x64 ;;
-              darwin-arm64) os=darwin; cpu=arm64; bin=hal-darwin-arm64 ;;
-              win-x64)     os=win32;  cpu=x64;  bin=hal-win-x64.exe ;;
-            esac
-
-            # Copy binary
-            if [ "$pkg" = "win-x64" ]; then
-              cp "artifacts/${bin}/${bin}" "${dir}/hal.exe"
-            else
-              cp "artifacts/${bin}/${bin}" "${dir}/hal"
-              chmod +x "${dir}/hal"
-            fi
-
-            # Create package.json
-            VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
-            cat > "${dir}/package.json" << PKGJSON
-            {
-              "name": "@haltr/cli-${pkg}",
-              "version": "${VERSION}",
-              "description": "haltr binary for ${os}-${cpu}",
-              "os": ["${os}"],
-              "cpu": ["${cpu}"],
-              "license": "MIT",
-              "files": ["hal*"]
-            }
-          PKGJSON
-          done
-
-      - name: Prepare main package
+      - name: Update npm package version
         run: |
           VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
-          mkdir -p npm/haltr
+          cd npm
+          node -e "const p=require('./package.json'); p.version='${VERSION}'; require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2)+'\n')"
 
-          # Create install script
-          cat > npm/haltr/install.js << 'INSTALLJS'
-          const { execSync } = require('child_process');
-          const os = require('os');
-
-          const platform = os.platform();
-          const arch = os.arch() === 'arm64' ? 'arm64' : 'x64';
-
-          let pkg;
-          switch (platform) {
-            case 'linux':  pkg = `@haltr/cli-linux-${arch}`; break;
-            case 'darwin': pkg = `@haltr/cli-darwin-${arch}`; break;
-            case 'win32':  pkg = `@haltr/cli-win-${arch}`; break;
-            default: console.error(`Unsupported platform: ${platform}`); process.exit(1);
-          }
-
-          console.log(`Installing ${pkg}...`);
-          execSync(`npm install ${pkg}@${process.env.npm_package_version}`, { stdio: 'inherit' });
-          INSTALLJS
-
-          # Create bin wrapper
-          mkdir -p npm/haltr/bin
-          cat > npm/haltr/bin/hal << 'WRAPPER'
-          #!/usr/bin/env node
-          const { execFileSync } = require('child_process');
-          const path = require('path');
-          const os = require('os');
-
-          const platform = os.platform();
-          const arch = os.arch() === 'arm64' ? 'arm64' : 'x64';
-          const ext = platform === 'win32' ? '.exe' : '';
-
-          let pkg;
-          switch (platform) {
-            case 'linux':  pkg = `@haltr/cli-linux-${arch}`; break;
-            case 'darwin': pkg = `@haltr/cli-darwin-${arch}`; break;
-            case 'win32':  pkg = `@haltr/cli-win-${arch}`; break;
-          }
-
-          const binPath = path.join(__dirname, '..', 'node_modules', pkg, `hal${ext}`);
-
-          try {
-            execFileSync(binPath, process.argv.slice(2), { stdio: 'inherit' });
-          } catch (e) {
-            process.exit(e.status || 1);
-          }
-          WRAPPER
-          chmod +x npm/haltr/bin/hal
-
-          # Create package.json
-          cat > npm/haltr/package.json << PKGJSON
-          {
-            "name": "haltr",
-            "version": "${VERSION}",
-            "description": "Quality assurance tool for coding agent outputs",
-            "bin": { "hal": "bin/hal" },
-            "scripts": { "postinstall": "node install.js" },
-            "license": "MIT",
-            "files": ["bin/", "install.js"],
-            "keywords": ["coding-agent", "quality-assurance", "task-management", "cli"]
-          }
-          PKGJSON
-
-      - name: Publish platform packages
+      - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          for pkg in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win-x64; do
-            cd "npm/@haltr/cli-${pkg}"
-            npm publish --access public || true
-            cd -
-          done
-
-      - name: Publish main package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          cd npm/haltr
+          cd npm
           npm publish --access public
