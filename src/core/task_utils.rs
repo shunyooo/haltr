@@ -1,8 +1,8 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::lib::session::get_task_path_for_session;
+use crate::core::session::get_task_path_for_session;
 
 /// Resolve the task file path using a 3-level fallback:
 /// 1. Explicit --file option
@@ -65,6 +65,7 @@ fn detect_task_file(dir: &Path) -> Option<PathBuf> {
 }
 
 /// Validate a status transition.
+#[allow(dead_code)]
 pub fn validate_status_transition(current: &str, new: &str) -> Result<()> {
     let valid = ["pending", "in_progress", "done", "failed"];
     if !valid.contains(&new) {

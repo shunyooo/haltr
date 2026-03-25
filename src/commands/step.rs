@@ -2,11 +2,11 @@ use anyhow::{Result, bail};
 use std::collections::BTreeMap;
 use std::io::Read;
 
-use crate::lib::hints;
-use crate::lib::response::HalResponse;
-use crate::lib::session::{get_session_id, set_session_task};
-use crate::lib::task_utils::resolve_task_file;
-use crate::lib::validator::{load_and_validate_task, save_task};
+use crate::core::hints;
+use crate::core::response::HalResponse;
+use crate::core::session::{get_session_id, set_session_task};
+use crate::core::task_utils::resolve_task_file;
+use crate::core::validator::{load_and_validate_task, save_task};
 use crate::types::{AcceptCriteria, HistoryEvent, Status, Step};
 
 fn find_step_index(steps: &[Step], step_id: &str) -> Option<usize> {

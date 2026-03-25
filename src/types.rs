@@ -1,18 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
+    #[default]
     Pending,
     InProgress,
     Done,
     Failed,
-}
-
-impl Default for Status {
-    fn default() -> Self {
-        Status::Pending
-    }
 }
 
 impl std::fmt::Display for Status {

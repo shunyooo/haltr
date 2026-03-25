@@ -1,10 +1,10 @@
 use anyhow::Result;
 use std::collections::BTreeMap;
 
-use crate::lib::hints;
-use crate::lib::response::HalResponse;
-use crate::lib::task_utils::resolve_task_file;
-use crate::lib::validator::load_and_validate_task;
+use crate::core::hints;
+use crate::core::response::HalResponse;
+use crate::core::task_utils::resolve_task_file;
+use crate::core::validator::load_and_validate_task;
 use crate::types::Status;
 
 pub fn handle_status(file: Option<&str>) -> Result<()> {

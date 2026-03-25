@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 use std::io::Read;
 
-use crate::lib::hints;
-use crate::lib::response::HalResponse;
-use crate::lib::session::get_task_path_for_session;
-use crate::lib::validator::load_and_validate_task;
+use crate::core::hints;
+use crate::core::response::HalResponse;
+use crate::core::session::get_task_path_for_session;
+use crate::core::validator::load_and_validate_task;
 use crate::types::Status;
 
 pub fn handle_check() {

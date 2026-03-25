@@ -8,6 +8,7 @@ pub fn step_in_progress(step_id: &str) -> String {
     format!("Current step: {}. After completing work, run verification via sub-agent. To switch to dialogue mode: hal step pause --message '<reason>'", step_id)
 }
 
+#[allow(dead_code)]
 pub fn step_verify_required(step_id: &str) -> String {
     format!("Step {} is unverified. Run hal step verify --step {} --result PASS|FAIL --message '<result>' via sub-agent", step_id, step_id)
 }
@@ -29,4 +30,5 @@ pub const STATUS_ADD_OR_CHECK: &str = "Add new steps with hal step add or check 
 
 pub const CHECK_BLOCKED: &str = "Incomplete steps remain. Continue task work. If the user requests dialogue, or if you must confirm something with the user, use hal step pause --message '<reason>' to pause";
 
+#[allow(dead_code)]
 pub const NO_TASK: &str = "Dialogue mode. If multi-step work is needed, create a task with hal task create";

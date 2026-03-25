@@ -1,5 +1,5 @@
 mod commands;
-mod lib;
+mod core;
 mod types;
 
 use clap::{Parser, Subcommand};

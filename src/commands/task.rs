@@ -2,11 +2,11 @@ use anyhow::{Result, bail};
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use crate::lib::hints;
-use crate::lib::response::HalResponse;
-use crate::lib::session::{get_session_id, set_session_task};
-use crate::lib::validator::{load_and_validate_task, save_task};
-use crate::lib::task_utils::resolve_task_file;
+use crate::core::hints;
+use crate::core::response::HalResponse;
+use crate::core::session::{get_session_id, set_session_task};
+use crate::core::validator::{load_and_validate_task, save_task};
+use crate::core::task_utils::resolve_task_file;
 use crate::types::{AcceptCriteria, HistoryEvent, Status, TaskYaml};
 
 pub fn handle_task_create(file: &str, goal: &str, accept: &[String], plan: Option<&str>) -> Result<()> {
