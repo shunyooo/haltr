@@ -1,27 +1,24 @@
-node_modules/
+target/
 dist/
+node_modules/
 *.log
 
-# Dev environment (personal)
+# Dev environment
 .env
 .devcontainer/
 Dockerfile.dev
 
-# Claude Code (personal)
+# Claude Code
 .claude/data/
 
+# Editor/tool
 .ztile
 .serena
+.mcp.json
 
-# haltr runtime data
-haltr/
+# Experiments
+exp/
 
-# Catalog output
-.catalog/output/
+# Runtime
 .panes.yaml
 .hooks/
-exp
-.claude
-.mcp.json
-README.ja.md
-todo-app

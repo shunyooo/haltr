@@ -1,0 +1,19 @@
+[package]
+name = "hal"
+version = "4.0.0"
+edition = "2021"
+description = "Quality assurance tool for coding agent outputs"
+license = "MIT"
+
+[[bin]]
+name = "hal"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6"
+anyhow = "1"

@@ -1,0 +1,229 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: hal-linux-x64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: hal-linux-arm64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: hal-darwin-x64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: hal-darwin-arm64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: hal-win-x64.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo '[target.aarch64-unknown-linux-gnu]' >> ~/.cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> ~/.cargo/config.toml
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
+        run: cp target/${{ matrix.target }}/release/hal ${{ matrix.artifact }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: cp target/${{ matrix.target }}/release/hal.exe ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/hal-linux-x64/hal-linux-x64
+            artifacts/hal-linux-arm64/hal-linux-arm64
+            artifacts/hal-darwin-x64/hal-darwin-x64
+            artifacts/hal-darwin-arm64/hal-darwin-arm64
+            artifacts/hal-win-x64.exe/hal-win-x64.exe
+          generate_release_notes: true
+
+  npm-publish:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare platform packages
+        run: |
+          # Create platform-specific npm packages
+          for pkg in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win-x64; do
+            dir="npm/@haltr/cli-${pkg}"
+            mkdir -p "${dir}"
+
+            # Determine binary name and os/cpu
+            case $pkg in
+              linux-x64)   os=linux;  cpu=x64;  bin=hal-linux-x64 ;;
+              linux-arm64) os=linux;  cpu=arm64; bin=hal-linux-arm64 ;;
+              darwin-x64)  os=darwin; cpu=x64;  bin=hal-darwin-x64 ;;
+              darwin-arm64) os=darwin; cpu=arm64; bin=hal-darwin-arm64 ;;
+              win-x64)     os=win32;  cpu=x64;  bin=hal-win-x64.exe ;;
+            esac
+
+            # Copy binary
+            if [ "$pkg" = "win-x64" ]; then
+              cp "artifacts/${bin}/${bin}" "${dir}/hal.exe"
+            else
+              cp "artifacts/${bin}/${bin}" "${dir}/hal"
+              chmod +x "${dir}/hal"
+            fi
+
+            # Create package.json
+            VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+            cat > "${dir}/package.json" << PKGJSON
+            {
+              "name": "@haltr/cli-${pkg}",
+              "version": "${VERSION}",
+              "description": "haltr binary for ${os}-${cpu}",
+              "os": ["${os}"],
+              "cpu": ["${cpu}"],
+              "license": "MIT",
+              "files": ["hal*"]
+            }
+          PKGJSON
+          done
+
+      - name: Prepare main package
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          mkdir -p npm/haltr
+
+          # Create install script
+          cat > npm/haltr/install.js << 'INSTALLJS'
+          const { execSync } = require('child_process');
+          const os = require('os');
+
+          const platform = os.platform();
+          const arch = os.arch() === 'arm64' ? 'arm64' : 'x64';
+
+          let pkg;
+          switch (platform) {
+            case 'linux':  pkg = `@haltr/cli-linux-${arch}`; break;
+            case 'darwin': pkg = `@haltr/cli-darwin-${arch}`; break;
+            case 'win32':  pkg = `@haltr/cli-win-${arch}`; break;
+            default: console.error(`Unsupported platform: ${platform}`); process.exit(1);
+          }
+
+          console.log(`Installing ${pkg}...`);
+          execSync(`npm install ${pkg}@${process.env.npm_package_version}`, { stdio: 'inherit' });
+          INSTALLJS
+
+          # Create bin wrapper
+          mkdir -p npm/haltr/bin
+          cat > npm/haltr/bin/hal << 'WRAPPER'
+          #!/usr/bin/env node
+          const { execFileSync } = require('child_process');
+          const path = require('path');
+          const os = require('os');
+
+          const platform = os.platform();
+          const arch = os.arch() === 'arm64' ? 'arm64' : 'x64';
+          const ext = platform === 'win32' ? '.exe' : '';
+
+          let pkg;
+          switch (platform) {
+            case 'linux':  pkg = `@haltr/cli-linux-${arch}`; break;
+            case 'darwin': pkg = `@haltr/cli-darwin-${arch}`; break;
+            case 'win32':  pkg = `@haltr/cli-win-${arch}`; break;
+          }
+
+          const binPath = path.join(__dirname, '..', 'node_modules', pkg, `hal${ext}`);
+
+          try {
+            execFileSync(binPath, process.argv.slice(2), { stdio: 'inherit' });
+          } catch (e) {
+            process.exit(e.status || 1);
+          }
+          WRAPPER
+          chmod +x npm/haltr/bin/hal
+
+          # Create package.json
+          cat > npm/haltr/package.json << PKGJSON
+          {
+            "name": "haltr",
+            "version": "${VERSION}",
+            "description": "Quality assurance tool for coding agent outputs",
+            "bin": { "hal": "bin/hal" },
+            "scripts": { "postinstall": "node install.js" },
+            "license": "MIT",
+            "files": ["bin/", "install.js"],
+            "keywords": ["coding-agent", "quality-assurance", "task-management", "cli"]
+          }
+          PKGJSON
+
+      - name: Publish platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for pkg in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win-x64; do
+            cd "npm/@haltr/cli-${pkg}"
+            npm publish --access public || true
+            cd -
+          done
+
+      - name: Publish main package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd npm/haltr
+          npm publish --access public
