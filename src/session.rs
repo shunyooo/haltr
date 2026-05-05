@@ -8,7 +8,7 @@ pub struct SessionState {
     #[serde(default)]
     pub critic_iter: u32,
     #[serde(default)]
-    pub last_transcript_lines: usize,
+    pub last_anchor_line: usize,
 }
 
 impl Default for SessionState {
@@ -16,7 +16,7 @@ impl Default for SessionState {
         Self {
             critic_enabled: true,
             critic_iter: 0,
-            last_transcript_lines: 0,
+            last_anchor_line: 0,
         }
     }
 }

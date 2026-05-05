@@ -95,7 +95,7 @@ pub fn run() -> Result<()> {
     let t_start = std::time::Instant::now();
 
     // Layer 0b: transcript analysis (slice from last checked position)
-    let turn = match transcript::extract_turn_slice(&transcript_path, &log_dir, &session_id, state.last_transcript_lines)? {
+    let turn = match transcript::extract_turn_slice(&transcript_path, &log_dir, &session_id, state.last_anchor_line)? {
         Some(t) => t,
         None => {
             append_log(&log_file, "0b", serde_json::json!({"action": "skip", "reason": "no new content since last check"}));
@@ -103,7 +103,7 @@ pub fn run() -> Result<()> {
         }
     };
 
-    // NOTE: last_transcript_lines is updated only after Layer 2 runs.
+    // NOTE: last_anchor_line is updated only after Layer 2 runs.
     // Skips (0b, dispatcher) intentionally do NOT advance the position,
     // so planning/dialogue context is preserved for the next write turn.
     let new_transcript_lines = turn.total_lines;
@@ -404,7 +404,7 @@ Respond with pure JSON only:
     };
 
     // Layer 2 ran — advance transcript position
-    state.last_transcript_lines = new_transcript_lines;
+    state.last_anchor_line = new_transcript_lines;
     session::save(&session_id, &state).ok();
 
     transcript::cleanup_turn_slice(&log_dir, &session_id);
