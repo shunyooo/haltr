@@ -24,7 +24,7 @@ struct DispatcherResponse {
 struct CriticDispatch {
     run: bool,
     #[serde(default)]
-    reviewers: Vec<String>,
+    critics: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,7 +44,7 @@ struct CriticPanelResponse {
     extra: serde_json::Map<String, Value>,
 }
 
-struct ReviewerInfo {
+struct CriticInfo {
     name: String,
     description: String,
     content: String,
@@ -119,10 +119,10 @@ pub fn run() -> Result<()> {
         "write_tools": turn.write_tool_count
     }));
 
-    // Discover available reviewers
+    // Discover available critics
     let agents_dir = format!("{}/agents", haltr_dir);
-    let available_reviewers = discover_reviewers(&agents_dir);
-    let reviewer_catalog = build_reviewer_catalog(&available_reviewers);
+    let available_critics = discover_critics(&agents_dir);
+    let critic_catalog = build_critic_catalog(&available_critics);
 
     // git status
     let git_status = Command::new("git")
@@ -135,8 +135,8 @@ pub fn run() -> Result<()> {
     let dispatcher_prompt = format!(
         r#"You are the unified dispatcher. Based on the information below, decide what to run.
 
-== Available reviewers ==
-{reviewer_catalog}
+== Available critics ==
+{critic_catalog}
 
 == Last user message ==
 {user_text}
@@ -152,13 +152,13 @@ pub fn run() -> Result<()> {
 
 Respond with pure JSON only (no markdown, no text before/after):
 {{
-  "critic": {{ "run": true|false, "reviewers": ["<name>", ...] }},
+  "critic": {{ "run": true|false, "critics": ["<name>", ...] }},
   "memory": {{ "run": true|false, "category": "strong-correction"|"soft-redirect"|"noise"|"ambiguous" }},
   "reason": "..."
 }}
 
-Only select reviewer names from the available reviewers list above."#,
-        reviewer_catalog = reviewer_catalog,
+Only select reviewer names from the available critics list above."#,
+        critic_catalog = critic_catalog,
         user_text = turn.user_text,
         assistant_text = turn.assistant_text,
         tool_summary = turn.tool_summary,
@@ -225,11 +225,11 @@ Only select reviewer names from the available reviewers list above."#,
 
     // Layer 2: parallel execution
     let selected_names = dispatch.critic.as_ref()
-        .map(|c| c.reviewers.clone())
+        .map(|c| c.critics.clone())
         .unwrap_or_default();
 
-    // Build reviewer definitions for critic-panel (inline the content of selected reviewers)
-    let reviewer_defs = build_selected_reviewer_defs(&available_reviewers, &selected_names);
+    // Build reviewer definitions for critic-panel (inline the content of selected critics)
+    let critic_defs = build_selected_critic_defs(&available_critics, &selected_names);
 
     let critic_handle = if run_critic {
         let agents_dir_c = agents_dir.clone();
@@ -239,8 +239,8 @@ Only select reviewer names from the available reviewers list above."#,
             let prompt = format!(
                 r#"Transcript path (current turn only): {turn_slice}
 
-== Selected reviewers and their instructions ==
-{reviewer_defs}
+== Selected critics and their instructions ==
+{critic_defs}
 
 Launch each reviewer above as a parallel Task, passing the transcript path.
 Aggregate their findings verbatim.
@@ -250,10 +250,10 @@ Respond with pure JSON only:
   "decision": "block" | "approve",
   "reason": "<short summary>",
   "findings": [{{"reviewer":"...", "severity":"red"|"yellow", "title":"...", "detail":"<verbatim>"}}],
-  "meta": {{"reviewers_used": {selected}, "iteration_hint": "{iter}"}}
+  "meta": {{"critics_used": {selected}, "iteration_hint": "{iter}"}}
 }}"#,
                 turn_slice = turn_slice_path,
-                reviewer_defs = reviewer_defs,
+                critic_defs = critic_defs,
                 selected = serde_json::to_string(&selected_names).unwrap_or_else(|_| "[]".to_string()),
                 iter = iter,
             );
@@ -396,13 +396,13 @@ Respond with pure JSON only:
     Ok(())
 }
 
-fn discover_reviewers(agents_dir: &str) -> Vec<ReviewerInfo> {
-    let reviewers_dir = format!("{}/reviewers", agents_dir);
-    let mut reviewers = Vec::new();
+fn discover_critics(agents_dir: &str) -> Vec<CriticInfo> {
+    let critics_dir = format!("{}/critics", agents_dir);
+    let mut critics = Vec::new();
 
-    let entries = match std::fs::read_dir(&reviewers_dir) {
+    let entries = match std::fs::read_dir(&critics_dir) {
         Ok(e) => e,
-        Err(_) => return reviewers,
+        Err(_) => return critics,
     };
 
     for entry in entries.flatten() {
@@ -426,11 +426,11 @@ fn discover_reviewers(agents_dir: &str) -> Vec<ReviewerInfo> {
         let description = extract_first_heading(&content)
             .unwrap_or_else(|| name.clone());
 
-        reviewers.push(ReviewerInfo { name, description, content });
+        critics.push(CriticInfo { name, description, content });
     }
 
-    reviewers.sort_by(|a, b| a.name.cmp(&b.name));
-    reviewers
+    critics.sort_by(|a, b| a.name.cmp(&b.name));
+    critics
 }
 
 fn extract_first_heading(content: &str) -> Option<String> {
@@ -443,17 +443,17 @@ fn extract_first_heading(content: &str) -> Option<String> {
     None
 }
 
-fn build_reviewer_catalog(reviewers: &[ReviewerInfo]) -> String {
-    if reviewers.is_empty() {
-        return "(no reviewers found in .haltr/agents/reviewers/)".to_string();
+fn build_critic_catalog(critics: &[CriticInfo]) -> String {
+    if critics.is_empty() {
+        return "(no critics found in .haltr/agents/critics/)".to_string();
     }
-    reviewers.iter()
+    critics.iter()
         .map(|r| format!("- `{}`: {}", r.name, r.description))
         .collect::<Vec<_>>()
         .join("\n")
 }
 
-fn build_selected_reviewer_defs(all: &[ReviewerInfo], selected: &[String]) -> String {
+fn build_selected_critic_defs(all: &[CriticInfo], selected: &[String]) -> String {
     selected.iter()
         .filter_map(|name| {
             all.iter().find(|r| r.name == *name)

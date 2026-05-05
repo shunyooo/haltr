@@ -7,7 +7,7 @@ pub fn run() -> Result<()> {
     let haltr_dir = project_root.join(".haltr");
 
     // Create directory structure
-    for dir in &["agents", "agents/reviewers", "memory", "logs"] {
+    for dir in &["agents", "agents/critics", "memory", "logs"] {
         std::fs::create_dir_all(haltr_dir.join(dir))
             .with_context(|| format!("failed to create .haltr/{}", dir))?;
     }
@@ -18,11 +18,11 @@ pub fn run() -> Result<()> {
     write_if_missing(&haltr_dir, "agents/memory-writer.md", include_str!("../agents/memory-writer.md"))?;
 
     // Write default reviewer definitions
-    write_if_missing(&haltr_dir, "agents/reviewers/memory-feedback-reader.md", include_str!("../agents/reviewers/memory-feedback-reader.md"))?;
-    write_if_missing(&haltr_dir, "agents/reviewers/expert-skeptic.md", include_str!("../agents/reviewers/expert-skeptic.md"))?;
-    write_if_missing(&haltr_dir, "agents/reviewers/guard-l1.md", include_str!("../agents/reviewers/guard-l1.md"))?;
-    write_if_missing(&haltr_dir, "agents/reviewers/guard-l2.md", include_str!("../agents/reviewers/guard-l2.md"))?;
-    write_if_missing(&haltr_dir, "agents/reviewers/guard-l3.md", include_str!("../agents/reviewers/guard-l3.md"))?;
+    write_if_missing(&haltr_dir, "agents/critics/memory-feedback-reader.md", include_str!("../agents/critics/memory-feedback-reader.md"))?;
+    write_if_missing(&haltr_dir, "agents/critics/expert-skeptic.md", include_str!("../agents/critics/expert-skeptic.md"))?;
+    write_if_missing(&haltr_dir, "agents/critics/guard-l1.md", include_str!("../agents/critics/guard-l1.md"))?;
+    write_if_missing(&haltr_dir, "agents/critics/guard-l2.md", include_str!("../agents/critics/guard-l2.md"))?;
+    write_if_missing(&haltr_dir, "agents/critics/guard-l3.md", include_str!("../agents/critics/guard-l3.md"))?;
 
     // Initialize memory INDEX if not exists
     write_if_missing(&haltr_dir, "memory/INDEX.md", MEMORY_INDEX_TEMPLATE)?;
@@ -32,7 +32,7 @@ pub fn run() -> Result<()> {
 
     eprintln!("haltr setup complete:");
     eprintln!("  .haltr/agents/            — infrastructure agents (3 files)");
-    eprintln!("  .haltr/agents/reviewers/  — reviewer agents (5 defaults, editable)");
+    eprintln!("  .haltr/agents/critics/  — critic agents (5 defaults, editable)");
     eprintln!("  .haltr/memory/            — learning pipeline memory");
     eprintln!("  .haltr/logs/              — hook execution logs");
     eprintln!("  .claude/settings.json     — Stop hook registered");

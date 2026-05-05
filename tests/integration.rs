@@ -67,11 +67,11 @@ fn test_setup_creates_structure() {
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/dispatcher.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critic-orchestrator.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/memory-writer.md")).exists());
-    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/memory-feedback-reader.md")).exists());
-    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/expert-skeptic.md")).exists());
-    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/guard-l1.md")).exists());
-    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/guard-l2.md")).exists());
-    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/guard-l3.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critics/memory-feedback-reader.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critics/expert-skeptic.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critics/guard-l1.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critics/guard-l2.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critics/guard-l3.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/memory/INDEX.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/logs")).is_dir());
 
@@ -90,7 +90,7 @@ fn test_setup_idempotent() {
     hal_in(&["setup"], &dir);
 
     // User edits a reviewer file
-    let reviewer_path = format!("{}/{}", dir, ".haltr/agents/reviewers/expert-skeptic.md");
+    let reviewer_path = format!("{}/{}", dir, ".haltr/agents/critics/expert-skeptic.md");
     fs::write(&reviewer_path, "# custom reviewer\nuser edited").unwrap();
 
     let (output, code) = hal_in(&["setup"], &dir);
