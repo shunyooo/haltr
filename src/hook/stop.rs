@@ -103,9 +103,10 @@ pub fn run() -> Result<()> {
         }
     };
 
-    // Update transcript position for next invocation
-    state.last_transcript_lines = turn.total_lines;
-    session::save(&session_id, &state).ok();
+    // NOTE: last_transcript_lines is updated only after Layer 2 runs.
+    // Skips (0b, dispatcher) intentionally do NOT advance the position,
+    // so planning/dialogue context is preserved for the next write turn.
+    let new_transcript_lines = turn.total_lines;
 
     if turn.write_tool_count == 0 {
         append_log(&log_file, "0b", serde_json::json!({
@@ -391,6 +392,10 @@ Respond with pure JSON only:
         }));
         0
     };
+
+    // Layer 2 ran — advance transcript position
+    state.last_transcript_lines = new_transcript_lines;
+    session::save(&session_id, &state).ok();
 
     transcript::cleanup_turn_slice(&log_dir, &session_id);
 
