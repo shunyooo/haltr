@@ -469,7 +469,9 @@ struct ClaudeResponse {
 }
 
 fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str) -> Result<ClaudeResponse> {
-    let output = Command::new("claude")
+    use std::io::Write;
+
+    let mut child = Command::new("claude")
         .arg("-p")
         .arg("--system-prompt-file")
         .arg(system_prompt_file)
@@ -482,11 +484,19 @@ fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str) -> Result
         .arg("--strict-mcp-config")
         .arg("--mcp-config")
         .arg(r#"{"mcpServers":{}}"#)
-        .arg(prompt)
         .env("CLAUDE_HOOK_NESTED", "1")
-        .stdin(std::process::Stdio::null())
-        .output()
-        .context("failed to invoke claude")?;
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .context("failed to spawn claude")?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(prompt.as_bytes()).ok();
+    }
+
+    let output = child.wait_with_output()
+        .context("failed to wait for claude")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
