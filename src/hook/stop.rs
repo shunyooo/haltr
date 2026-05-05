@@ -187,7 +187,10 @@ Only select reviewer names from the available critics list above."#,
                     append_log(&log_file, "dispatcher", serde_json::json!({
                         "action": "ok",
                         "critic_run": d.critic.as_ref().map(|c| c.run).unwrap_or(false),
+                        "critic_selected": d.critic.as_ref().map(|c| &c.critics).cloned().unwrap_or_default(),
                         "memory_run": d.memory.as_ref().map(|m| m.run).unwrap_or(false),
+                        "memory_category": d.memory.as_ref().map(|m| &m.category).cloned().unwrap_or_default(),
+                        "reason": d.reason.as_deref().unwrap_or(""),
                         "cost_usd": cost,
                         "duration_ms": dispatch_duration
                     }));
@@ -301,6 +304,7 @@ Respond with pure JSON only:
                 append_log(&log_file, "memory", serde_json::json!({
                     "action": "done",
                     "cost_usd": resp.cost,
+                    "result": resp.text,
                 }));
             }
             Err(e) => {
@@ -329,7 +333,9 @@ Respond with pure JSON only:
                                 session::save(&session_id, &state).ok();
                                 append_log(&log_file, "verdict", serde_json::json!({
                                     "decision": "escalate",
-                                    "findings": num_findings,
+                                    "reason": panel.extra.get("reason").cloned().unwrap_or(Value::Null),
+                                    "findings": panel.findings,
+                                    "findings_count": num_findings,
                                     "iteration": state.critic_iter,
                                     "cost_usd": resp.cost,
                                     "total_duration_ms": t_start.elapsed().as_millis()
@@ -340,7 +346,9 @@ Respond with pure JSON only:
                             } else {
                                 append_log(&log_file, "verdict", serde_json::json!({
                                     "decision": "block",
-                                    "findings": num_findings,
+                                    "reason": panel.extra.get("reason").cloned().unwrap_or(Value::Null),
+                                    "findings": panel.findings,
+                                    "findings_count": num_findings,
                                     "iteration": state.critic_iter,
                                     "cost_usd": resp.cost,
                                     "total_duration_ms": t_start.elapsed().as_millis()
@@ -358,7 +366,9 @@ Respond with pure JSON only:
                             session::save(&session_id, &state).ok();
                             append_log(&log_file, "verdict", serde_json::json!({
                                 "decision": "approve",
-                                "findings": num_findings,
+                                "reason": panel.extra.get("reason").cloned().unwrap_or(Value::Null),
+                                "findings": panel.findings,
+                                "findings_count": num_findings,
                                 "cost_usd": resp.cost,
                                 "total_duration_ms": t_start.elapsed().as_millis()
                             }));
