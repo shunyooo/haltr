@@ -68,6 +68,10 @@ fn test_setup_creates_structure() {
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critic-panel.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/memory-feedback-reader.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/memory-writer.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/expert-skeptic.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/guard-l1.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/guard-l2.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/guard-l3.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/memory/INDEX.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/logs")).is_dir());
 
@@ -84,6 +88,11 @@ fn test_setup_idempotent() {
     let dir = setup_tmpdir();
 
     hal_in(&["setup"], &dir);
+
+    // User edits a reviewer file
+    let reviewer_path = format!("{}/{}", dir, ".haltr/agents/reviewers/expert-skeptic.md");
+    fs::write(&reviewer_path, "# custom reviewer\nuser edited").unwrap();
+
     let (output, code) = hal_in(&["setup"], &dir);
     assert_eq!(code, 0, "second setup failed: {}", output);
 
@@ -91,6 +100,10 @@ fn test_setup_idempotent() {
     let settings = fs::read_to_string(format!("{}/{}", dir, ".claude/settings.json")).unwrap();
     let count = settings.matches("hal hook stop").count();
     assert_eq!(count, 1, "hook registered more than once");
+
+    // Should preserve user-edited reviewer
+    let content = fs::read_to_string(&reviewer_path).unwrap();
+    assert!(content.contains("user edited"), "setup overwrote user-edited reviewer");
 
     cleanup(&dir);
 }

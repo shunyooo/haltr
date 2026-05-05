@@ -7,40 +7,45 @@ pub fn run() -> Result<()> {
     let haltr_dir = project_root.join(".haltr");
 
     // Create directory structure
-    for dir in &["agents", "memory", "logs"] {
+    for dir in &["agents", "agents/reviewers", "memory", "logs"] {
         std::fs::create_dir_all(haltr_dir.join(dir))
             .with_context(|| format!("failed to create .haltr/{}", dir))?;
     }
 
-    // Write agent definitions
-    write_agent_file(&haltr_dir, "dispatcher.md", include_str!("../agents/dispatcher.md"))?;
-    write_agent_file(&haltr_dir, "critic-panel.md", include_str!("../agents/critic-panel.md"))?;
-    write_agent_file(&haltr_dir, "memory-feedback-reader.md", include_str!("../agents/memory-feedback-reader.md"))?;
-    write_agent_file(&haltr_dir, "memory-writer.md", include_str!("../agents/memory-writer.md"))?;
+    // Write agent definitions (skip if already exists — user may have customized)
+    write_if_missing(&haltr_dir, "agents/dispatcher.md", include_str!("../agents/dispatcher.md"))?;
+    write_if_missing(&haltr_dir, "agents/critic-panel.md", include_str!("../agents/critic-panel.md"))?;
+    write_if_missing(&haltr_dir, "agents/memory-feedback-reader.md", include_str!("../agents/memory-feedback-reader.md"))?;
+    write_if_missing(&haltr_dir, "agents/memory-writer.md", include_str!("../agents/memory-writer.md"))?;
+
+    // Write default reviewer definitions
+    write_if_missing(&haltr_dir, "agents/reviewers/expert-skeptic.md", include_str!("../agents/reviewers/expert-skeptic.md"))?;
+    write_if_missing(&haltr_dir, "agents/reviewers/guard-l1.md", include_str!("../agents/reviewers/guard-l1.md"))?;
+    write_if_missing(&haltr_dir, "agents/reviewers/guard-l2.md", include_str!("../agents/reviewers/guard-l2.md"))?;
+    write_if_missing(&haltr_dir, "agents/reviewers/guard-l3.md", include_str!("../agents/reviewers/guard-l3.md"))?;
 
     // Initialize memory INDEX if not exists
-    let index_path = haltr_dir.join("memory/INDEX.md");
-    if !index_path.exists() {
-        std::fs::write(&index_path, MEMORY_INDEX_TEMPLATE)
-            .context("failed to write memory/INDEX.md")?;
-    }
+    write_if_missing(&haltr_dir, "memory/INDEX.md", MEMORY_INDEX_TEMPLATE)?;
 
     // Register Stop hook in .claude/settings.json
     register_hook(&project_root)?;
 
     eprintln!("haltr setup complete:");
-    eprintln!("  .haltr/agents/     — agent definitions (4 files)");
-    eprintln!("  .haltr/memory/     — learning pipeline memory");
-    eprintln!("  .haltr/logs/       — hook execution logs");
-    eprintln!("  .claude/settings.json — Stop hook registered");
+    eprintln!("  .haltr/agents/            — infrastructure agents (4 files)");
+    eprintln!("  .haltr/agents/reviewers/  — reviewer agents (4 defaults, editable)");
+    eprintln!("  .haltr/memory/            — learning pipeline memory");
+    eprintln!("  .haltr/logs/              — hook execution logs");
+    eprintln!("  .claude/settings.json     — Stop hook registered");
 
     Ok(())
 }
 
-fn write_agent_file(haltr_dir: &Path, name: &str, content: &str) -> Result<()> {
-    let path = haltr_dir.join("agents").join(name);
-    std::fs::write(&path, content)
-        .with_context(|| format!("failed to write agents/{}", name))?;
+fn write_if_missing(haltr_dir: &Path, rel_path: &str, content: &str) -> Result<()> {
+    let path = haltr_dir.join(rel_path);
+    if !path.exists() {
+        std::fs::write(&path, content)
+            .with_context(|| format!("failed to write {}", rel_path))?;
+    }
     Ok(())
 }
 
