@@ -15,10 +15,10 @@ pub fn run() -> Result<()> {
     // Write agent definitions (skip if already exists — user may have customized)
     write_if_missing(&haltr_dir, "agents/dispatcher.md", include_str!("../agents/dispatcher.md"))?;
     write_if_missing(&haltr_dir, "agents/critic-panel.md", include_str!("../agents/critic-panel.md"))?;
-    write_if_missing(&haltr_dir, "agents/memory-feedback-reader.md", include_str!("../agents/memory-feedback-reader.md"))?;
     write_if_missing(&haltr_dir, "agents/memory-writer.md", include_str!("../agents/memory-writer.md"))?;
 
     // Write default reviewer definitions
+    write_if_missing(&haltr_dir, "agents/reviewers/memory-feedback-reader.md", include_str!("../agents/reviewers/memory-feedback-reader.md"))?;
     write_if_missing(&haltr_dir, "agents/reviewers/expert-skeptic.md", include_str!("../agents/reviewers/expert-skeptic.md"))?;
     write_if_missing(&haltr_dir, "agents/reviewers/guard-l1.md", include_str!("../agents/reviewers/guard-l1.md"))?;
     write_if_missing(&haltr_dir, "agents/reviewers/guard-l2.md", include_str!("../agents/reviewers/guard-l2.md"))?;
@@ -31,8 +31,8 @@ pub fn run() -> Result<()> {
     register_hook(&project_root)?;
 
     eprintln!("haltr setup complete:");
-    eprintln!("  .haltr/agents/            — infrastructure agents (4 files)");
-    eprintln!("  .haltr/agents/reviewers/  — reviewer agents (4 defaults, editable)");
+    eprintln!("  .haltr/agents/            — infrastructure agents (3 files)");
+    eprintln!("  .haltr/agents/reviewers/  — reviewer agents (5 defaults, editable)");
     eprintln!("  .haltr/memory/            — learning pipeline memory");
     eprintln!("  .haltr/logs/              — hook execution logs");
     eprintln!("  .claude/settings.json     — Stop hook registered");
