@@ -6,6 +6,18 @@ if [ -f "package.json" ]; then
     pnpm install
 fi
 
+# Build haltr and install to PATH
+if [ -f "Cargo.toml" ]; then
+    if command -v cargo &> /dev/null; then
+        cargo build --release
+    else
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        . "$HOME/.cargo/env"
+        cargo build --release
+    fi
+    ln -sf /workspaces/haltr/target/release/hal /usr/local/bin/hal
+fi
+
 # tmux settings
 cat > ~/.tmux.conf << 'TMUX'
 set -g mouse on
