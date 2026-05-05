@@ -8,97 +8,88 @@ pub struct TurnSlice {
     pub write_tool_count: usize,
     pub tool_count: usize,
     pub slice_path: String,
+    pub total_lines: usize,
 }
 
-pub fn extract_turn_slice(transcript_path: &str, log_dir: &str, session_id: &str) -> Result<Option<TurnSlice>> {
+pub fn extract_turn_slice(
+    transcript_path: &str,
+    log_dir: &str,
+    session_id: &str,
+    last_checked_lines: usize,
+) -> Result<Option<TurnSlice>> {
     let content = std::fs::read_to_string(transcript_path)
         .context("failed to read transcript")?;
 
     let lines: Vec<&str> = content.lines().collect();
-    if lines.is_empty() {
+    let total_lines = lines.len();
+    if total_lines == 0 || total_lines <= last_checked_lines {
         return Ok(None);
     }
 
-    // Find last real user message (not tool_result)
-    let mut last_user_lineno = None;
-    for (i, line) in lines.iter().enumerate() {
-        if let Ok(entry) = serde_json::from_str::<Value>(line) {
-            if entry.get("type").and_then(|t| t.as_str()) == Some("user") {
-                // Filter out tool_result entries: real user input has content as string
-                if let Some(content) = entry.pointer("/message/content") {
-                    if content.is_string() {
-                        last_user_lineno = Some(i);
-                    }
-                }
-            }
-        }
-    }
+    // Slice from where we last checked
+    let slice_lines: Vec<&str> = lines[last_checked_lines..].to_vec();
 
-    let last_user_lineno = match last_user_lineno {
-        Some(n) => n,
-        None => return Ok(None),
-    };
-
-    // Write turn slice to temp file for Layer 2 agents to read
-    let slice_lines: Vec<&str> = lines[last_user_lineno..].to_vec();
-    let slice_content = slice_lines.join("\n");
-
-    let slice_path = format!("{}/turn-slice-{}.jsonl", log_dir, session_id);
-    std::fs::write(&slice_path, &slice_content)
-        .context("failed to write turn slice")?;
-
-    // Extract user text
-    let user_text = if let Ok(entry) = serde_json::from_str::<Value>(lines[last_user_lineno]) {
-        entry.pointer("/message/content")
-            .and_then(|c| c.as_str())
-            .unwrap_or("")
-            .chars()
-            .take(3000)
-            .collect::<String>()
-    } else {
-        String::new()
-    };
-
-    // Extract assistant text and tool calls from the turn
+    // Collect all real user messages in the slice (there may be multiple)
+    let mut user_texts: Vec<String> = Vec::new();
     let mut assistant_text = String::new();
     let mut tool_lines: Vec<String> = Vec::new();
     let mut write_tool_count = 0usize;
 
-    for line in &slice_lines[1..] {
+    for line in &slice_lines {
         if let Ok(entry) = serde_json::from_str::<Value>(line) {
-            if entry.get("type").and_then(|t| t.as_str()) != Some("assistant") {
-                continue;
-            }
-            if let Some(contents) = entry.pointer("/message/content").and_then(|c| c.as_array()) {
-                for block in contents {
-                    match block.get("type").and_then(|t| t.as_str()) {
-                        Some("text") => {
-                            if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
-                                assistant_text.push_str(text);
-                            }
+            match entry.get("type").and_then(|t| t.as_str()) {
+                Some("user") => {
+                    if let Some(content) = entry.pointer("/message/content") {
+                        if let Some(text) = content.as_str() {
+                            let truncated: String = text.chars().take(3000).collect();
+                            user_texts.push(truncated);
                         }
-                        Some("tool_use") => {
-                            let name = block.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
-                            let detail = extract_tool_detail(block);
-                            let summary = if detail.is_empty() {
-                                format!("- {}", name)
-                            } else {
-                                format!("- {}: {}", name, detail)
-                            };
-                            tool_lines.push(summary);
-
-                            if matches!(name, "Edit" | "Write" | "MultiEdit" | "NotebookEdit") {
-                                write_tool_count += 1;
-                            }
-                        }
-                        _ => {}
                     }
                 }
+                Some("assistant") => {
+                    if let Some(contents) = entry.pointer("/message/content").and_then(|c| c.as_array()) {
+                        for block in contents {
+                            match block.get("type").and_then(|t| t.as_str()) {
+                                Some("text") => {
+                                    if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
+                                        assistant_text.push_str(text);
+                                    }
+                                }
+                                Some("tool_use") => {
+                                    let name = block.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
+                                    let detail = extract_tool_detail(block);
+                                    let summary = if detail.is_empty() {
+                                        format!("- {}", name)
+                                    } else {
+                                        format!("- {}: {}", name, detail)
+                                    };
+                                    tool_lines.push(summary);
+
+                                    if matches!(name, "Edit" | "Write" | "MultiEdit" | "NotebookEdit") {
+                                        write_tool_count += 1;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }
 
-    // Truncate assistant text
+    if user_texts.is_empty() {
+        return Ok(None);
+    }
+
+    // Write turn slice for Layer 2 agents
+    let slice_content = slice_lines.join("\n");
+    let slice_path = format!("{}/turn-slice-{}.jsonl", log_dir, session_id);
+    std::fs::write(&slice_path, &slice_content)
+        .context("failed to write turn slice")?;
+
+    let user_text = user_texts.join("\n---\n");
     let assistant_text: String = assistant_text.chars().take(3000).collect();
     let tool_count = tool_lines.len();
     let tool_summary = tool_lines.into_iter().take(30).collect::<Vec<_>>().join("\n");
@@ -110,6 +101,7 @@ pub fn extract_turn_slice(transcript_path: &str, log_dir: &str, session_id: &str
         write_tool_count,
         tool_count,
         slice_path,
+        total_lines,
     }))
 }
 

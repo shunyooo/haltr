@@ -94,14 +94,18 @@ pub fn run() -> Result<()> {
 
     let t_start = std::time::Instant::now();
 
-    // Layer 0b: transcript analysis
-    let turn = match transcript::extract_turn_slice(&transcript_path, &log_dir, &session_id)? {
+    // Layer 0b: transcript analysis (slice from last checked position)
+    let turn = match transcript::extract_turn_slice(&transcript_path, &log_dir, &session_id, state.last_transcript_lines)? {
         Some(t) => t,
         None => {
-            append_log(&log_file, "0b", serde_json::json!({"action": "skip", "reason": "no user message found"}));
+            append_log(&log_file, "0b", serde_json::json!({"action": "skip", "reason": "no new content since last check"}));
             return Ok(());
         }
     };
+
+    // Update transcript position for next invocation
+    state.last_transcript_lines = turn.total_lines;
+    session::save(&session_id, &state).ok();
 
     if turn.write_tool_count == 0 {
         append_log(&log_file, "0b", serde_json::json!({
