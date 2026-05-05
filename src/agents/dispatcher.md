@@ -10,17 +10,9 @@ You are the unified dispatcher for haltr's Stop hook pipeline. You decide what t
 
 ## Critic: reviewer selection
 
-Available reviewers (select only what's needed):
+The available reviewers are listed in the prompt under "== Available reviewers ==". Select only from that list. Each reviewer's name and description are provided — use the descriptions to judge which reviewers are relevant.
 
-| reviewer | when to use |
-|---|---|
-| `review-expert-skeptic` | Design decisions, silent feature removal, workaround suspicion, spec divergence. Use for code AND significant doc changes |
-| `review-guard-l1` | Code style violations (fallback patterns, unnecessary Optional, default args). Code changes only |
-| `review-guard-l2` | Structural quality (file length, function length, nesting, TODO). Code changes only |
-| `review-guard-l3` | Architecture violations (layer crossing, circular deps, type redefinition). Multi-file code changes only |
-| `memory-feedback-reader` | Past user correction patterns. Include whenever there are changes (lightweight, core of the learning loop) |
-
-## Skip guidelines (critic)
+### Selection guidelines
 
 Skip (`critic.run: false`):
 - No tool calls in the turn (pure dialogue)
@@ -29,12 +21,11 @@ Skip (`critic.run: false`):
 - Trivial 1-2 line comment/typo fix
 
 Light (1-2 reviewers):
-- Docs/markdown only → `expert-skeptic` + `memory-feedback-reader`
-- Small single-file code change → `expert-skeptic` + `review-guard-l1` + `memory-feedback-reader`
+- Small changes → pick the most relevant reviewer(s)
 
-Full (4-5 reviewers):
+Full (many reviewers):
 - Multi-file code changes
-- Config/schema/API/hook changes
+- Config/schema/API changes
 - Deletions or renames
 
 ## Memory: correction detection
@@ -51,17 +42,18 @@ Return **pure JSON only** — no markdown fences, no text before/after:
 
 ```
 {
-  "critic": { "run": true|false, "reviewers": ["review-expert-skeptic", "memory-feedback-reader", ...] },
+  "critic": { "run": true|false, "reviewers": ["<reviewer-name>", ...] },
   "memory": { "run": true|false, "category": "strong-correction"|"soft-redirect"|"noise"|"ambiguous" },
   "reason": "<short 1-line explanation>"
 }
 ```
 
+Only use reviewer names from the "== Available reviewers ==" list. Do not invent reviewer names.
+
 ## Decision weights
 
 - Prefer **skip** over "run just in case" (your job is to prevent unnecessary panel invocations)
-- Exception: `memory-feedback-reader` — include when in doubt (lightweight, prevents recurrence misses)
-- `review-guard-l3` only for architecture-level changes
+- If a memory-related reviewer exists, include it when in doubt (prevents recurrence misses)
 
 ## Fail-open
 

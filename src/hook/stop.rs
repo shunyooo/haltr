@@ -44,6 +44,12 @@ struct CriticPanelResponse {
     extra: serde_json::Map<String, Value>,
 }
 
+struct ReviewerInfo {
+    name: String,
+    description: String,
+    content: String,
+}
+
 pub fn run() -> Result<()> {
     // Layer 0a: recursion guard
     if std::env::var("CLAUDE_HOOK_NESTED").unwrap_or_default() == "1" {
@@ -113,6 +119,11 @@ pub fn run() -> Result<()> {
         "write_tools": turn.write_tool_count
     }));
 
+    // Discover available reviewers
+    let agents_dir = format!("{}/agents", haltr_dir);
+    let available_reviewers = discover_reviewers(&agents_dir);
+    let reviewer_catalog = build_reviewer_catalog(&available_reviewers);
+
     // git status
     let git_status = Command::new("git")
         .args(["status", "--short"])
@@ -121,29 +132,37 @@ pub fn run() -> Result<()> {
         .unwrap_or_default();
 
     // Layer 1: unified dispatcher
-    let agents_dir = format!("{}/agents", haltr_dir);
     let dispatcher_prompt = format!(
         r#"You are the unified dispatcher. Based on the information below, decide what to run.
 
+== Available reviewers ==
+{reviewer_catalog}
+
 == Last user message ==
-{}
+{user_text}
 
 == Last assistant response (first 3000 chars) ==
-{}
+{assistant_text}
 
 == Tool calls in this turn (up to 30) ==
-{}
+{tool_summary}
 
 == git status ==
-{}
+{git_status}
 
 Respond with pure JSON only (no markdown, no text before/after):
 {{
-  "critic": {{ "run": true|false, "reviewers": [...] }},
+  "critic": {{ "run": true|false, "reviewers": ["<name>", ...] }},
   "memory": {{ "run": true|false, "category": "strong-correction"|"soft-redirect"|"noise"|"ambiguous" }},
   "reason": "..."
-}}"#,
-        turn.user_text, turn.assistant_text, turn.tool_summary, git_status
+}}
+
+Only select reviewer names from the available reviewers list above."#,
+        reviewer_catalog = reviewer_catalog,
+        user_text = turn.user_text,
+        assistant_text = turn.assistant_text,
+        tool_summary = turn.tool_summary,
+        git_status = git_status,
     );
 
     let t_dispatch = std::time::Instant::now();
@@ -205,31 +224,38 @@ Respond with pure JSON only (no markdown, no text before/after):
     }
 
     // Layer 2: parallel execution
-    let reviewers = dispatch.critic.as_ref()
+    let selected_names = dispatch.critic.as_ref()
         .map(|c| c.reviewers.clone())
         .unwrap_or_default();
-    let reviewers_json = serde_json::to_string(&reviewers).unwrap_or_else(|_| "[]".to_string());
+
+    // Build reviewer definitions for critic-panel (inline the content of selected reviewers)
+    let reviewer_defs = build_selected_reviewer_defs(&available_reviewers, &selected_names);
 
     let critic_handle = if run_critic {
         let agents_dir_c = agents_dir.clone();
         let turn_slice_path = turn.slice_path.clone();
-        let reviewers_json_c = reviewers_json.clone();
         let iter = state.critic_iter;
         Some(std::thread::spawn(move || {
             let prompt = format!(
-                r#"Transcript path (current turn only): {}
-Reviewers (selected by dispatcher): {}
+                r#"Transcript path (current turn only): {turn_slice}
 
-Review the current turn and aggregate findings.
+== Selected reviewers and their instructions ==
+{reviewer_defs}
+
+Launch each reviewer above as a parallel Task, passing the transcript path.
+Aggregate their findings verbatim.
 
 Respond with pure JSON only:
 {{
   "decision": "block" | "approve",
   "reason": "<short summary>",
   "findings": [{{"reviewer":"...", "severity":"red"|"yellow", "title":"...", "detail":"<verbatim>"}}],
-  "meta": {{"reviewers_used": {}, "iteration_hint": "{}"}}
+  "meta": {{"reviewers_used": {selected}, "iteration_hint": "{iter}"}}
 }}"#,
-                turn_slice_path, reviewers_json_c, reviewers_json_c, iter
+                turn_slice = turn_slice_path,
+                reviewer_defs = reviewer_defs,
+                selected = serde_json::to_string(&selected_names).unwrap_or_else(|_| "[]".to_string()),
+                iter = iter,
             );
             invoke_claude(
                 &format!("{}/critic-panel.md", agents_dir_c),
@@ -314,7 +340,6 @@ Respond with pure JSON only:
                                     "cost_usd": resp.cost,
                                     "total_duration_ms": t_start.elapsed().as_millis()
                                 }));
-                                // Output findings to stderr for agent loop re-entry
                                 let decision_json = serde_json::json!({
                                     "decision": "block",
                                     "reason": panel.extra.get("reason").cloned().unwrap_or(Value::Null),
@@ -324,7 +349,6 @@ Respond with pure JSON only:
                                 2
                             }
                         } else {
-                            // approve
                             state.critic_iter = 0;
                             session::save(&session_id, &state).ok();
                             append_log(&log_file, "verdict", serde_json::json!({
@@ -357,7 +381,6 @@ Respond with pure JSON only:
             }
         }
     } else {
-        // critic not run, only memory
         append_log(&log_file, "verdict", serde_json::json!({
             "decision": "skip-critic",
             "total_duration_ms": t_start.elapsed().as_millis()
@@ -371,6 +394,73 @@ Respond with pure JSON only:
         std::process::exit(exit_code);
     }
     Ok(())
+}
+
+fn discover_reviewers(agents_dir: &str) -> Vec<ReviewerInfo> {
+    let reviewers_dir = format!("{}/reviewers", agents_dir);
+    let mut reviewers = Vec::new();
+
+    let entries = match std::fs::read_dir(&reviewers_dir) {
+        Ok(e) => e,
+        Err(_) => return reviewers,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("md") {
+            continue;
+        }
+        let name = path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
+        if name.is_empty() {
+            continue;
+        }
+
+        let content = match std::fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let description = extract_first_heading(&content)
+            .unwrap_or_else(|| name.clone());
+
+        reviewers.push(ReviewerInfo { name, description, content });
+    }
+
+    reviewers.sort_by(|a, b| a.name.cmp(&b.name));
+    reviewers
+}
+
+fn extract_first_heading(content: &str) -> Option<String> {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("# ") {
+            return Some(trimmed.trim_start_matches('#').trim().to_string());
+        }
+    }
+    None
+}
+
+fn build_reviewer_catalog(reviewers: &[ReviewerInfo]) -> String {
+    if reviewers.is_empty() {
+        return "(no reviewers found in .haltr/agents/reviewers/)".to_string();
+    }
+    reviewers.iter()
+        .map(|r| format!("- `{}`: {}", r.name, r.description))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn build_selected_reviewer_defs(all: &[ReviewerInfo], selected: &[String]) -> String {
+    selected.iter()
+        .filter_map(|name| {
+            all.iter().find(|r| r.name == *name)
+        })
+        .map(|r| format!("### Reviewer: {}\n\n{}", r.name, r.content))
+        .collect::<Vec<_>>()
+        .join("\n\n---\n\n")
 }
 
 struct ClaudeResponse {
@@ -439,7 +529,6 @@ fn strip_markdown_fence(text: &str) -> String {
 }
 
 fn find_haltr_dir() -> Result<String> {
-    // Walk up from current dir to find .haltr/
     let mut dir = std::env::current_dir()?;
     loop {
         let candidate = dir.join(".haltr");
@@ -450,7 +539,6 @@ fn find_haltr_dir() -> Result<String> {
             break;
         }
     }
-    // Default to current directory
     let default = std::env::current_dir()?.join(".haltr");
     Ok(default.to_string_lossy().to_string())
 }
@@ -461,7 +549,6 @@ fn append_log(log_file: &str, layer: &str, data: Value) {
         "layer": layer,
     });
 
-    // Merge entry with data
     let mut map = match entry {
         Value::Object(m) => m,
         _ => return,
