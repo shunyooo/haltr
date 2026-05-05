@@ -103,16 +103,14 @@ pub fn run() -> Result<()> {
         }
     };
 
-    // NOTE: last_anchor_line is updated only after Layer 2 runs.
-    // Skips (0b, dispatcher) intentionally do NOT advance the position,
-    // so planning/dialogue context is preserved for the next write turn.
-    let new_transcript_lines = turn.total_lines;
+    let new_anchor = turn.total_lines;
 
-    if turn.write_tool_count == 0 {
+    if turn.last_turn_write_count == 0 {
         append_log(&log_file, "0b", serde_json::json!({
             "action": "skip",
-            "reason": "no write tools",
-            "tools": turn.tool_count
+            "reason": "no write tools in last turn",
+            "last_turn_tools": turn.last_turn_tool_count,
+            "total_tools_since_anchor": turn.tool_count
         }));
         transcript::cleanup_turn_slice(&log_dir, &session_id);
         return Ok(());
@@ -120,8 +118,10 @@ pub fn run() -> Result<()> {
 
     append_log(&log_file, "0b", serde_json::json!({
         "action": "pass",
-        "tools": turn.tool_count,
-        "write_tools": turn.write_tool_count
+        "last_turn_tools": turn.last_turn_tool_count,
+        "last_turn_writes": turn.last_turn_write_count,
+        "total_tools_since_anchor": turn.tool_count,
+        "total_writes_since_anchor": turn.write_tool_count
     }));
 
     // Discover available critics
@@ -404,7 +404,7 @@ Respond with pure JSON only:
     };
 
     // Layer 2 ran — advance transcript position
-    state.last_anchor_line = new_transcript_lines;
+    state.last_anchor_line = new_anchor;
     session::save(&session_id, &state).ok();
 
     transcript::cleanup_turn_slice(&log_dir, &session_id);

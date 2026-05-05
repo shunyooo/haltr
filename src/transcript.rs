@@ -2,12 +2,23 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 
 pub struct TurnSlice {
+    /// User text from all turns since anchor (for context)
     pub user_text: String,
+    /// Assistant text from the last turn only (for dispatcher context)
     pub assistant_text: String,
+    /// Tool calls from the LAST turn only (for dispatcher decision)
     pub tool_summary: String,
-    pub write_tool_count: usize,
+    /// Write tool count in the LAST turn only (for Layer 0b gate)
+    pub last_turn_write_count: usize,
+    /// Tool count in the LAST turn only
+    pub last_turn_tool_count: usize,
+    /// Total tool count since anchor (for logging)
     pub tool_count: usize,
+    /// Write tool count since anchor (for logging)
+    pub write_tool_count: usize,
+    /// Path to the full slice file (anchor → end, for Layer 2 agents)
     pub slice_path: String,
+    /// Total transcript lines (for anchor update)
     pub total_lines: usize,
 }
 
@@ -26,17 +37,36 @@ pub fn extract_turn_slice(
         return Ok(None);
     }
 
-    // Slice from where we last checked
     let slice_lines: Vec<&str> = lines[last_checked_lines..].to_vec();
 
-    // Collect all real user messages in the slice (there may be multiple)
+    // Find the last real user message position within the slice
+    let mut last_user_pos = None;
+    for (i, line) in slice_lines.iter().enumerate() {
+        if let Ok(entry) = serde_json::from_str::<Value>(line) {
+            if entry.get("type").and_then(|t| t.as_str()) == Some("user") {
+                if let Some(content) = entry.pointer("/message/content") {
+                    if content.is_string() {
+                        last_user_pos = Some(i);
+                    }
+                }
+            }
+        }
+    }
+
+    // Collect all user texts since anchor (for context)
     let mut user_texts: Vec<String> = Vec::new();
     let mut assistant_text = String::new();
-    let mut tool_lines: Vec<String> = Vec::new();
-    let mut write_tool_count = 0usize;
+    let mut total_tool_lines: Vec<String> = Vec::new();
+    let mut total_write_count = 0usize;
 
-    for line in &slice_lines {
+    // Last turn tools (from last user message onward)
+    let mut last_turn_tool_lines: Vec<String> = Vec::new();
+    let mut last_turn_write_count = 0usize;
+
+    for (i, line) in slice_lines.iter().enumerate() {
         if let Ok(entry) = serde_json::from_str::<Value>(line) {
+            let is_last_turn = last_user_pos.map(|p| i >= p).unwrap_or(true);
+
             match entry.get("type").and_then(|t| t.as_str()) {
                 Some("user") => {
                     if let Some(content) = entry.pointer("/message/content") {
@@ -52,7 +82,9 @@ pub fn extract_turn_slice(
                             match block.get("type").and_then(|t| t.as_str()) {
                                 Some("text") => {
                                     if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
-                                        assistant_text.push_str(text);
+                                        if is_last_turn {
+                                            assistant_text.push_str(text);
+                                        }
                                     }
                                 }
                                 Some("tool_use") => {
@@ -63,10 +95,18 @@ pub fn extract_turn_slice(
                                     } else {
                                         format!("- {}: {}", name, detail)
                                     };
-                                    tool_lines.push(summary);
 
-                                    if matches!(name, "Edit" | "Write" | "MultiEdit" | "NotebookEdit") {
-                                        write_tool_count += 1;
+                                    let is_write = matches!(name, "Edit" | "Write" | "MultiEdit" | "NotebookEdit");
+                                    total_tool_lines.push(summary.clone());
+                                    if is_write {
+                                        total_write_count += 1;
+                                    }
+
+                                    if is_last_turn {
+                                        last_turn_tool_lines.push(summary);
+                                        if is_write {
+                                            last_turn_write_count += 1;
+                                        }
                                     }
                                 }
                                 _ => {}
@@ -83,7 +123,7 @@ pub fn extract_turn_slice(
         return Ok(None);
     }
 
-    // Write turn slice for Layer 2 agents
+    // Write full slice for Layer 2 agents
     let slice_content = slice_lines.join("\n");
     let slice_path = format!("{}/turn-slice-{}.jsonl", log_dir, session_id);
     std::fs::write(&slice_path, &slice_content)
@@ -91,14 +131,17 @@ pub fn extract_turn_slice(
 
     let user_text = user_texts.join("\n---\n");
     let assistant_text: String = assistant_text.chars().take(3000).collect();
-    let tool_count = tool_lines.len();
-    let tool_summary = tool_lines.into_iter().take(30).collect::<Vec<_>>().join("\n");
+    let tool_count = total_tool_lines.len();
+    let last_turn_tool_count = last_turn_tool_lines.len();
+    let tool_summary = last_turn_tool_lines.into_iter().take(30).collect::<Vec<_>>().join("\n");
 
     Ok(Some(TurnSlice {
         user_text,
         assistant_text,
         tool_summary,
-        write_tool_count,
+        last_turn_write_count,
+        last_turn_tool_count,
+        write_tool_count: total_write_count,
         tool_count,
         slice_path,
         total_lines,
