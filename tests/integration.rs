@@ -65,7 +65,7 @@ fn test_setup_creates_structure() {
 
     // Check directory structure
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/dispatcher.md")).exists());
-    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critic-panel.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critic-orchestrator.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/memory-writer.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/memory-feedback-reader.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/reviewers/expert-skeptic.md")).exists());

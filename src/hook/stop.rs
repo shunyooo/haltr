@@ -258,7 +258,7 @@ Respond with pure JSON only:
                 iter = iter,
             );
             invoke_claude(
-                &format!("{}/critic-panel.md", agents_dir_c),
+                &format!("{}/critic-orchestrator.md", agents_dir_c),
                 &prompt,
                 PANEL_BUDGET,
             )

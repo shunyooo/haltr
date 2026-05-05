@@ -14,7 +14,7 @@ pub fn run() -> Result<()> {
 
     // Write agent definitions (skip if already exists — user may have customized)
     write_if_missing(&haltr_dir, "agents/dispatcher.md", include_str!("../agents/dispatcher.md"))?;
-    write_if_missing(&haltr_dir, "agents/critic-panel.md", include_str!("../agents/critic-panel.md"))?;
+    write_if_missing(&haltr_dir, "agents/critic-orchestrator.md", include_str!("../agents/critic-orchestrator.md"))?;
     write_if_missing(&haltr_dir, "agents/memory-writer.md", include_str!("../agents/memory-writer.md"))?;
 
     // Write default reviewer definitions
