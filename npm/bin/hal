@@ -4,7 +4,7 @@ const { execFileSync } = require("child_process");
 const path = require("path");
 
 const isWindows = process.platform === "win32";
-const binName = isWindows ? "hal.exe" : "hal";
+const binName = isWindows ? "hal-binary.exe" : "hal-binary";
 const binPath = path.join(__dirname, binName);
 
 try {

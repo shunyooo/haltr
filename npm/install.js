@@ -3,7 +3,6 @@
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
 
 const VERSION = require("./package.json").version;
 const REPO = "shunyooo/haltr";
@@ -54,10 +53,10 @@ async function main() {
   const url = `https://github.com/${REPO}/releases/download/v${VERSION}/${artifact}`;
   const binDir = path.join(__dirname, "bin");
   const isWindows = process.platform === "win32";
-  const binPath = path.join(binDir, isWindows ? "hal.exe" : "hal");
+  const binPath = path.join(binDir, isWindows ? "hal-binary.exe" : "hal-binary");
 
-  // Skip if binary already exists
-  if (fs.existsSync(binPath)) {
+  // Skip if binary already exists and is a real binary (not the wrapper)
+  if (fs.existsSync(binPath) && fs.statSync(binPath).size > 10000) {
     return;
   }
 
