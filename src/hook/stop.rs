@@ -8,7 +8,7 @@ use crate::session;
 use crate::transcript;
 
 const MAX_ITER: u32 = 2;
-const DISPATCHER_BUDGET: &str = "0.10";
+const DISPATCHER_BUDGET: &str = "0.30";
 const PANEL_BUDGET: &str = "3.00";
 const MEMORY_WRITER_BUDGET: &str = "0.50";
 
@@ -167,6 +167,7 @@ Only select critic names from the available critics list above."#,
         &format!("{}/dispatcher.md", agents_dir),
         &dispatcher_prompt,
         DISPATCHER_BUDGET,
+        Some("haiku"),
     );
 
     let dispatch_duration = t_dispatch.elapsed().as_millis();
@@ -261,6 +262,7 @@ Respond with pure JSON only:
                 &format!("{}/critic-orchestrator.md", agents_dir_c),
                 &prompt,
                 PANEL_BUDGET,
+                None,
             )
         }))
     } else {
@@ -279,6 +281,7 @@ Respond with pure JSON only:
                 &format!("{}/memory-writer.md", agents_dir_m),
                 &prompt,
                 MEMORY_WRITER_BUDGET,
+                None,
             )
         }))
     } else {
@@ -479,11 +482,11 @@ struct ClaudeResponse {
     cost: f64,
 }
 
-fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str) -> Result<ClaudeResponse> {
+fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str, model: Option<&str>) -> Result<ClaudeResponse> {
     use std::io::Write;
 
-    let mut child = Command::new("claude")
-        .arg("-p")
+    let mut cmd = Command::new("claude");
+    cmd.arg("-p")
         .arg("--system-prompt-file")
         .arg(system_prompt_file)
         .arg("--output-format")
@@ -494,7 +497,13 @@ fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str) -> Result
         .arg(r#"{"disableAllHooks":true}"#)
         .arg("--strict-mcp-config")
         .arg("--mcp-config")
-        .arg(r#"{"mcpServers":{}}"#)
+        .arg(r#"{"mcpServers":{}}"#);
+
+    if let Some(m) = model {
+        cmd.arg("--model").arg(m);
+    }
+
+    let mut child = cmd
         .env("CLAUDE_HOOK_NESTED", "1")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
