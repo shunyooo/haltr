@@ -94,7 +94,7 @@ fn register_hook(project_root: &Path) -> Result<()> {
     let hooks_obj = hooks.as_object_mut().context("hooks is not an object")?;
     hooks_obj.insert("Stop".to_string(), hook_entry);
 
-    let formatted = serde_json::to_string_pretty(&settings)?;
+    let formatted = serde_json::to_string_pretty(&settings)? + "\n";
     std::fs::write(&settings_path, formatted)
         .context("failed to write .claude/settings.json")?;
 

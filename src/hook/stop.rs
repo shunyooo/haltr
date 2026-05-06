@@ -251,7 +251,7 @@ Respond with pure JSON only:
 {{
   "decision": "block" | "approve",
   "reason": "<short summary>",
-  "findings": [{{"reviewer":"...", "severity":"red"|"yellow", "title":"...", "detail":"<verbatim>"}}],
+  "findings": [{{"critic":"...", "severity":"red"|"yellow", "title":"...", "detail":"<verbatim>"}}],
   "meta": {{"critics_used": {selected}, "iteration_hint": "{iter}"}}
 }}"#,
                 turn_slice = turn_slice_path,
