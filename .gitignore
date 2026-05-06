@@ -19,6 +19,9 @@ Dockerfile.dev
 # Experiments
 exp/
 
+# haltr runtime
+.haltr/logs/
+
 # Runtime
 .panes.yaml
 .hooks/

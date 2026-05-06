@@ -4,44 +4,82 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is haltr
 
-haltr is a CLI tool (`hal`) that helps coding agents maintain quality during long-running tasks. It provides task/step state management via task.yaml, quality gates (accept criteria + verification), and a Stop hook that prevents agents from quitting before completing their work. Published to npm as `haltr`.
+haltr is a CLI tool (`hal`) that provides a Stop hook-based quality gate and learning pipeline for coding agents. It enforces quality through independent sub-agent review (critic) and accumulates user corrections over time (memory), ensuring agents don't repeat mistakes.
 
 ## Commands
 
 ```bash
 cargo build --release   # Build release binary
-cargo test              # Run all tests (unit + integration, 20 tests)
+cargo test              # Run all tests (integration, 10 tests)
 cargo run -- --help     # Run with help
 ```
 
 ## Architecture
 
 ```
-src/main.rs              CLI entrypoint (clap derive). All commands registered here.
-src/commands/             Command handlers.
-  task.rs                 task create (--file required), task edit
-  step.rs                 step add/start/done/pause/resume/verify
-  status.rs               Show task state
-  check.rs                Stop hook gate (exit 0 = allow, exit 2 = block, output to stderr)
-  session.rs              SessionStart hook (sets HALTR_SESSION_ID env var)
-  setup.rs                Registers hooks in ~/.claude/settings.json
-src/lib/
-  task_utils.rs           resolve_task_file() — 3-level fallback: --file > session > cwd detect
-  session.rs              Session→task mapping in ~/.haltr/sessions/ (global, not project-local)
-  response.rs             Builds YAML responses for agent consumption
-  hints.rs                All agent guidance strings (centralized)
-  validator.rs            YAML load/save for task.yaml
-src/types.rs              Rust types (TaskYaml, Step, HistoryEvent, Status, AcceptCriteria)
-tests/integration.rs      Integration tests (CLI invocation via binary)
+src/main.rs              CLI entrypoint (clap derive). Commands: setup, critic, hook stop.
+src/commands/
+  setup.rs               `hal setup` — generates .haltr/ structure, registers Stop hook
+  critic.rs              `hal critic enable/disable` — session or global kill switch
+src/hook/
+  stop.rs                `hal hook stop` — Stop hook entrypoint (4-layer pipeline)
+src/session.rs           Session state management (/tmp/haltr-{session_id}.json)
+src/transcript.rs        Transcript parsing: conversation log builder, turn slice extraction
+
+src/agents/              Agent definition templates (embedded in binary via include_str!)
+  dispatcher.md          Unified dispatcher (haiku): decides critic? memory? both?
+  critic-orchestrator.md Critic orchestrator (opus): parallel critics, verdict aggregation
+  memory-writer.md       Learning pipeline: user correction → structured memory entry
+  critics/               Default critic definitions (copied to .haltr/agents/critics/)
+    expert-skeptic.md    Design/spec review + haltr-specific invariants (fail-open, recursion guard)
+    memory-feedback-reader.md  Past correction recurrence detection via .haltr/memory/
+
+tests/integration.rs     Integration tests (CLI invocation via binary)
+```
+
+### Stop hook flow (hal hook stop)
+
+```
+Layer 0a: recursion guard (CLAUDE_HOOK_NESTED) + kill switch (global + session)
+Layer 0b: last turn Edit/Write check (Rust, instant)
+Layer 1:  unified dispatcher (haiku, --model haiku, ~5s)
+          receives chronological conversation log since last anchor
+          decides: critic? memory? both? skip?
+Layer 2:  parallel: critic-orchestrator + memory-writer (opus, ~2min)
+          critic reads turn slice file (anchor → end)
+          critics are dynamically discovered from .haltr/agents/critics/
+Verdict:  critic result → exit 0 (approve) or exit 2 (block + stderr findings)
+Anchor:   updated only after Layer 2 runs (preserves context across skips)
+```
+
+### Generated project structure (hal setup)
+
+```
+.haltr/
+├── agents/
+│   ├── dispatcher.md              # Infrastructure (write-if-missing)
+│   ├── critic-orchestrator.md     # Infrastructure
+│   ├── memory-writer.md           # Infrastructure
+│   └── critics/                   # Editable, add your own
+│       ├── expert-skeptic.md
+│       └── memory-feedback-reader.md
+├── memory/                        # INDEX.md + structured correction entries
+└── logs/                          # {session_id}.jsonl (gitignored)
+
+.claude/settings.json              # Stop hook registration
 ```
 
 ### Key design decisions
 
-- **Tool, not framework**: No directory structure enforcement. Task files can be anywhere.
-- **Session mapping**: `hal task create` and `hal step start` write to `~/.haltr/sessions/{session_id}` so subsequent commands and Stop hook can find the task file without `--file`.
-- **Stop hook outputs to stderr**: Claude Code reads stderr from hooks, not stdout. `check.rs` uses `eprintln!` for block messages.
-- **All commands accept `--file`**: Optional on all commands except `task create` (required). Falls back to session mapping, then cwd auto-detect.
-- **Hooks schema**: Claude Code settings.json uses nested structure: `[{ "hooks": [{ "type": "command", "command": "..." }] }]`
+- **Rust for hook logic**: Avoids shell scripting bugs (SIGPIPE, quoting, grep). JSON via serde.
+- **`--system-prompt-file`** instead of `--agent`: keeps all haltr assets under `.haltr/`
+- **Dispatcher uses haiku**: explicit `--model haiku` for cost/speed. Critic uses default (opus).
+- **Conversation log**: dispatcher receives chronological `[user]`/`[assistant]` log with tool calls, not flattened text.
+- **Anchor-based slicing**: transcript position (`last_anchor_line`) advances only after Layer 2 runs. Skips preserve planning context.
+- **Dynamic critic discovery**: `.haltr/agents/critics/*.md` scanned at runtime. Add/remove/rename freely.
+- **Session state**: `/tmp/haltr-{session_id}.json` — critic_enabled, critic_iter, last_anchor_line.
+- **Fail-open**: every error path → exit 0. haltr never locks out the user.
+- **Sub-agent session_id logged**: each `claude -p` invocation's session_id is recorded for transcript tracing.
 
 ## Language
 
