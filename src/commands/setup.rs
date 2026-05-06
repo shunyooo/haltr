@@ -25,7 +25,7 @@ pub fn run() -> Result<()> {
     write_if_missing(&haltr_dir, "agents/critics/guard-l3.md", include_str!("../agents/critics/guard-l3.md"))?;
 
     // Initialize memory INDEX if not exists
-    write_if_missing(&haltr_dir, "memory/INDEX.md", MEMORY_INDEX_TEMPLATE)?;
+    write_if_missing(&haltr_dir, "memory/00_INDEX.md", MEMORY_INDEX_TEMPLATE)?;
 
     // Register Stop hook in .claude/settings.json
     register_hook(&project_root)?;
@@ -101,11 +101,17 @@ fn register_hook(project_root: &Path) -> Result<()> {
     Ok(())
 }
 
-const MEMORY_INDEX_TEMPLATE: &str = r#"# haltr Memory — INDEX
+const MEMORY_INDEX_TEMPLATE: &str = r#"# Learned Corrections — INDEX
 
 Structured entries of user corrections and learned patterns.
 **Read by**: memory-feedback-reader (critic pipeline)
 **Written by**: memory-writer (learning pipeline)
 
-## Entries
+File naming: `YYMMDD-HHMM-<slug>.md` (timestamp prefix for freshness at a glance).
+
+---
+
+## Uncategorized
+
+New entries land here. Reorganize into topic-based sections as entries accumulate.
 "#;

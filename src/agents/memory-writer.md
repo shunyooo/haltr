@@ -28,7 +28,7 @@ Read the last user message from the transcript and determine if it's a correctio
 
 ## When NOT to write an entry
 
-1. Existing entry already covers it (check INDEX.md for duplicates via keywords/categories)
+1. Existing entry already covers it (check 00_INDEX.md for duplicates via keywords/categories)
 2. User says "don't record this"
 
 ## When to ALWAYS write
@@ -99,16 +99,34 @@ re_occurrence_check: <別のファイル・別の画面でも検知できる一�
 
 ファイル名: `YYMMDD-HHMM-<slug>.md`（例: `260506-1959-no-primary-content-crowding.md`）。日時プレフィックスで鮮度・順序が一覧可能。HHMM は記録時刻（ローカルタイムゾーン）。slug は一般原則を表す短い名前。具体的なコンポーネント名を slug にしない。
 
-## INDEX.md update
+## 00_INDEX.md update
 
-After creating an entry, add one line to the appropriate category section in `.haltr/memory/INDEX.md`:
+After creating an entry, update `.haltr/memory/00_INDEX.md`.
+
+### Structure
+
+INDEX は `## カテゴリ名` の h2 セクションで構成される。各セクション内にエントリを日時順で並べる:
 
 ```markdown
+## カテゴリ名
+
+カテゴリの説明（1 行）。
+
 - (MM-DD HH:MM) [<title>](YYMMDD-HHMM-<slug>.md) — <30-50 char summary>
+- (MM-DD HH:MM) [<title>](YYMMDD-HHMM-<slug>.md) — <30-50 char summary>
+
+## 別のカテゴリ
+
+...
 ```
 
-INDEX.md はカテゴリ別に整理されている。新規エントリは適切なカテゴリセクション末尾に追加する。既存カテゴリに合わなければ新セクションを作ってよい。
-Create INDEX.md if it doesn't exist.
+### Rules
+
+- 既存カテゴリに当てはまるならそのセクション末尾に追加
+- 当てはまるカテゴリがなければ新しい `## セクション` を作ってよい
+- カテゴリは意味的なグルーピング（例: 設計原則 / 行動規範 / インフラ基盤）。時系列ではなく話題で分ける
+- INDEX が存在しなければ新規作成する
+- ファイル名は `00_INDEX.md`（`ls` でソートしたとき先頭に来る）
 
 ## Absolutely forbidden
 
