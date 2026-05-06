@@ -185,7 +185,8 @@ Only select critic names from the available critics list above."#,
                         "memory_category": d.memory.as_ref().map(|m| &m.category).cloned().unwrap_or_default(),
                         "reason": d.reason.as_deref().unwrap_or(""),
                         "cost_usd": cost,
-                        "duration_ms": dispatch_duration
+                        "duration_ms": dispatch_duration,
+                        "session_id": resp.session_id,
                     }));
                     d
                 }
@@ -300,6 +301,7 @@ Respond with pure JSON only:
                     "action": "done",
                     "cost_usd": resp.cost,
                     "result": resp.text,
+                    "session_id": resp.session_id,
                 }));
             }
             Err(e) => {
@@ -315,6 +317,7 @@ Respond with pure JSON only:
     let exit_code = if let Some(cr) = critic_result {
         match cr {
             Ok(resp) => {
+                let critic_sid = &resp.session_id;
                 match parse_critic_response(&resp.text) {
                     Ok(panel) => {
                         let num_findings = panel.findings.len();
@@ -333,6 +336,7 @@ Respond with pure JSON only:
                                     "findings_count": num_findings,
                                     "iteration": state.critic_iter,
                                     "cost_usd": resp.cost,
+                                    "critic_session_id": critic_sid,
                                     "total_duration_ms": t_start.elapsed().as_millis()
                                 }));
                                 let findings_json = serde_json::to_string_pretty(&panel.findings).unwrap_or_default();
@@ -346,6 +350,7 @@ Respond with pure JSON only:
                                     "findings_count": num_findings,
                                     "iteration": state.critic_iter,
                                     "cost_usd": resp.cost,
+                                    "critic_session_id": critic_sid,
                                     "total_duration_ms": t_start.elapsed().as_millis()
                                 }));
                                 let decision_json = serde_json::json!({
@@ -365,6 +370,7 @@ Respond with pure JSON only:
                                 "findings": panel.findings,
                                 "findings_count": num_findings,
                                 "cost_usd": resp.cost,
+                                "critic_session_id": critic_sid,
                                 "total_duration_ms": t_start.elapsed().as_millis()
                             }));
                             0
@@ -375,6 +381,7 @@ Respond with pure JSON only:
                             "decision": "fail-open",
                             "reason": format!("parse error: {}", e),
                             "cost_usd": resp.cost,
+                            "critic_session_id": critic_sid,
                             "total_duration_ms": t_start.elapsed().as_millis()
                         }));
                         0
@@ -480,6 +487,7 @@ fn build_selected_critic_defs(all: &[CriticInfo], selected: &[String]) -> String
 struct ClaudeResponse {
     text: String,
     cost: f64,
+    session_id: String,
 }
 
 fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str, model: Option<&str>) -> Result<ClaudeResponse> {
@@ -534,8 +542,12 @@ fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str, model: Op
     let cost = json.get("total_cost_usd")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
+    let session_id = json.get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
-    Ok(ClaudeResponse { text, cost })
+    Ok(ClaudeResponse { text, cost, session_id })
 }
 
 fn parse_dispatch_response(text: &str) -> Result<DispatcherResponse> {
