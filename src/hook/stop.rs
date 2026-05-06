@@ -143,14 +143,8 @@ pub fn run() -> Result<()> {
 == Available critics ==
 {critic_catalog}
 
-== Last user message ==
-{user_text}
-
-== Last assistant response (first 3000 chars) ==
-{assistant_text}
-
-== Tool calls in this turn (up to 30) ==
-{tool_summary}
+== Conversation since last review ==
+{conversation_log}
 
 == git status ==
 {git_status}
@@ -162,11 +156,9 @@ Respond with pure JSON only (no markdown, no text before/after):
   "reason": "..."
 }}
 
-Only select reviewer names from the available critics list above."#,
+Only select critic names from the available critics list above."#,
         critic_catalog = critic_catalog,
-        user_text = turn.user_text,
-        assistant_text = turn.assistant_text,
-        tool_summary = turn.tool_summary,
+        conversation_log = turn.conversation_log,
         git_status = git_status,
     );
 

@@ -2,12 +2,8 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 
 pub struct TurnSlice {
-    /// User text from all turns since anchor (for context)
-    pub user_text: String,
-    /// Assistant text from the last turn only (for dispatcher context)
-    pub assistant_text: String,
-    /// Tool calls from the LAST turn only (for dispatcher decision)
-    pub tool_summary: String,
+    /// Chronological conversation log since anchor (for dispatcher)
+    pub conversation_log: String,
     /// Write tool count in the LAST turn only (for Layer 0b gate)
     pub last_turn_write_count: usize,
     /// Tool count in the LAST turn only
@@ -39,7 +35,7 @@ pub fn extract_turn_slice(
 
     let slice_lines: Vec<&str> = lines[last_checked_lines..].to_vec();
 
-    // Find the last real user message position within the slice
+    // Find the last real user message position within the slice (for Layer 0b)
     let mut last_user_pos = None;
     for (i, line) in slice_lines.iter().enumerate() {
         if let Ok(entry) = serde_json::from_str::<Value>(line) {
@@ -53,14 +49,12 @@ pub fn extract_turn_slice(
         }
     }
 
-    // Collect all user texts since anchor (for context)
-    let mut user_texts: Vec<String> = Vec::new();
-    let mut assistant_text = String::new();
-    let mut total_tool_lines: Vec<String> = Vec::new();
+    // Build conversation log and collect tool stats
+    let mut conversation_parts: Vec<String> = Vec::new();
+    let mut has_user_message = false;
+    let mut total_tool_count = 0usize;
     let mut total_write_count = 0usize;
-
-    // Last turn tools (from last user message onward)
-    let mut last_turn_tool_lines: Vec<String> = Vec::new();
+    let mut last_turn_tool_count = 0usize;
     let mut last_turn_write_count = 0usize;
 
     for (i, line) in slice_lines.iter().enumerate() {
@@ -71,39 +65,42 @@ pub fn extract_turn_slice(
                 Some("user") => {
                     if let Some(content) = entry.pointer("/message/content") {
                         if let Some(text) = content.as_str() {
-                            let truncated: String = text.chars().take(3000).collect();
-                            user_texts.push(truncated);
+                            has_user_message = true;
+                            let truncated: String = text.chars().take(2000).collect();
+                            conversation_parts.push(format!("[user] {}", truncated));
                         }
                     }
                 }
                 Some("assistant") => {
                     if let Some(contents) = entry.pointer("/message/content").and_then(|c| c.as_array()) {
+                        let mut text_parts: Vec<String> = Vec::new();
+                        let mut tool_parts: Vec<String> = Vec::new();
+
                         for block in contents {
                             match block.get("type").and_then(|t| t.as_str()) {
                                 Some("text") => {
                                     if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
-                                        if is_last_turn {
-                                            assistant_text.push_str(text);
-                                        }
+                                        let truncated: String = text.chars().take(500).collect();
+                                        text_parts.push(truncated);
                                     }
                                 }
                                 Some("tool_use") => {
                                     let name = block.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
                                     let detail = extract_tool_detail(block);
                                     let summary = if detail.is_empty() {
-                                        format!("- {}", name)
+                                        format!("  - {}", name)
                                     } else {
-                                        format!("- {}: {}", name, detail)
+                                        format!("  - {}: {}", name, detail)
                                     };
+                                    tool_parts.push(summary);
 
                                     let is_write = matches!(name, "Edit" | "Write" | "MultiEdit" | "NotebookEdit");
-                                    total_tool_lines.push(summary.clone());
+                                    total_tool_count += 1;
                                     if is_write {
                                         total_write_count += 1;
                                     }
-
                                     if is_last_turn {
-                                        last_turn_tool_lines.push(summary);
+                                        last_turn_tool_count += 1;
                                         if is_write {
                                             last_turn_write_count += 1;
                                         }
@@ -112,6 +109,16 @@ pub fn extract_turn_slice(
                                 _ => {}
                             }
                         }
+
+                        let mut assistant_entry = String::from("[assistant] ");
+                        if !text_parts.is_empty() {
+                            assistant_entry.push_str(&text_parts.join(" "));
+                        }
+                        if !tool_parts.is_empty() {
+                            assistant_entry.push('\n');
+                            assistant_entry.push_str(&tool_parts.join("\n"));
+                        }
+                        conversation_parts.push(assistant_entry);
                     }
                 }
                 _ => {}
@@ -119,7 +126,7 @@ pub fn extract_turn_slice(
         }
     }
 
-    if user_texts.is_empty() {
+    if !has_user_message {
         return Ok(None);
     }
 
@@ -129,23 +136,28 @@ pub fn extract_turn_slice(
     std::fs::write(&slice_path, &slice_content)
         .context("failed to write turn slice")?;
 
-    let user_text = user_texts.join("\n---\n");
-    let assistant_text: String = assistant_text.chars().take(3000).collect();
-    let tool_count = total_tool_lines.len();
-    let last_turn_tool_count = last_turn_tool_lines.len();
-    let tool_summary = last_turn_tool_lines.into_iter().take(30).collect::<Vec<_>>().join("\n");
+    // Truncate conversation log to avoid oversized prompts
+    let conversation_log = truncate_conversation_log(&conversation_parts, 15000);
 
     Ok(Some(TurnSlice {
-        user_text,
-        assistant_text,
-        tool_summary,
+        conversation_log,
         last_turn_write_count,
         last_turn_tool_count,
         write_tool_count: total_write_count,
-        tool_count,
+        tool_count: total_tool_count,
         slice_path,
         total_lines,
     }))
+}
+
+fn truncate_conversation_log(parts: &[String], max_chars: usize) -> String {
+    let full = parts.join("\n");
+    if full.len() <= max_chars {
+        return full;
+    }
+    // Keep the end (most recent conversation is most important)
+    let truncated: String = full.chars().rev().take(max_chars).collect::<String>().chars().rev().collect();
+    format!("...(truncated)\n{}", truncated)
 }
 
 fn extract_tool_detail(block: &Value) -> String {
