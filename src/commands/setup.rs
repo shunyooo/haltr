@@ -25,7 +25,7 @@ pub fn run() -> Result<()> {
     write_if_missing(&haltr_dir, "agents/critics/guard-l3.md", include_str!("../agents/critics/guard-l3.md"))?;
 
     // Initialize memory INDEX if not exists
-    write_if_missing(&haltr_dir, "memory/00_INDEX.md", MEMORY_INDEX_TEMPLATE)?;
+    write_if_missing(&haltr_dir, "memory/00_index.md", MEMORY_INDEX_TEMPLATE)?;
 
     // Register Stop hook in .claude/settings.json
     register_hook(&project_root)?;

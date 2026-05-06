@@ -28,7 +28,7 @@ Read the last user message from the transcript and determine if it's a correctio
 
 ## When NOT to write an entry
 
-1. Existing entry already covers it (check 00_INDEX.md for duplicates via keywords/categories)
+1. Existing entry already covers it (check 00_index.md for duplicates via keywords/categories)
 2. User says "don't record this"
 
 ## When to ALWAYS write
@@ -99,9 +99,9 @@ re_occurrence_check: <別のファイル・別の画面でも検知できる一�
 
 ファイル名: `YYMMDD-HHMM-<slug>.md`（例: `260506-1959-no-primary-content-crowding.md`）。日時プレフィックスで鮮度・順序が一覧可能。HHMM は記録時刻（ローカルタイムゾーン）。slug は一般原則を表す短い名前。具体的なコンポーネント名を slug にしない。
 
-## 00_INDEX.md update
+## 00_index.md update
 
-After creating an entry, update `.haltr/memory/00_INDEX.md`.
+After creating an entry, update `.haltr/memory/00_index.md`.
 
 ### Structure
 
@@ -126,7 +126,7 @@ INDEX は `## カテゴリ名` の h2 セクションで構成される。各セ
 - 当てはまるカテゴリがなければ新しい `## セクション` を作ってよい
 - カテゴリは意味的なグルーピング（例: 設計原則 / 行動規範 / インフラ基盤）。時系列ではなく話題で分ける
 - INDEX が存在しなければ新規作成する
-- ファイル名は `00_INDEX.md`（`ls` でソートしたとき先頭に来る）
+- ファイル名は `00_index.md`（`ls` でソートしたとき先頭に来る）
 
 ## Absolutely forbidden
 
