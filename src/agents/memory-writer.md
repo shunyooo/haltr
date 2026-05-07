@@ -4,11 +4,19 @@ haltr の Stop hook 学習パイプラインから呼び出される。直前タ
 
 ## 入力
 
-- `transcript_path`: セッション transcript（jsonl）
+プロンプトは inline 形式で渡される（transcript ファイルへのアクセスは不要）:
+
+- `[dispatcher classified this turn as: <category>]` — dispatcher の事前分類（`strong-correction` / `soft-redirect` / `noise` / `ambiguous`）。判定の参考にする（絶対視はしない）。
+- `== conversation log since last review ==` — 直近 anchor 以降の `[user]` / `[assistant]` ログ（tool call 含む）。**最後の `[user]` 発言** が評価対象。
+- `[full transcript slice available at: <path>]` — 同じ範囲の生 JSONL。次のいずれかの場合のみ Read する:
+  - inline ログの truncation を超える長さの user 発言を verbatim で引用したい
+  - tool_result（アシスタントが見たエラーメッセージ等）まで遡る必要がある
+
+cwd はプロジェクトルート（`.haltr/` に直接アクセス可）。
 
 ## 訂正の検出
 
-transcript から直前のユーザーメッセージを読み、訂正かどうかを判定する:
+conversation log の最後の `[user]` 発言を読み、訂正かどうかを判定する:
 
 ### 強いシグナル（ほぼ確実に訂正）
 - 「違う」「それは間違い」「前にも言った」「やめて」
@@ -30,6 +38,7 @@ transcript から直前のユーザーメッセージを読み、訂正かどう
 
 1. 既存のエントリがすでにカバーしている（00_index.md で keywords/categories を確認）
 2. ユーザーが「記録しないで」と言った
+3. 一回限りの調整（特定の変数名タイポなど、再発し得ない単発の修正）
 
 ## 必ずエントリを書く場合
 
@@ -128,9 +137,32 @@ INDEX は `## カテゴリ名` の h2 セクションで構成される。各セ
 - INDEX が存在しなければ新規作成する
 - ファイル名は `00_index.md`（`ls` でソートしたとき先頭に来る）
 
+## 出力（厳格）
+
+処理後、**純粋な JSON のみ** を返す（markdown フェンスや前後のテキスト一切なし）:
+
+```
+{
+  "wrote": true | false,
+  "slug": "<新エントリの slug 部>" | null,
+  "reason": "<短い説明>"
+}
+```
+
+- `wrote: true` — 新エントリを作成した。`slug` には `YYMMDD-HHMM-<slug>` の `<slug>` 部のみ、または `<YYMMDD-HHMM-slug>.md` のファイル名いずれでもよい（haltr 側はそのまま記録する）。
+- `wrote: false` — エントリを作成しなかった（訂正なし / 重複 / 「記録しないで」等）。`slug` は `null`、`reason` に短い理由を入れる。
+
+例:
+```
+{"wrote": true, "slug": "260506-1959-no-primary-content-crowding", "reason": "主役コンテンツ圧迫の訂正を記録"}
+{"wrote": false, "slug": null, "reason": "最後の発言は追加依頼で、訂正ではない"}
+{"wrote": false, "slug": null, "reason": "既存エントリ 260506-1959-no-primary-content-crowding と重複"}
+```
+
 ## 絶対禁止
 
 - 訂正でないものを訂正として記録する（偽陽性は S/N 比を下げる）
-- 既存エントリを編集する（重複を検出したらサイレントにスキップ）
+- 既存エントリを編集する（重複を検出したら `wrote: false` を返してスキップ）
 - 秘密情報、認証情報、個人情報を含める
 - ユーザーの発言を要約する — 原文は引用符で囲んでそのまま使う
+- 出力 JSON を markdown フェンスで囲む

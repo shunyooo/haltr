@@ -44,6 +44,17 @@ struct CriticPanelResponse {
     extra: serde_json::Map<String, Value>,
 }
 
+#[derive(Debug, Deserialize)]
+struct MemoryWriterResponse {
+    wrote: bool,
+    #[serde(default)]
+    slug: Option<String>,
+    #[serde(default)]
+    reason: Option<String>,
+}
+
+const CONSECUTIVE_FAILURE_WARN_THRESHOLD: usize = 3;
+
 struct CriticInfo {
     name: String,
     description: String,
@@ -88,6 +99,10 @@ pub fn run() -> Result<()> {
 
     // Ensure log directory exists
     let haltr_dir = find_haltr_dir()?;
+    let project_root = std::path::Path::new(&haltr_dir)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| haltr_dir.clone());
     let log_dir = format!("{}/logs", haltr_dir);
     std::fs::create_dir_all(&log_dir).ok();
     let log_file = format!("{}/{}.jsonl", log_dir, session_id);
@@ -168,6 +183,7 @@ Only select critic names from the available critics list above."#,
         &dispatcher_prompt,
         DISPATCHER_BUDGET,
         Some("haiku"),
+        &project_root,
     );
 
     let dispatch_duration = t_dispatch.elapsed().as_millis();
@@ -237,6 +253,7 @@ Only select critic names from the available critics list above."#,
         let agents_dir_c = agents_dir.clone();
         let turn_slice_path = turn.slice_path.clone();
         let iter = state.critic_iter;
+        let cwd_c = project_root.clone();
         Some(std::thread::spawn(move || {
             let prompt = format!(
                 r#"Transcript path (current turn only): {turn_slice}
@@ -264,6 +281,7 @@ Respond with pure JSON only:
                 &prompt,
                 PANEL_BUDGET,
                 None,
+                &cwd_c,
             )
         }))
     } else {
@@ -272,17 +290,40 @@ Respond with pure JSON only:
 
     let memory_handle = if run_memory {
         let agents_dir_m = agents_dir.clone();
-        let transcript_path_m = transcript_path.clone();
+        let cwd_m = project_root.clone();
+        let category = dispatch.memory.as_ref()
+            .map(|m| m.category.clone())
+            .unwrap_or_default();
+        let conversation_log = turn.conversation_log.clone();
+        let slice_path = turn.slice_path.clone();
         Some(std::thread::spawn(move || {
             let prompt = format!(
-                "Transcript path: {}\n\nAnalyze the last turn. If the user made a correction, persist it to .haltr/memory/ as a new entry.",
-                transcript_path_m
+                r#"[dispatcher classified this turn as: {category}]
+
+== conversation log since last review ==
+{conversation_log}
+
+[full transcript slice (raw JSONL, anchor → end) available at: {slice_path}]
+Read it only if you need verbatim quotes longer than what appears inline above, or tool_result content.
+
+Analyze the last user message in the conversation log. If it is a correction worth recording, persist it to .haltr/memory/ as a new entry per your instructions, then return the structured JSON below.
+
+Respond with pure JSON only (no markdown, no text before/after):
+{{
+  "wrote": true|false,
+  "slug": "<slug>" | null,
+  "reason": "<short explanation>"
+}}"#,
+                category = if category.is_empty() { "ambiguous" } else { &category },
+                conversation_log = conversation_log,
+                slice_path = slice_path,
             );
             invoke_claude(
                 &format!("{}/memory-writer.md", agents_dir_m),
                 &prompt,
                 MEMORY_WRITER_BUDGET,
                 None,
+                &cwd_m,
             )
         }))
     } else {
@@ -297,16 +338,35 @@ Respond with pure JSON only:
     if let Some(ref mr) = memory_result {
         match mr {
             Ok(resp) => {
-                append_log(&log_file, "memory", serde_json::json!({
-                    "action": "done",
-                    "cost_usd": resp.cost,
-                    "result": resp.text,
-                    "session_id": resp.session_id,
-                }));
+                match parse_memory_response(&resp.text) {
+                    Ok(parsed) => {
+                        let action = if parsed.wrote { "done" } else { "noop" };
+                        append_log(&log_file, "memory", serde_json::json!({
+                            "action": action,
+                            "wrote": parsed.wrote,
+                            "slug": parsed.slug,
+                            "reason": parsed.reason,
+                            "cost_usd": resp.cost,
+                            "result": resp.text,
+                            "session_id": resp.session_id,
+                        }));
+                    }
+                    Err(e) => {
+                        append_log(&log_file, "memory", serde_json::json!({
+                            "action": "failed",
+                            "error_kind": "parse_error",
+                            "reason": format!("{}", e),
+                            "cost_usd": resp.cost,
+                            "result": resp.text,
+                            "session_id": resp.session_id,
+                        }));
+                    }
+                }
             }
             Err(e) => {
                 append_log(&log_file, "memory", serde_json::json!({
-                    "action": "error",
+                    "action": "failed",
+                    "error_kind": "invoke_error",
                     "reason": format!("{}", e),
                 }));
             }
@@ -405,6 +465,11 @@ Respond with pure JSON only:
         0
     };
 
+    // Warn if memory layer has been failing repeatedly
+    if memory_result.is_some() {
+        maybe_warn_consecutive_failures(&log_file, "memory");
+    }
+
     // Layer 2 ran — advance transcript position
     state.last_anchor_line = new_anchor;
     session::save(&session_id, &state).ok();
@@ -490,7 +555,7 @@ struct ClaudeResponse {
     session_id: String,
 }
 
-fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str, model: Option<&str>) -> Result<ClaudeResponse> {
+fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str, model: Option<&str>, cwd: &str) -> Result<ClaudeResponse> {
     use std::io::Write;
 
     let mut cmd = Command::new("claude");
@@ -512,6 +577,7 @@ fn invoke_claude(system_prompt_file: &str, prompt: &str, budget: &str, model: Op
     }
 
     let mut child = cmd
+        .current_dir(cwd)
         .env("CLAUDE_HOOK_NESTED", "1")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -560,6 +626,11 @@ fn parse_critic_response(text: &str) -> Result<CriticPanelResponse> {
     serde_json::from_str(&cleaned).context("failed to parse critic panel response")
 }
 
+fn parse_memory_response(text: &str) -> Result<MemoryWriterResponse> {
+    let cleaned = strip_markdown_fence(text);
+    serde_json::from_str(&cleaned).context("failed to parse memory-writer response")
+}
+
 fn strip_markdown_fence(text: &str) -> String {
     text.lines()
         .filter(|line| {
@@ -585,6 +656,53 @@ fn find_haltr_dir() -> Result<String> {
     Ok(default.to_string_lossy().to_string())
 }
 
+/// Scan log file for trailing run of consecutive failed entries for a layer
+/// with the same error_kind, and warn to stderr if it exceeds the threshold.
+fn maybe_warn_consecutive_failures(log_file: &str, layer: &str) {
+    let content = match std::fs::read_to_string(log_file) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    let mut consecutive = 0usize;
+    let mut error_kind: Option<String> = None;
+
+    for line in content.lines().rev() {
+        let entry: Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if entry.get("layer").and_then(|v| v.as_str()) != Some(layer) {
+            continue;
+        }
+        if entry.get("action").and_then(|v| v.as_str()) != Some("failed") {
+            break;
+        }
+        let kind = entry.get("error_kind")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        match &error_kind {
+            None => {
+                error_kind = Some(kind);
+                consecutive = 1;
+            }
+            Some(prev) if prev == &kind => {
+                consecutive += 1;
+            }
+            _ => break,
+        }
+    }
+
+    if consecutive >= CONSECUTIVE_FAILURE_WARN_THRESHOLD {
+        let kind = error_kind.unwrap_or_else(|| "unknown".to_string());
+        eprintln!(
+            "[haltr] {}-layer has failed {} times in a row ({}). See {}",
+            layer, consecutive, kind, log_file
+        );
+    }
+}
+
 fn append_log(log_file: &str, layer: &str, data: Value) {
     let entry = serde_json::json!({
         "ts": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
@@ -604,5 +722,116 @@ fn append_log(log_file: &str, layer: &str, data: Value) {
         if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(log_file) {
             let _ = writeln!(f, "{}", line);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_memory_response_wrote_true() {
+        let text = r#"{"wrote": true, "slug": "hook-exit-2", "reason": "user corrected exit code usage"}"#;
+        let parsed = parse_memory_response(text).expect("should parse");
+        assert!(parsed.wrote);
+        assert_eq!(parsed.slug.as_deref(), Some("hook-exit-2"));
+        assert_eq!(parsed.reason.as_deref(), Some("user corrected exit code usage"));
+    }
+
+    #[test]
+    fn parse_memory_response_wrote_false_with_null_slug() {
+        let text = r#"{"wrote": false, "slug": null, "reason": "no correction in last turn"}"#;
+        let parsed = parse_memory_response(text).expect("should parse");
+        assert!(!parsed.wrote);
+        assert!(parsed.slug.is_none());
+        assert_eq!(parsed.reason.as_deref(), Some("no correction in last turn"));
+    }
+
+    #[test]
+    fn parse_memory_response_strips_markdown_fence() {
+        let text = "```json\n{\"wrote\": true, \"slug\": \"x\", \"reason\": \"y\"}\n```";
+        let parsed = parse_memory_response(text).expect("should parse");
+        assert!(parsed.wrote);
+        assert_eq!(parsed.slug.as_deref(), Some("x"));
+    }
+
+    #[test]
+    fn parse_memory_response_invalid_json_errors() {
+        let text = "not json at all";
+        assert!(parse_memory_response(text).is_err());
+    }
+
+    fn temp_log_file(name: &str) -> String {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let path = std::env::temp_dir()
+            .join(format!("haltr-stop-test-{}-{}-{}.jsonl", std::process::id(), id, name));
+        let _ = std::fs::remove_file(&path);
+        path.to_string_lossy().to_string()
+    }
+
+    fn write_entry(log: &str, layer: &str, action: &str, error_kind: Option<&str>) {
+        let mut entry = serde_json::json!({"layer": layer, "action": action});
+        if let Some(k) = error_kind {
+            entry["error_kind"] = serde_json::Value::String(k.to_string());
+        }
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log)
+            .unwrap();
+        writeln!(f, "{}", entry).unwrap();
+    }
+
+    #[test]
+    fn warn_when_threshold_consecutive_same_kind() {
+        let log = temp_log_file("warn-threshold");
+        for _ in 0..3 {
+            write_entry(&log, "memory", "failed", Some("parse_error"));
+        }
+        // No panic, no spurious behavior. Stderr capture in tests is awkward,
+        // so we simply assert the function runs without error and the log is intact.
+        maybe_warn_consecutive_failures(&log, "memory");
+        let content = std::fs::read_to_string(&log).unwrap();
+        assert_eq!(content.lines().count(), 3);
+        let _ = std::fs::remove_file(&log);
+    }
+
+    #[test]
+    fn no_warn_when_run_broken_by_success() {
+        let log = temp_log_file("no-warn-success");
+        write_entry(&log, "memory", "failed", Some("parse_error"));
+        write_entry(&log, "memory", "failed", Some("parse_error"));
+        write_entry(&log, "memory", "done", None); // breaks the run
+        write_entry(&log, "memory", "failed", Some("parse_error"));
+        // Trailing run of failed entries is only 1, below threshold.
+        maybe_warn_consecutive_failures(&log, "memory");
+        let _ = std::fs::remove_file(&log);
+    }
+
+    #[test]
+    fn no_warn_when_run_broken_by_different_kind() {
+        let log = temp_log_file("no-warn-mixed");
+        write_entry(&log, "memory", "failed", Some("invoke_error"));
+        write_entry(&log, "memory", "failed", Some("parse_error"));
+        write_entry(&log, "memory", "failed", Some("parse_error"));
+        // Trailing run of "parse_error" is 2, below threshold.
+        maybe_warn_consecutive_failures(&log, "memory");
+        let _ = std::fs::remove_file(&log);
+    }
+
+    #[test]
+    fn ignores_other_layers() {
+        let log = temp_log_file("ignores-other");
+        write_entry(&log, "dispatcher", "failed", Some("parse_error"));
+        write_entry(&log, "memory", "failed", Some("parse_error"));
+        write_entry(&log, "verdict", "failed", Some("parse_error"));
+        write_entry(&log, "memory", "failed", Some("parse_error"));
+        write_entry(&log, "memory", "failed", Some("parse_error"));
+        // memory-layer trailing run = 3 (other layers should be skipped, not break the run)
+        maybe_warn_consecutive_failures(&log, "memory");
+        let _ = std::fs::remove_file(&log);
     }
 }

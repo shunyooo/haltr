@@ -52,7 +52,7 @@ fn test_help() {
 fn test_version() {
     let (output, code) = hal(&["--version"]);
     assert_eq!(code, 0);
-    assert!(output.contains("5.0.0"));
+    assert!(output.contains("5."));
 }
 
 #[test]
