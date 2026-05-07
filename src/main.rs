@@ -32,6 +32,11 @@ enum Commands {
         #[command(subcommand)]
         command: MemoryCommands,
     },
+    /// Emit migration hints for the calling agent to bring `.haltr/` up to date
+    Migrate {
+        #[command(subcommand)]
+        command: MigrateCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -65,6 +70,12 @@ enum MemoryCommands {
     },
 }
 
+#[derive(Subcommand)]
+enum MigrateCommands {
+    /// Emit a markdown migration brief for the calling agent (current contracts + bundled agent files)
+    Hint,
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -80,6 +91,9 @@ fn main() {
         Commands::Memory { command } => match command {
             MemoryCommands::Stats => commands::memory::stats(),
             MemoryCommands::Hits { entry } => commands::memory::hits(&entry),
+        },
+        Commands::Migrate { command } => match command {
+            MigrateCommands::Hint => commands::migrate::hint(),
         },
     };
 
