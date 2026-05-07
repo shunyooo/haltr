@@ -52,7 +52,8 @@ Layer 2:  parallel: critic-orchestrator + memory-writer (opus, ~2min)
 Verdict:  critic result → exit 0 (approve) or exit 2 (block + stderr findings)
 Anchor:   updated only after Layer 2 runs (preserves context across skips)
 Telemetry: memory layer logs action ∈ {done, noop, failed} + error_kind on failure
-           consecutive same-error_kind failures (≥3) trigger stderr warning
+           consecutive same-error_kind failures (≥3) emit a `systemMessage`
+           on stdout so the user sees a non-blocking warning
 ```
 
 ### Generated project structure (hal setup)

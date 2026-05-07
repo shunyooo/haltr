@@ -465,10 +465,15 @@ Respond with pure JSON only (no markdown, no text before/after):
         0
     };
 
-    // Warn if memory layer has been failing repeatedly
-    if memory_result.is_some() {
-        maybe_warn_consecutive_failures(&log_file, "memory");
-    }
+    // Surface a non-blocking warning to the user (via `systemMessage`)
+    // when the memory layer has been failing repeatedly. Exit-2 paths above
+    // already returned via `std::process::exit`, so we only emit when the
+    // hook is going to exit 0.
+    let warning = if memory_result.is_some() {
+        detect_consecutive_failure_warning(&log_file, "memory")
+    } else {
+        None
+    };
 
     // Layer 2 ran — advance transcript position
     state.last_anchor_line = new_anchor;
@@ -478,6 +483,14 @@ Respond with pure JSON only (no markdown, no text before/after):
 
     if exit_code != 0 {
         std::process::exit(exit_code);
+    }
+
+    if let Some(msg) = warning {
+        // Stop hook honors top-level `systemMessage` on exit 0 and shows it
+        // to the user as a warning without blocking the stop. Per Claude Code
+        // hooks reference (Universal JSON output fields).
+        let out = serde_json::json!({ "systemMessage": msg });
+        println!("{}", out);
     }
     Ok(())
 }
@@ -656,13 +669,11 @@ fn find_haltr_dir() -> Result<String> {
     Ok(default.to_string_lossy().to_string())
 }
 
-/// Scan log file for trailing run of consecutive failed entries for a layer
-/// with the same error_kind, and warn to stderr if it exceeds the threshold.
-fn maybe_warn_consecutive_failures(log_file: &str, layer: &str) {
-    let content = match std::fs::read_to_string(log_file) {
-        Ok(c) => c,
-        Err(_) => return,
-    };
+/// Scan log file for the trailing run of consecutive failed entries for a
+/// layer with the same `error_kind`. Returns a one-line warning message when
+/// the run reaches the warn threshold; otherwise returns `None`.
+fn detect_consecutive_failure_warning(log_file: &str, layer: &str) -> Option<String> {
+    let content = std::fs::read_to_string(log_file).ok()?;
 
     let mut consecutive = 0usize;
     let mut error_kind: Option<String> = None;
@@ -696,10 +707,12 @@ fn maybe_warn_consecutive_failures(log_file: &str, layer: &str) {
 
     if consecutive >= CONSECUTIVE_FAILURE_WARN_THRESHOLD {
         let kind = error_kind.unwrap_or_else(|| "unknown".to_string());
-        eprintln!(
+        Some(format!(
             "[haltr] {}-layer has failed {} times in a row ({}). See {}",
             layer, consecutive, kind, log_file
-        );
+        ))
+    } else {
+        None
     }
 }
 
@@ -791,11 +804,10 @@ mod tests {
         for _ in 0..3 {
             write_entry(&log, "memory", "failed", Some("parse_error"));
         }
-        // No panic, no spurious behavior. Stderr capture in tests is awkward,
-        // so we simply assert the function runs without error and the log is intact.
-        maybe_warn_consecutive_failures(&log, "memory");
-        let content = std::fs::read_to_string(&log).unwrap();
-        assert_eq!(content.lines().count(), 3);
+        let msg = detect_consecutive_failure_warning(&log, "memory").expect("should warn");
+        assert!(msg.contains("memory-layer"));
+        assert!(msg.contains("3 times"));
+        assert!(msg.contains("parse_error"));
         let _ = std::fs::remove_file(&log);
     }
 
@@ -807,7 +819,7 @@ mod tests {
         write_entry(&log, "memory", "done", None); // breaks the run
         write_entry(&log, "memory", "failed", Some("parse_error"));
         // Trailing run of failed entries is only 1, below threshold.
-        maybe_warn_consecutive_failures(&log, "memory");
+        assert!(detect_consecutive_failure_warning(&log, "memory").is_none());
         let _ = std::fs::remove_file(&log);
     }
 
@@ -818,7 +830,7 @@ mod tests {
         write_entry(&log, "memory", "failed", Some("parse_error"));
         write_entry(&log, "memory", "failed", Some("parse_error"));
         // Trailing run of "parse_error" is 2, below threshold.
-        maybe_warn_consecutive_failures(&log, "memory");
+        assert!(detect_consecutive_failure_warning(&log, "memory").is_none());
         let _ = std::fs::remove_file(&log);
     }
 
@@ -831,7 +843,8 @@ mod tests {
         write_entry(&log, "memory", "failed", Some("parse_error"));
         write_entry(&log, "memory", "failed", Some("parse_error"));
         // memory-layer trailing run = 3 (other layers should be skipped, not break the run)
-        maybe_warn_consecutive_failures(&log, "memory");
+        let msg = detect_consecutive_failure_warning(&log, "memory").expect("should warn");
+        assert!(msg.contains("3 times"));
         let _ = std::fs::remove_file(&log);
     }
 }
