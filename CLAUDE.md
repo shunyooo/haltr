@@ -99,6 +99,19 @@ Telemetry: memory layer logs action ∈ {done, noop, failed} + error_kind on fai
 - **Memory stats**: memory-feedback-reader appends a `haltr-stats` JSON fence to its verdict; the Stop hook parses it and accumulates per-entry `checks` / `hits` / `last_check` / `last_hit` in `.haltr/memory/00_stats.json`. Individual hit events are NOT denormalized — they remain in `.haltr/logs/<sid>.jsonl` as the single source of truth, and `hal memory hits <entry>` reconstructs history by scanning logs on demand.
 - **Migrations are agent-driven**: `hal setup` is non-destructive (`write_if_missing`). When the binary's contract changes, `hal migrate hint` emits a markdown brief describing each contract and the bundled current version, and the calling agent reconciles user customizations against it. The binary intentionally has no `--force-overwrite` flag.
 
+## Release & distribution
+
+- **Single source of truth for version**: `Cargo.toml`. Bump it, tag `vX.Y.Z`, push the tag — `release.yml` does the rest.
+- **Tag push (`v*`) triggers the full release flow** in `.github/workflows/release.yml`: build for 5 targets (linux x64/arm64 musl, darwin x64/arm64, win x64) → create GitHub Release with the binaries → publish to npm as `@newdefs/haltr`.
+- **`npm/package.json` version on disk drifts intentionally.** The `npm-publish` job overwrites it from `Cargo.toml` *at publish time* before running `npm publish`. So the on-disk value is whatever it was last committed and may lag the actual published npm version. **Don't trust `npm/package.json`'s version field for "what's on the npm registry"** — check the registry directly:
+  ```
+  curl -s https://registry.npmjs.org/@newdefs/haltr | jq '."dist-tags".latest'
+  ```
+- **Three install paths, all on the same release**:
+  - `npm i -g @newdefs/haltr` (postinstall downloads the matching binary from GitHub Releases)
+  - Direct binary download from `https://github.com/shunyooo/haltr/releases/download/v<VERSION>/<artifact>`
+  - `cargo build --release` from source
+
 ## Language
 
 All code, user-facing strings, and documentation are in English.
