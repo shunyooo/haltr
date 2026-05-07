@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::io::Read;
 use std::process::Command;
 
+use crate::memory_stats;
 use crate::session;
 use crate::transcript;
 
@@ -381,6 +382,7 @@ Respond with pure JSON only (no markdown, no text before/after):
                 match parse_critic_response(&resp.text) {
                     Ok(panel) => {
                         let num_findings = panel.findings.len();
+                        update_memory_stats_from_findings(&haltr_dir, &panel.findings, &log_file);
                         if panel.decision == "block" {
                             state.critic_iter += 1;
                             session::save(&session_id, &state).ok();
@@ -713,6 +715,51 @@ fn detect_consecutive_failure_warning(log_file: &str, layer: &str) -> Option<Str
         ))
     } else {
         None
+    }
+}
+
+/// Walk a critic panel's findings and update `.haltr/memory/00_stats.json`
+/// with each memory-feedback-reader run's `checked` / `matched` lists.
+///
+/// Failures are silent (logged to the session log file at most): stat
+/// tracking is purely advisory and must never block the hook pipeline.
+fn update_memory_stats_from_findings(haltr_dir: &str, findings: &[Value], log_file: &str) {
+    let mut checked: Vec<String> = Vec::new();
+    let mut matched: Vec<String> = Vec::new();
+
+    for f in findings {
+        let critic_name = f.get("critic").and_then(|v| v.as_str()).unwrap_or("");
+        if critic_name != "memory-feedback-reader" {
+            continue;
+        }
+        let detail = match f.get("detail").and_then(|v| v.as_str()) {
+            Some(d) => d,
+            None => continue,
+        };
+        if let Some((c, m)) = memory_stats::extract_haltr_stats(detail) {
+            checked.extend(c);
+            matched.extend(m);
+        }
+    }
+
+    if checked.is_empty() && matched.is_empty() {
+        return;
+    }
+
+    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let path = memory_stats::stats_path(haltr_dir);
+    if let Err(e) = memory_stats::record_run(&path, &checked, &matched, &now) {
+        append_log(log_file, "memory_stats", serde_json::json!({
+            "action": "failed",
+            "error_kind": "stats_write_error",
+            "reason": format!("{}", e),
+        }));
+    } else {
+        append_log(log_file, "memory_stats", serde_json::json!({
+            "action": "updated",
+            "checked_count": checked.len(),
+            "matched_count": matched.len(),
+        }));
     }
 }
 

@@ -63,6 +63,26 @@ severity: green
 - （00_index.md の全エントリをチェック、keyword マッチを試行、ヒットなし）
 ```
 
+### 必須: 機械可読 stats フッター
+
+上記の人間向け markdown の **末尾に必ず** `haltr-stats` フェンスブロックを 1 個だけ追加する。haltr はこれを parse して `.haltr/memory/00_stats.json` の per-entry checks/hits カウンタを更新する。エントリのタイトルではなく **ファイル名**（例: `260506-1959-foo.md`）を使う。
+
+```haltr-stats
+{
+  "checked": ["<entry-filename>", "..."],
+  "matched": [
+    {"entry": "<entry-filename>", "severity": "red"}
+  ]
+}
+```
+
+ルール:
+- `checked` は今ターン実際に評価したすべての 00_index.md エントリ（マッチしなくても列挙）。
+- `matched` は `checked` のうち red / yellow と判定された subset。green のものは含めない。
+- `severity: green` の verdict では `matched` は `[]`。
+- ファイル名は `.haltr/memory/` 配下に実在するものをそのまま使う。架空のパスを書かない。
+- このブロックは末尾に 1 回だけ。別のフェンスで囲まない。
+
 ## 原則
 
 - **再発には厳格に** — 「同じフィードバックを二度受けない」がコアプロミス。迷ったら red 寄りに判定する
