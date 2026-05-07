@@ -17,12 +17,14 @@ cargo run -- --help     # Run with help
 ## Architecture
 
 ```
-src/main.rs              CLI entrypoint (clap derive). Commands: setup, critic, hook stop, memory.
+src/main.rs              CLI entrypoint (clap derive). Commands: setup, critic, hook stop, memory, migrate.
 src/commands/
   setup.rs               `hal setup` — generates .haltr/ structure, registers Stop hook
   critic.rs              `hal critic enable/disable` — session or global kill switch
   memory.rs              `hal memory stats` — per-entry hit counter table
                          `hal memory hits <entry>` — drill into log history for an entry
+  migrate.rs             `hal migrate hint` — markdown migration brief (contracts + bundled agents)
+                         + `detect_outdated` reused by Stop hook compat check
 src/hook/
   stop.rs                `hal hook stop` — Stop hook entrypoint (4-layer pipeline)
 src/session.rs           Session state management (/tmp/haltr-{session_id}.json)
@@ -54,6 +56,10 @@ Layer 2:  parallel: critic-orchestrator + memory-writer (opus, ~2min)
           critics are dynamically discovered from .haltr/agents/critics/
 Verdict:  critic result → exit 0 (approve) or exit 2 (block + stderr findings)
 Anchor:   updated only after Layer 2 runs (preserves context across skips)
+Compat:    on each run, check that .haltr/agents/memory-writer.md and
+           memory-feedback-reader.md contain the required contract markers
+           (`"wrote"`, `haltr-stats`). On mismatch, surface a `systemMessage`
+           pointing the user at `hal migrate hint`.
 Telemetry: memory layer logs action ∈ {done, noop, failed} + error_kind on failure
            consecutive same-error_kind failures (≥3) emit a `systemMessage`
            on stdout so the user sees a non-blocking warning
@@ -91,6 +97,7 @@ Telemetry: memory layer logs action ∈ {done, noop, failed} + error_kind on fai
 - **Sub-agent cwd = project root**: `claude -p` is spawned with `current_dir(project_root)` so `.haltr/` and slice files are reachable regardless of where the user's session was started.
 - **memory-writer input is inline**: dispatcher category + conversation log are embedded in the prompt; the slice path is offered as an optional deep-dive resource. No dependency on transcript path access.
 - **Memory stats**: memory-feedback-reader appends a `haltr-stats` JSON fence to its verdict; the Stop hook parses it and accumulates per-entry `checks` / `hits` / `last_check` / `last_hit` in `.haltr/memory/00_stats.json`. Individual hit events are NOT denormalized — they remain in `.haltr/logs/<sid>.jsonl` as the single source of truth, and `hal memory hits <entry>` reconstructs history by scanning logs on demand.
+- **Migrations are agent-driven**: `hal setup` is non-destructive (`write_if_missing`). When the binary's contract changes, `hal migrate hint` emits a markdown brief describing each contract and the bundled current version, and the calling agent reconciles user customizations against it. The binary intentionally has no `--force-overwrite` flag.
 
 ## Language
 

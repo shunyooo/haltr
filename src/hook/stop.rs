@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::io::Read;
 use std::process::Command;
 
+use crate::commands::migrate;
 use crate::memory_stats;
 use crate::session;
 use crate::transcript;
@@ -467,15 +468,24 @@ Respond with pure JSON only (no markdown, no text before/after):
         0
     };
 
-    // Surface a non-blocking warning to the user (via `systemMessage`)
-    // when the memory layer has been failing repeatedly. Exit-2 paths above
-    // already returned via `std::process::exit`, so we only emit when the
-    // hook is going to exit 0.
-    let warning = if memory_result.is_some() {
-        detect_consecutive_failure_warning(&log_file, "memory")
-    } else {
-        None
-    };
+    // Collect non-blocking warnings to surface via `systemMessage` on exit 0.
+    // (Exit-2 paths above already returned via `std::process::exit`.)
+    let mut warnings: Vec<String> = Vec::new();
+
+    if memory_result.is_some() {
+        if let Some(msg) = detect_consecutive_failure_warning(&log_file, "memory") {
+            warnings.push(msg);
+        }
+    }
+
+    let outdated = migrate::detect_outdated(&haltr_dir);
+    if !outdated.is_empty() {
+        warnings.push(format!(
+            "[haltr] {} agent file(s) appear out of date: {}. Run `hal migrate hint` and apply the changes to bring them in line with this haltr binary's contracts.",
+            outdated.len(),
+            outdated.join(", "),
+        ));
+    }
 
     // Layer 2 ran — advance transcript position
     state.last_anchor_line = new_anchor;
@@ -487,11 +497,11 @@ Respond with pure JSON only (no markdown, no text before/after):
         std::process::exit(exit_code);
     }
 
-    if let Some(msg) = warning {
+    if !warnings.is_empty() {
         // Stop hook honors top-level `systemMessage` on exit 0 and shows it
         // to the user as a warning without blocking the stop. Per Claude Code
         // hooks reference (Universal JSON output fields).
-        let out = serde_json::json!({ "systemMessage": msg });
+        let out = serde_json::json!({ "systemMessage": warnings.join("\n") });
         println!("{}", out);
     }
     Ok(())

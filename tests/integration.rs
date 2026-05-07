@@ -293,6 +293,35 @@ fn test_memory_hits_not_found() {
 }
 
 #[test]
+fn test_migrate_hint_emits_brief() {
+    let (output, code) = hal(&["migrate", "hint"]);
+    assert_eq!(code, 0, "migrate hint failed: {}", output);
+    assert!(output.contains(".haltr/agents/memory-writer.md"));
+    assert!(output.contains(".haltr/agents/critics/memory-feedback-reader.md"));
+    assert!(output.contains("\"wrote\""));
+    assert!(output.contains("haltr-stats"));
+    assert!(output.contains("### Bundled current version"));
+}
+
+#[test]
+fn test_migrate_hint_section_for_each_bundled_agent() {
+    let (output, code) = hal(&["migrate", "hint"]);
+    assert_eq!(code, 0);
+    for path in [
+        ".haltr/agents/memory-writer.md",
+        ".haltr/agents/dispatcher.md",
+        ".haltr/agents/critic-orchestrator.md",
+        ".haltr/agents/critics/memory-feedback-reader.md",
+    ] {
+        assert!(
+            output.contains(path),
+            "expected migrate hint to mention {}, got:\n{}",
+            path, output,
+        );
+    }
+}
+
+#[test]
 fn test_hook_stop_session_disabled() {
     let session_id = "test-hook-disabled-session";
     let state_path = format!("/tmp/haltr-{}.json", session_id);
