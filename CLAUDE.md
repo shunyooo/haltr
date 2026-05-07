@@ -67,7 +67,7 @@ Telemetry: memory layer logs action ∈ {done, noop, failed} + error_kind on fai
 │   └── critics/                   # Editable, add your own
 │       ├── expert-skeptic.md
 │       └── memory-feedback-reader.md
-├── memory/                        # INDEX.md + structured correction entries
+├── memory/                        # 00_index.md + structured correction entries
 └── logs/                          # {session_id}.jsonl (gitignored)
 
 .claude/settings.json              # Stop hook registration

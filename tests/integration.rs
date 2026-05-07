@@ -72,7 +72,7 @@ fn test_setup_creates_structure() {
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critics/guard-l1.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critics/guard-l2.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/agents/critics/guard-l3.md")).exists());
-    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/memory/INDEX.md")).exists());
+    assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/memory/00_index.md")).exists());
     assert!(std::path::Path::new(&format!("{}/{}", dir, ".haltr/logs")).is_dir());
 
     // Check settings.json has hook registered
