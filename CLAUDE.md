@@ -17,14 +17,17 @@ cargo run -- --help     # Run with help
 ## Architecture
 
 ```
-src/main.rs              CLI entrypoint (clap derive). Commands: setup, critic, hook stop.
+src/main.rs              CLI entrypoint (clap derive). Commands: setup, critic, hook stop, memory.
 src/commands/
   setup.rs               `hal setup` — generates .haltr/ structure, registers Stop hook
   critic.rs              `hal critic enable/disable` — session or global kill switch
+  memory.rs              `hal memory stats` — per-entry hit counter table
+                         `hal memory hits <entry>` — drill into log history for an entry
 src/hook/
   stop.rs                `hal hook stop` — Stop hook entrypoint (4-layer pipeline)
 src/session.rs           Session state management (/tmp/haltr-{session_id}.json)
 src/transcript.rs        Transcript parsing: conversation log builder, turn slice extraction
+src/memory_stats.rs      Per-entry check/hit counters + haltr-stats fence parser
 
 src/agents/              Agent definition templates (embedded in binary via include_str!)
   dispatcher.md          Unified dispatcher (haiku): decides critic? memory? both?
@@ -68,6 +71,7 @@ Telemetry: memory layer logs action ∈ {done, noop, failed} + error_kind on fai
 │       ├── expert-skeptic.md
 │       └── memory-feedback-reader.md
 ├── memory/                        # 00_index.md + structured correction entries
+│   └── 00_stats.json              # Per-entry check/hit counters (auto-updated)
 └── logs/                          # {session_id}.jsonl (gitignored)
 
 .claude/settings.json              # Stop hook registration
@@ -86,6 +90,7 @@ Telemetry: memory layer logs action ∈ {done, noop, failed} + error_kind on fai
 - **Sub-agent session_id logged**: each `claude -p` invocation's session_id is recorded for transcript tracing.
 - **Sub-agent cwd = project root**: `claude -p` is spawned with `current_dir(project_root)` so `.haltr/` and slice files are reachable regardless of where the user's session was started.
 - **memory-writer input is inline**: dispatcher category + conversation log are embedded in the prompt; the slice path is offered as an optional deep-dive resource. No dependency on transcript path access.
+- **Memory stats**: memory-feedback-reader appends a `haltr-stats` JSON fence to its verdict; the Stop hook parses it and accumulates per-entry `checks` / `hits` / `last_check` / `last_hit` in `.haltr/memory/00_stats.json`. Individual hit events are NOT denormalized — they remain in `.haltr/logs/<sid>.jsonl` as the single source of truth, and `hal memory hits <entry>` reconstructs history by scanning logs on demand.
 
 ## Language
 

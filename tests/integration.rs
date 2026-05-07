@@ -207,6 +207,92 @@ fn test_hook_stop_exits_on_empty_input() {
 }
 
 #[test]
+fn test_memory_stats_empty() {
+    let dir = setup_tmpdir();
+    hal_in(&["setup"], &dir);
+
+    let (output, code) = hal_in(&["memory", "stats"], &dir);
+    assert_eq!(code, 0, "memory stats failed: {}", output);
+    assert!(output.contains("No memory stats yet"), "unexpected output: {}", output);
+
+    cleanup(&dir);
+}
+
+#[test]
+fn test_memory_stats_populated() {
+    let dir = setup_tmpdir();
+    hal_in(&["setup"], &dir);
+
+    // Pre-populate stats file
+    let stats_path = format!("{}/.haltr/memory/00_stats.json", dir);
+    fs::write(&stats_path, r#"{
+      "entries": {
+        "alpha.md": {"checks": 10, "hits": 3, "last_hit": "2026-05-07T08:00:00Z", "last_check": "2026-05-07T09:00:00Z"},
+        "beta.md":  {"checks": 10, "hits": 0, "last_check": "2026-05-07T09:00:00Z"}
+      },
+      "updated_at": "2026-05-07T09:00:00Z"
+    }"#).unwrap();
+
+    let (output, code) = hal_in(&["memory", "stats"], &dir);
+    assert_eq!(code, 0, "memory stats failed: {}", output);
+    assert!(output.contains("alpha.md"));
+    assert!(output.contains("beta.md"));
+    assert!(output.contains("30.0%"));   // hit rate for alpha
+    assert!(output.contains("0.0%"));    // hit rate for beta
+
+    cleanup(&dir);
+}
+
+#[test]
+fn test_memory_hits_finds_event() {
+    let dir = setup_tmpdir();
+    hal_in(&["setup"], &dir);
+
+    // Synthesize a verdict log entry with a memory-feedback-reader finding
+    // whose haltr-stats fence lists "target.md" as matched.
+    let log_dir = format!("{}/.haltr/logs", dir);
+    fs::create_dir_all(&log_dir).unwrap();
+    let log_path = format!("{}/sess-1.jsonl", log_dir);
+
+    let detail = "# memory-feedback-reader verdict\nseverity: red\n\n## Matched entries\n- target\n\n```haltr-stats\n{\"checked\":[\"target.md\",\"other.md\"],\"matched\":[{\"entry\":\"target.md\",\"severity\":\"red\"}]}\n```";
+    let entry = serde_json::json!({
+        "ts": "2026-05-07T08:00:00Z",
+        "layer": "verdict",
+        "decision": "block",
+        "critic_session_id": "abc12345",
+        "findings": [
+            {
+                "critic": "memory-feedback-reader",
+                "severity": "red",
+                "title": "recurrence",
+                "detail": detail,
+            }
+        ]
+    });
+    fs::write(&log_path, format!("{}\n", entry)).unwrap();
+
+    let (output, code) = hal_in(&["memory", "hits", "target.md"], &dir);
+    assert_eq!(code, 0, "memory hits failed: {}", output);
+    assert!(output.contains("1 hit found"), "expected hit count: {}", output);
+    assert!(output.contains("session=abc12345"));
+    assert!(output.contains("severity=red"));
+
+    cleanup(&dir);
+}
+
+#[test]
+fn test_memory_hits_not_found() {
+    let dir = setup_tmpdir();
+    hal_in(&["setup"], &dir);
+
+    let (output, code) = hal_in(&["memory", "hits", "missing.md"], &dir);
+    assert_eq!(code, 0, "memory hits failed: {}", output);
+    assert!(output.contains("No hits found"));
+
+    cleanup(&dir);
+}
+
+#[test]
 fn test_hook_stop_session_disabled() {
     let session_id = "test-hook-disabled-session";
     let state_path = format!("/tmp/haltr-{}.json", session_id);

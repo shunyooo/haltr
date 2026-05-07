@@ -1,5 +1,6 @@
 mod commands;
 mod hook;
+mod memory_stats;
 mod session;
 mod transcript;
 
@@ -26,6 +27,11 @@ enum Commands {
         #[command(subcommand)]
         command: HookCommands,
     },
+    /// Inspect memory entry usage statistics
+    Memory {
+        #[command(subcommand)]
+        command: MemoryCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -48,6 +54,17 @@ enum HookCommands {
     Stop,
 }
 
+#[derive(Subcommand)]
+enum MemoryCommands {
+    /// Show per-entry check / hit counts and last-hit timestamps
+    Stats,
+    /// Show the individual hit events for a memory entry, scanned from logs
+    Hits {
+        /// Entry filename, e.g. `260506-1959-no-primary-content-crowding.md`
+        entry: String,
+    },
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -59,6 +76,10 @@ fn main() {
         },
         Commands::Hook { command } => match command {
             HookCommands::Stop => hook::stop::run(),
+        },
+        Commands::Memory { command } => match command {
+            MemoryCommands::Stats => commands::memory::stats(),
+            MemoryCommands::Hits { entry } => commands::memory::hits(&entry),
         },
     };
 
