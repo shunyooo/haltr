@@ -10,7 +10,7 @@ haltr is a CLI tool (`hal`) that provides a Stop hook-based quality gate and lea
 
 ```bash
 cargo build --release   # Build release binary
-cargo test              # Run all tests (integration, 10 tests)
+cargo test              # Run all tests (unit + integration)
 cargo run -- --help     # Run with help
 ```
 
@@ -47,9 +47,13 @@ Layer 1:  unified dispatcher (haiku, --model haiku, ~5s)
           decides: critic? memory? both? skip?
 Layer 2:  parallel: critic-orchestrator + memory-writer (opus, ~2min)
           critic reads turn slice file (anchor → end)
+          memory-writer receives conversation log + slice path inline (cwd-independent)
           critics are dynamically discovered from .haltr/agents/critics/
 Verdict:  critic result → exit 0 (approve) or exit 2 (block + stderr findings)
 Anchor:   updated only after Layer 2 runs (preserves context across skips)
+Telemetry: memory layer logs action ∈ {done, noop, failed} + error_kind on failure
+           consecutive same-error_kind failures (≥3) emit a `systemMessage`
+           on stdout so the user sees a non-blocking warning
 ```
 
 ### Generated project structure (hal setup)
@@ -63,7 +67,7 @@ Anchor:   updated only after Layer 2 runs (preserves context across skips)
 │   └── critics/                   # Editable, add your own
 │       ├── expert-skeptic.md
 │       └── memory-feedback-reader.md
-├── memory/                        # INDEX.md + structured correction entries
+├── memory/                        # 00_index.md + structured correction entries
 └── logs/                          # {session_id}.jsonl (gitignored)
 
 .claude/settings.json              # Stop hook registration
@@ -80,6 +84,8 @@ Anchor:   updated only after Layer 2 runs (preserves context across skips)
 - **Session state**: `/tmp/haltr-{session_id}.json` — critic_enabled, critic_iter, last_anchor_line.
 - **Fail-open**: every error path → exit 0. haltr never locks out the user.
 - **Sub-agent session_id logged**: each `claude -p` invocation's session_id is recorded for transcript tracing.
+- **Sub-agent cwd = project root**: `claude -p` is spawned with `current_dir(project_root)` so `.haltr/` and slice files are reachable regardless of where the user's session was started.
+- **memory-writer input is inline**: dispatcher category + conversation log are embedded in the prompt; the slice path is offered as an optional deep-dive resource. No dependency on transcript path access.
 
 ## Language
 
