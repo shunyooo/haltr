@@ -79,13 +79,14 @@ And registers the Stop hook in `.claude/settings.json`.
 | Command | Description |
 |---|---|
 | `hal setup` | Initialize .haltr/ and register Stop hook |
-| `hal critic enable` | Enable critic for current session |
-| `hal critic disable` | Disable critic for current session |
-| `hal critic enable --all` | Enable globally |
-| `hal critic disable --all` | Disable globally |
+| `hal enable` | Enable the Stop hook for current session |
+| `hal disable` | Disable the Stop hook for current session |
+| `hal enable --all` | Enable globally |
+| `hal disable --all` | Disable globally |
 | `hal memory stats` | Per-entry hit/check counters from `.haltr/memory/00_stats.json` |
 | `hal memory hits <entry>` | Drill into log history for a specific memory entry |
 | `hal migrate hint` | Emit migration brief for the calling agent (after upgrading the binary) |
+| `hal watch [<session>]` | Tail and pretty-print the session log (defaults to newest) |
 
 `hal hook stop` is the Stop hook entrypoint — called by Claude Code, not by users.
 

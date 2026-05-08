@@ -95,7 +95,7 @@ pub fn run() -> Result<()> {
 
     // Layer 0a: session-level kill switch
     let mut state = session::load(&session_id);
-    if !state.critic_enabled {
+    if !state.hook_enabled {
         return Ok(());
     }
 

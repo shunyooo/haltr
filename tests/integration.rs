@@ -109,29 +109,29 @@ fn test_setup_idempotent() {
 }
 
 #[test]
-fn test_critic_disable_enable_global() {
+fn test_disable_enable_global() {
     // Global kill switch
     let kill_path = "/tmp/haltr-disabled";
     let _ = fs::remove_file(kill_path);
 
-    let (output, code) = hal(&["critic", "disable", "--all"]);
-    assert_eq!(code, 0, "critic disable failed: {}", output);
+    let (output, code) = hal(&["disable", "--all"]);
+    assert_eq!(code, 0, "disable failed: {}", output);
     assert!(std::path::Path::new(kill_path).exists());
 
-    let (output, code) = hal(&["critic", "enable", "--all"]);
-    assert_eq!(code, 0, "critic enable failed: {}", output);
+    let (output, code) = hal(&["enable", "--all"]);
+    assert_eq!(code, 0, "enable failed: {}", output);
     assert!(!std::path::Path::new(kill_path).exists());
 }
 
 #[test]
-fn test_critic_disable_enable_session() {
+fn test_disable_enable_session() {
     let session_id = "test-session-12345678";
     let state_path = format!("/tmp/haltr-{}.json", session_id);
     let _ = fs::remove_file(&state_path);
 
     // Disable
     let output = Command::new(env!("CARGO_BIN_EXE_hal"))
-        .args(["critic", "disable"])
+        .args(["disable"])
         .env("HALTR_SESSION_ID", session_id)
         .output()
         .expect("Failed to run hal");
@@ -140,11 +140,11 @@ fn test_critic_disable_enable_session() {
     let state: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(&state_path).unwrap()
     ).unwrap();
-    assert_eq!(state["critic_enabled"], false);
+    assert_eq!(state["hook_enabled"], false);
 
     // Enable
     let output = Command::new(env!("CARGO_BIN_EXE_hal"))
-        .args(["critic", "enable"])
+        .args(["enable"])
         .env("HALTR_SESSION_ID", session_id)
         .output()
         .expect("Failed to run hal");
@@ -153,7 +153,7 @@ fn test_critic_disable_enable_session() {
     let state: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(&state_path).unwrap()
     ).unwrap();
-    assert_eq!(state["critic_enabled"], true);
+    assert_eq!(state["hook_enabled"], true);
 
     let _ = fs::remove_file(&state_path);
 }
@@ -327,8 +327,8 @@ fn test_hook_stop_session_disabled() {
     let state_path = format!("/tmp/haltr-{}.json", session_id);
     let _ = fs::remove_file("/tmp/haltr-disabled");
 
-    // Disable critic for this session
-    fs::write(&state_path, r#"{"critic_enabled":false,"critic_iter":0,"transcript_size":0}"#).unwrap();
+    // Disable hook for this session
+    fs::write(&state_path, r#"{"hook_enabled":false,"critic_iter":0,"transcript_size":0}"#).unwrap();
 
     // Create a fake transcript
     let tmpdir = setup_tmpdir();

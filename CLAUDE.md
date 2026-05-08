@@ -20,7 +20,8 @@ cargo run -- --help     # Run with help
 src/main.rs              CLI entrypoint (clap derive). Commands: setup, critic, hook stop, memory, migrate.
 src/commands/
   setup.rs               `hal setup` — generates .haltr/ structure, registers Stop hook
-  critic.rs              `hal critic enable/disable` — session or global kill switch
+  toggle.rs              `hal enable/disable` — session or global kill switch for the Stop hook
+  watch.rs               `hal watch` — tail and pretty-print session JSONL with per-layer formatting
   memory.rs              `hal memory stats` — per-entry hit counter table
                          `hal memory hits <entry>` — drill into log history for an entry
   migrate.rs             `hal migrate hint` — markdown migration brief (contracts + bundled agents)
@@ -91,7 +92,7 @@ Telemetry: memory layer logs action ∈ {done, noop, failed} + error_kind on fai
 - **Conversation log**: dispatcher receives chronological `[user]`/`[assistant]` log with tool calls, not flattened text.
 - **Anchor-based slicing**: transcript position (`last_anchor_line`) advances only after Layer 2 runs. Skips preserve planning context.
 - **Dynamic critic discovery**: `.haltr/agents/critics/*.md` scanned at runtime. Add/remove/rename freely.
-- **Session state**: `/tmp/haltr-{session_id}.json` — critic_enabled, critic_iter, last_anchor_line.
+- **Session state**: `/tmp/haltr-{session_id}.json` — hook_enabled, critic_iter, last_anchor_line.
 - **Fail-open**: every error path → exit 0. haltr never locks out the user.
 - **Sub-agent session_id logged**: each `claude -p` invocation's session_id is recorded for transcript tracing.
 - **Sub-agent cwd = project root**: `claude -p` is spawned with `current_dir(project_root)` so `.haltr/` and slice files are reachable regardless of where the user's session was started.

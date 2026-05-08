@@ -17,10 +17,15 @@ struct Cli {
 enum Commands {
     /// Initialize .haltr/ directory and register Stop hook in .claude/settings.json
     Setup,
-    /// Manage the critic quality gate
-    Critic {
-        #[command(subcommand)]
-        command: CriticCommands,
+    /// Enable the haltr Stop hook for the current session (or globally with --all)
+    Enable {
+        #[arg(long)]
+        all: bool,
+    },
+    /// Disable the haltr Stop hook for the current session (or globally with --all)
+    Disable {
+        #[arg(long)]
+        all: bool,
     },
     /// Stop hook entrypoint (called by Claude Code, not by users)
     Hook {
@@ -37,19 +42,13 @@ enum Commands {
         #[command(subcommand)]
         command: MigrateCommands,
     },
-}
-
-#[derive(Subcommand)]
-enum CriticCommands {
-    /// Enable critic for the current session (or globally with --all)
-    Enable {
+    /// Tail and pretty-print the session log (defaults to newest in .haltr/logs/)
+    Watch {
+        /// Session ID or prefix. Defaults to the most recently modified log.
+        session: Option<String>,
+        /// Read once and exit instead of tailing
         #[arg(long)]
-        all: bool,
-    },
-    /// Disable critic for the current session (or globally with --all)
-    Disable {
-        #[arg(long)]
-        all: bool,
+        no_follow: bool,
     },
 }
 
@@ -81,10 +80,8 @@ fn main() {
 
     let result = match cli.command {
         Commands::Setup => commands::setup::run(),
-        Commands::Critic { command } => match command {
-            CriticCommands::Enable { all } => commands::critic::enable(all),
-            CriticCommands::Disable { all } => commands::critic::disable(all),
-        },
+        Commands::Enable { all } => commands::toggle::enable(all),
+        Commands::Disable { all } => commands::toggle::disable(all),
         Commands::Hook { command } => match command {
             HookCommands::Stop => hook::stop::run(),
         },
@@ -95,6 +92,7 @@ fn main() {
         Commands::Migrate { command } => match command {
             MigrateCommands::Hint => commands::migrate::hint(),
         },
+        Commands::Watch { session, no_follow } => commands::watch::run(session, no_follow),
     };
 
     if let Err(e) = result {

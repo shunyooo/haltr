@@ -4,7 +4,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionState {
-    pub critic_enabled: bool,
+    #[serde(alias = "critic_enabled")]
+    pub hook_enabled: bool,
     #[serde(default)]
     pub critic_iter: u32,
     #[serde(default)]
@@ -14,7 +15,7 @@ pub struct SessionState {
 impl Default for SessionState {
     fn default() -> Self {
         Self {
-            critic_enabled: true,
+            hook_enabled: true,
             critic_iter: 0,
             last_anchor_line: 0,
         }
